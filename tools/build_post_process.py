@@ -592,10 +592,24 @@ def create_installer(ayon_root, build_root):
 
 
 def main():
+    if sys.argv[-1] == "build":
+        do_post_build = True
+        do_installer = False
+    elif sys.argv[-1] == "make-installer":
+        do_post_build = False
+        do_installer = True
+    else:
+        do_post_build = True
+        do_installer = True
+
     ayon_root = Path(os.path.dirname(__file__)).parent
     build_root = ayon_root / "build"
-    post_build_process(ayon_root, build_root)
-    create_installer(ayon_root, build_root)
+
+    if do_post_build:
+        post_build_process(ayon_root, build_root)
+
+    if do_installer:
+        create_installer(ayon_root, build_root)
 
 
 if __name__ == "__main__":
