@@ -63,12 +63,16 @@ function Print-AsciiArt() {
     Write-Host $art -ForegroundColor DarkGreen
 }
 
+function Change-Cwd() {
+    Set-Location -Path $repo_root
+}
+
 function Restore-Cwd() {
-    if (Get-Location -eq $current_dir) {
-        return
+    $tmp_current_dir = Get-Location
+    if ("$tmp_current_dir" -ne "$current_dir") {
+        Write-Color -Text ">>> ", "Restoring current directory" -Color Green, Gray
+        Set-Location -Path $current_dir
     }
-    Write-Color -Text ">>> ", "Restoring current directory" -Color Green, Gray
-    Set-Location -Path $current_dir
 }
 
 function Exit-WithCode($exitcode) {
@@ -80,7 +84,6 @@ function Exit-WithCode($exitcode) {
    exit $exitcode
 }
 
-
 function Show-PSWarning() {
     if ($PSVersionTable.PSVersion.Major -lt 7) {
         Write-Color -Text "!!! ", "You are using old version of PowerShell - ",  "$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)" -Color Red, Yellow, White
@@ -88,7 +91,6 @@ function Show-PSWarning() {
         Exit-WithCode 1
     }
 }
-
 
 function Get-Ayon-Version() {
     $version_file = Get-Content -Path "$($repo_root)\version.py"
@@ -100,7 +102,6 @@ function Get-Ayon-Version() {
     }
     return $ayon_version
 }
-
 
 function Install-Poetry() {
     Write-Color -Text ">>> ", "Installing Poetry ... " -Color Green, Gray
@@ -164,19 +165,19 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
 }
 
 function Default-Func {
-  Write-Host ""
-  Write-Host "Ayon desktop application tool"
-  Write-Host ""
-  Write-Host "Usage: ./manage.ps1 [target]"
-  Write-Host ""
-  Write-Host "Runtime targets:"
-  Write-Host "  create-env                    Install Poetry and update venv by lock file"
-  Write-Host "  install-runtime-dependencies  Install runtime dependencies (PySide2)"
-  Write-Host "  install-runtime               Alias for 'install-runtime-dependencies'"
-  Write-Host "  build                         Build desktop application"
-  Write-Host "  make-installer                Make desktop application installer"
-  Write-Host "  build-make-installer          Build desktop application and make installer"
-  Write-Host ""
+    Write-Host ""
+    Write-Host "Ayon desktop application tool"
+    Write-Host ""
+    Write-Host "Usage: ./manage.ps1 [target]"
+    Write-Host ""
+    Write-Host "Runtime targets:"
+    Write-Host "  create-env                    Install Poetry and update venv by lock file"
+    Write-Host "  install-runtime-dependencies  Install runtime dependencies (PySide2)"
+    Write-Host "  install-runtime               Alias for 'install-runtime-dependencies'"
+    Write-Host "  build                         Build desktop application"
+    Write-Host "  make-installer                Make desktop application installer"
+    Write-Host "  build-make-installer          Build desktop application and make installer"
+    Write-Host ""
 }
 
 function Create-Env {
@@ -328,18 +329,26 @@ function Install-Runtime-Dependencies() {
 }
 
 function Main {
-    if ($FunctionName -eq "create-env") {
+    if ($FunctionName -eq $null) {
+        Default-Func
+        return
+    }
+    $FunctionName = $FunctionName.ToLower() -replace "\W"
+    if ($FunctionName -eq "createenv") {
+        Change-Cwd
         Create-Env
-    } elseif (($FunctionName -eq "install-runtime-dependencies") -or ($FunctionName -eq "install-runtime")) {
+    } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
+        Change-Cwd
         Install-Runtime-Dependencies
     } elseif ($FunctionName -eq "build") {
+        Change-Cwd
         Build-Ayon
-    } elseif ($FunctionName -eq "make-installer") {
+    } elseif ($FunctionName -eq "makeinstaller") {
+        Change-Cwd
         Make-Ayon-Installer
-    } elseif ($FunctionName -eq "build-make-installer") {
+    } elseif ($FunctionName -eq "buildmakeinstaller") {
+        Change-Cwd
         Build-Ayon -MakeInstaller true
-    } elseif ($FunctionName -eq $null) {
-        Default-Func
     } else {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func
@@ -349,8 +358,6 @@ function Main {
 if (-not (Test-Path 'env:POETRY_HOME')) {
     $env:POETRY_HOME = "$repo_root\.poetry"
 }
-
-Set-Location -Path $repo_root
 
 # Enable if PS 7.x is needed.
 # Show-PSWarning
