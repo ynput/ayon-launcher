@@ -69,11 +69,6 @@ pre-commit = "*"
 "Bug Tracker" = "https://github.com/ynput/OpenPype/issues"
 "Discussions" = "https://github.com/ynput/OpenPype/discussions"
 
-[[tool.poetry.source]]
-name = "ayon"
-url = "https://distribute.openpype.io/wheels/"
-secondary = true
-
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
