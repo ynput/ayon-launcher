@@ -3,7 +3,9 @@
 
 
 #define MyAppName "AYON"
-#define Build GetEnv("BUILD_DIR")
+#define SourceDir GetEnv("BUILD_SRC_DIR")
+#define OutputDir GetEnv("BUILD_DST_DIR")
+#define OutputFilename GetEnv("BUILD_DST_FILENAME")
 #define AppVer GetEnv("BUILD_VERSION")
 
 
@@ -21,13 +23,13 @@ AppUpdatesURL=https://ynput.io
 DefaultDirName={autopf}\{#MyAppName}\{#AppVer}
 UsePreviousAppDir=no
 DisableProgramGroupPage=yes
-OutputBaseFilename={#MyAppName}-{#AppVer}-install
+OutputBaseFilename={#OutputFilename}
 AllowCancelDuringInstall=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 SetupIconFile=common\ayon_common\resources\AYON.ico
-OutputDir=build\
+OutputDir={#OutputDir}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -44,7 +46,7 @@ Type: filesandordirs; Name: "{app}\*"
 
 
 [Files]
-Source: "build\{#build}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -53,4 +55,3 @@ Name: "{autodesktop}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"; Tasks:
 
 [Run]
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
-
