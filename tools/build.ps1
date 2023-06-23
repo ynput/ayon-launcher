@@ -182,7 +182,7 @@ if ($LASTEXITCODE -ne 0)
 }
 
 Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-& "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_dependencies.py"
+& "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py"
 
 Write-Color -Text ">>> ", "Restoring current directory" -Color Green, Gray
 Set-Location -Path $current_dir

@@ -154,7 +154,6 @@ main () {
 
   version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(re.search(r'(\d+\.\d+.\d+).*', version['__version__'])[1]);"
   ayon_version="$(python <<< ${version_command})"
-  app_filename="AYON ${ayon_version}.app"
 
   _INSIDE_AYON_TOOL="1"
 
@@ -190,36 +189,7 @@ if [ "$disable_submodule_update" == 1 ]; then
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" bdist_mac &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   fi
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_dependencies.py" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
-
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # fix cx_Freeze libs issue
-    echo -e "${BIGreen}>>>${RST} Fixing libs ..."
-    mv "$repo_root/build/$app_filename/Contents/MacOS/dependencies/cx_Freeze" "$repo_root/build/$app_filename/Contents/MacOS/lib/"  || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Can't move cx_Freeze libs${RST}"; return 1; }
-
-    # force hide icon from Dock
-    defaults write "$repo_root/build/$app_filename/Contents/Info" LSUIElement 1
-
-    # fix code signing issue
-    echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
-    codesign --remove-signature "$repo_root/build/$app_filename/Contents/MacOS/ayon" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
-    echo -e "${BIGreen}DONE${RST}"
-    if command -v create-dmg > /dev/null 2>&1; then
-      echo -e "${BIGreen}>>>${RST} Creating dmg image ...\c"
-      create-dmg \
-        --volname "AYON $ayon_version Installer" \
-        --window-pos 200 120 \
-        --window-size 600 300 \
-        --app-drop-link 100 50 \
-        "$repo_root/build/AYON-Installer-$ayon_version.dmg" \
-        "$repo_root/build/$app_filename"
-
-      test $? -eq 0 || { echo -e "${BIRed}FAILED${RST}"; return 1; }
-      echo -e "${BIGreen}DONE${RST}"
-    else
-      echo -e "${BIYellow}!!!${RST} ${BIWhite}create-dmg${RST} command is not available."
-    fi
-  fi
+  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
   echo -e "${BICyan}>>>${RST} All done. You will find AYON and build log in \c"
   echo -e "${BIWhite}$repo_root/build${RST} directory."
