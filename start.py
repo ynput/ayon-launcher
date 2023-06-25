@@ -66,6 +66,11 @@ if "--skip-headers" in sys.argv:
     sys.argv.remove("--skip-headers")
     SKIP_HEADERS = True
 
+SKIP_BOOTSTRAP = False
+if "--skip-bootstrap" in sys.argv:
+    sys.argv.remove("--skip-bootstrap")
+    SKIP_BOOTSTRAP = True
+
 if "--use-staging" in sys.argv:
     sys.argv.remove("--use-staging")
     os.environ["AYON_USE_STAGING"] = "1"
@@ -349,7 +354,8 @@ def get_info(use_staging=None) -> list:
 
 
 def main():
-    boot()
+    if not SKIP_BOOTSTRAP:
+        boot()
     main_cli()
 
 
