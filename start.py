@@ -290,11 +290,11 @@ def _check_and_update_from_ayon_server():
 def boot():
     """Bootstrap AYON."""
 
-    use_staging = os.environ.get("AYON_USE_STAGING") == "1"
-
     _connect_to_ayon_server()
     _check_and_update_from_ayon_server()
 
+
+def main_cli():
     from openpype import cli
 
     _print(">>> loading environments ...")
@@ -305,6 +305,7 @@ def boot():
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
+        use_staging = os.environ.get("AYON_USE_STAGING") == "1"
         info = get_info(use_staging)
         info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
 
@@ -347,5 +348,10 @@ def get_info(use_staging=None) -> list:
     return formatted
 
 
-if __name__ == "__main__":
+def main():
     boot()
+    main_cli()
+
+
+if __name__ == "__main__":
+    main()
