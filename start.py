@@ -333,6 +333,29 @@ def main_cli():
         sys.exit(1)
 
 
+def script_cli():
+    """Run and execute script."""
+
+    filepath = os.path.abspath(sys.argv[1])
+
+    # Find '__main__.py' in directory
+    if os.path.isdir(filepath):
+        new_filepath = os.path.join(filepath, "__main__.py")
+        if not os.path.exists(new_filepath):
+            raise RuntimeError(
+                f"can't find '__main__' module in '{filepath}'")
+        filepath = new_filepath
+
+    # Add parent dir to sys path
+    sys.path.insert(0, os.path.dirname(filepath))
+
+    # Read content and execute
+    with open(filepath, "r") as stream:
+        content = stream.read()
+
+    exec(compile(content, filepath, "exec"), globals())
+
+
 def get_info(use_staging=None) -> list:
     """Print additional information to console."""
 
@@ -356,7 +379,13 @@ def get_info(use_staging=None) -> list:
 def main():
     if not SKIP_BOOTSTRAP:
         boot()
-    main_cli()
+
+    args = list(sys.argv)
+    args.pop(0)
+    if args and os.path.exists(args[0]):
+        script_cli()
+    else:
+        main_cli()
 
 
 if __name__ == "__main__":
