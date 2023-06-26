@@ -342,7 +342,7 @@ main() {
       ;;
   esac
 
-  if [[-z $function_name]]; then
+  if [ "$function_name" != "" ]; then
     echo -e "${BIRed}!!!${RST} Unknown function name: $function_name"
   fi
 
@@ -350,4 +350,4 @@ main() {
   exit $return_code
 }
 
-main
+main $@
