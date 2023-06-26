@@ -222,7 +222,7 @@ install_runtime_dependencies () {
 
 # Main
 build_ayon () {
-  $make_installer = $1
+  should_make_installer=$1
 
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
@@ -260,7 +260,7 @@ build_ayon () {
   fi
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
-  if ["$make_installer" == 1]; then
+  if [[ "$should_make_installer" == 1 ]]; then
     make_installer_raw
   fi
 
