@@ -167,12 +167,6 @@ clean_pyc () {
 
 create_env () {
   # Directories
-
-  if [[ -z $POETRY_HOME ]]; then
-    export POETRY_HOME="$repo_root/.poetry"
-  fi
-
-
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
@@ -211,10 +205,6 @@ create_env () {
 
 install_runtime_dependencies () {
   # Directories
-  if [[ -z $POETRY_HOME ]]; then
-    export POETRY_HOME="$repo_root/.poetry"
-  fi
-
   echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
   if [ -f "$POETRY_HOME/bin/poetry" ]; then
     echo -e "${BIGreen}OK${RST}"
@@ -239,10 +229,6 @@ build_ayon () {
 
   version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(re.search(r'(\d+\.\d+.\d+).*', version['__version__'])[1]);"
   ayon_version="$(python <<< ${version_command})"
-
-  if [[ -z $POETRY_HOME ]]; then
-    export POETRY_HOME="$repo_root/.poetry"
-  fi
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
@@ -320,6 +306,11 @@ main() {
   if [ $return_code != 0 ]; then
     exit return_code
   fi
+
+  if [[ -z $POETRY_HOME ]]; then
+   export POETRY_HOME="$repo_root/.poetry"
+  fi
+
   # Use first argument, lower and keep only characters
   function_name="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z]*//g')"
 
