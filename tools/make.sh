@@ -322,9 +322,10 @@ default_help() {
 }
 
 main() {
-  return_code=0
   # Use first argument, lower and keep only characters
-  $function_name = ${${$1,,}//[^a-z]/}
+  function_name="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z]*//g')"
+
+  return_code=0
   case $function_name in
     "createenv")
       create_env || return_code=$?
