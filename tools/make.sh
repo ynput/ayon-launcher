@@ -83,6 +83,8 @@ realpath () {
   echo $(cd $(dirname "$1") || return; pwd)/$(basename "$1")
 }
 
+repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
+
 print_art() {
   echo -e "${BGreen}"
   cat <<-EOF
@@ -168,7 +170,6 @@ create_env () {
   detect_python || return 1
 
   # Directories
-  repo_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
 
   if [[ -z $POETRY_HOME ]]; then
     export POETRY_HOME="$repo_root/.poetry"
@@ -213,8 +214,6 @@ create_env () {
 
 install_runtime_dependencies () {
   # Directories
-  repo_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
-
   if [[ -z $POETRY_HOME ]]; then
     export POETRY_HOME="$repo_root/.poetry"
   fi
@@ -239,7 +238,6 @@ build_ayon ($make_installer) {
   detect_python || return 1
 
   # Directories
-  repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(re.search(r'(\d+\.\d+.\d+).*', version['__version__'])[1]);"
@@ -293,7 +291,6 @@ make_installer_raw() {
 
 make_installer() {
   detect_python || return 1
-  repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
   make_installer_raw
   echo -e "${BICyan}>>>${RST} All done. You will find AYON and build log in \c"
   echo -e "${BIWhite}$repo_root/build${RST} directory."
@@ -301,7 +298,6 @@ make_installer() {
 
 run_from_code() {
   detect_python || return 1
-  repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
   pushd "$repo_root" > /dev/null || return > /dev/null
   echo -e "${BIGreen}>>>${RST} Running AYON from code ..."
   "$POETRY_HOME/bin/poetry" run python "$repo_root/start.py" "$@"
