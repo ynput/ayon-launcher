@@ -234,8 +234,9 @@ install_runtime_dependencies () {
 }
 
 # Main
-build_ayon ($make_installer) {
+build_ayon () {
   detect_python || return 1
+  $make_installer = $1
 
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
