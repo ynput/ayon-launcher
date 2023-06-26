@@ -525,7 +525,7 @@ def _create_darwin_installer(_ar, build_root, _, ayon_version):
 
     _print("Creating dmg image ...")
     args = [
-        "create-dmg"
+        "create-dmg",
         "--volname", f"AYON {ayon_version} Installer",
         "--window-pos", "200", "120",
         "--window-size", "600", "300",
