@@ -331,27 +331,27 @@ main() {
   case $function_name in
     "createenv")
       create_env || return_code=$?
-      exit return_code
+      exit $return_code
       ;;
     "installruntimedependencies"|"installruntime")
-      install_runtime_dependencies
-      exit return_code
+      install_runtime_dependencies || return_code=$?
+      exit $return_code
       ;;
     "build"|"buildayon")
       build_ayon 0 || return_code=$?
-      exit return_code
+      exit $return_code
       ;;
     "makeinstaller")
-      make_installer 1 || return_code=$?
-      exit return_code
+      make_installer || return_code=$?
+      exit $return_code
       ;;
     "buildmakeinstaller")
       build_ayon 1 || return_code=$?
-      exit return_code
+      exit $return_code
       ;;
     "run")
       run_from_code "${@:2}" || return_code=$?
-      exit return_code
+      exit $return_code
       ;;
   esac
 
