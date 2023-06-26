@@ -266,10 +266,13 @@ def _fix_darwin_dependencies(build_content_root):
 
     # fix cx_Freeze libs issue
     _print("Fixing libs ...")
-    shutil.move(
-        str(build_content_root / "dependencies" / "cx_Freeze"),
-        str(build_content_root / "lib")
-    )
+    dst_dir = build_content_root / "lib" / "cx_Freeze"
+    src_dir = build_content_root / "dependencies" / "cx_Freeze"
+    for path in src_dir.iterdir():
+        shutil.move(
+            str(path),
+            str(dst_dir / path.name)
+        )
 
     # force hide icon from Dock
     info_dir = build_content_root.parent / "Info"
