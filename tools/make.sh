@@ -166,9 +166,6 @@ clean_pyc () {
 }
 
 create_env () {
-  # Main
-  detect_python || return 1
-
   # Directories
 
   if [[ -z $POETRY_HOME ]]; then
@@ -235,7 +232,6 @@ install_runtime_dependencies () {
 
 # Main
 build_ayon () {
-  detect_python || return 1
   $make_installer = $1
 
   # Directories
@@ -291,14 +287,12 @@ make_installer_raw() {
 }
 
 make_installer() {
-  detect_python || return 1
   make_installer_raw
   echo -e "${BICyan}>>>${RST} All done. You will find AYON and build log in \c"
   echo -e "${BIWhite}$repo_root/build${RST} directory."
 }
 
 run_from_code() {
-  detect_python || return 1
   pushd "$repo_root" > /dev/null || return > /dev/null
   echo -e "${BIGreen}>>>${RST} Running AYON from code ..."
   "$POETRY_HOME/bin/poetry" run python "$repo_root/start.py" "$@"
@@ -322,6 +316,10 @@ default_help() {
 }
 
 main() {
+  detect_python || return_code=$?
+  if [ $return_code != 0 ]; then
+    exit return_code
+  fi
   # Use first argument, lower and keep only characters
   function_name="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z]*//g')"
 
