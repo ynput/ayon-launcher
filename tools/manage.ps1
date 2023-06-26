@@ -328,13 +328,19 @@ function Install-Runtime-Dependencies() {
     } catch {}
 }
 
+function Run-From-Code() {
+    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py"
+}
+
 function Main {
     if ($FunctionName -eq $null) {
         Default-Func
         return
     }
     $FunctionName = $FunctionName.ToLower() -replace "\W"
-    if ($FunctionName -eq "createenv") {
+    if ($FunctionName -eq "run") {
+        Run-From-Code
+    } elseif ($FunctionName -eq "createenv") {
         Change-Cwd
         Create-Env
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
