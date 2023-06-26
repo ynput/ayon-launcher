@@ -39,7 +39,7 @@ jobs:
       milestone: ${{ needs.milestone-title.outputs.milestone }}
       repo-owner: ${{ github.event.repository.owner.login }}
       repo-name: ${{ github.event.repository.name }}
-      version-py-path: "./openpype/version.py"
+      version-py-path: "./version.py"
       pyproject-path: "./pyproject.toml"
     secrets:
       token: ${{ secrets.YNPUT_BOT_TOKEN }}
