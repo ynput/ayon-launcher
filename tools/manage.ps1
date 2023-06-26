@@ -172,11 +172,12 @@ function Default-Func {
     Write-Host ""
     Write-Host "Runtime targets:"
     Write-Host "  create-env                    Install Poetry and update venv by lock file"
-    Write-Host "  install-runtime-dependencies  Install runtime dependencies (PySide2)"
+    Write-Host "  install-runtime-dependencies  Install runtime dependencies (Qt binding)"
     Write-Host "  install-runtime               Alias for 'install-runtime-dependencies'"
     Write-Host "  build                         Build desktop application"
     Write-Host "  make-installer                Make desktop application installer"
     Write-Host "  build-make-installer          Build desktop application and make installer"
+    Write-Host "  run                           Run desktop application from code"
     Write-Host ""
 }
 
