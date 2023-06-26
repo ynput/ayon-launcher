@@ -32,13 +32,12 @@ jobs:
     - name: 🧵 Install Requirements
       shell: pwsh
       run: |
-        ./tools/create_env.ps1
+        ./tools/manage.ps1 create_env
 
     - name: 🔨 Build
       shell: pwsh
       run: |
-        $env:SKIP_THIRD_PARTY_VALIDATION="1"
-        ./tools/build.ps1
+        ./tools/manage.ps1 build
 
   Ubuntu-latest:
 
@@ -58,9 +57,8 @@ jobs:
 
     - name: 🧵 Install Requirements
       run: |
-        ./tools/create_env.sh
+        ./tools/make.sh create_env
 
     - name: 🔨 Build
       run: |
-        export SKIP_THIRD_PARTY_VALIDATION="1"
-        ./tools/build.sh
+        ./tools/make.sh build
