@@ -252,47 +252,6 @@ def cleanup_files(deps_dir, libs_dir):
     delete_progress_bar.close()
 
 
-def _fix_darwin_dependencies(build_content_root):
-    """Fixes for MacOS.
-
-    Move cx_Freeze dependency to lib directory. This is needed because
-    of bug in cx_Freeze.
-
-    Change LSUIElement to 1 in Info.plist to hide icon from Dock.
-
-    Fix code signatures. By default, created application have self-signed
-        signature.
-    """
-
-    # fix cx_Freeze libs issue
-    _print("Fixing libs ...")
-    dst_dir = build_content_root / "lib" / "cx_Freeze"
-    src_dir = build_content_root / "dependencies" / "cx_Freeze"
-    for path in src_dir.iterdir():
-        shutil.move(
-            str(path),
-            str(dst_dir / path.name)
-        )
-
-    # force hide icon from Dock
-    info_dir = build_content_root.parent / "Info"
-    subprocess.call([
-        "defaults",
-        "write", str(info_dir),
-        "LSUIElement", "1"
-    ])
-
-    # fix code signing issue
-    _print("Fixing code signatures")
-    returncode = subprocess.call([
-        "codesign",
-        "--remove-signature",
-        str(build_content_root / "ayon")
-    ])
-    if returncode != 0:
-        raise ValueError("Can't fix code signatures")
-
-
 def dependency_cleanup(ayon_root, build_content_root):
     """Prepare dependency for build output.
 
@@ -331,9 +290,6 @@ def dependency_cleanup(ayon_root, build_content_root):
     platform_name = platform.system().lower()
     if platform_name == "linux":
         _fix_pyside2_linux(ayon_root, build_content_root)
-
-    if platform_name == "darwin":
-        _fix_darwin_dependencies(build_content_root)
 
     cleanup_files(deps_dir, libs_dir)
     end_time = time.time_ns()

@@ -260,6 +260,21 @@ build_ayon () {
   fi
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    macoscontents="$repo_root/build/AYON $ayon_version.app/Contents"
+    macosdir="$macoscontents/MacOS"
+    # fix cx_Freeze libs issue
+    echo -e "${BIGreen}>>>${RST} Fixing libs ..."
+    mv "$macosdir/dependencies/cx_Freeze" "$macosdir/lib/"  || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Can't move cx_Freeze libs${RST}"; return 1; }
+
+    # force hide icon from Dock
+    defaults write "$macoscontents/Info" LSUIElement 1
+
+    # fix code signing issue
+    echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
+    codesign --remove-signature "$macosdir/ayon" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+  fi
+
   if [[ "$should_make_installer" == 1 ]]; then
     make_installer_raw
   fi
