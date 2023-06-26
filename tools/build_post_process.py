@@ -416,7 +416,7 @@ def _create_windows_installer(
     """Create Windows installer.
 
     Returns:
-        str: Path to installer file.
+        Path: Path to installer file.
     """
 
     iscc_executable = _find_iscc()
@@ -445,7 +445,7 @@ def _create_linux_installer(
     """Linux installer is just tar file.
 
     Returns:
-        str: Path to installer file.
+        Path: Path to installer file.
     """
 
     basename = f"AYON-{ayon_version}-linux"
@@ -465,7 +465,7 @@ def _create_darwin_installer(_ar, build_root, _, ayon_version):
     """Create MacOS installer (.dmg).
 
     Returns:
-        str: Path to installer file.
+        Path: Path to installer file.
 
     Raises:
         ValueError: If 'create-dmg' is not available.
@@ -499,7 +499,7 @@ def _create_installer(*args, **kwargs):
     """Create single file installer of desktop application.
 
     Returns:
-        str: Path to installer file.
+        Path: Path to installer file.
 
     Raises:
         ValueError: If platform is not supported.
@@ -547,7 +547,7 @@ def create_installer(ayon_root, build_root):
 
     installer_path = _create_installer(
         ayon_root, build_root, build_content_root, ayon_version)
-    store_installer_metadata(build_root, installer_path)
+    store_installer_metadata(build_root, str(installer_path))
 
 
 def main():
