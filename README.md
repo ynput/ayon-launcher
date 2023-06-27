@@ -11,9 +11,7 @@ AYON Desktop application
 Introduction
 ------------
 
-Open-source pipeline for visual effects and animation built on top of the [Avalon](https://getavalon.github.io/) framework, expanding it with extra features and integrations. AYON connects your DCCs, asset database, project management and time tracking into a single system. It has a tight integration with [ftrack](https://www.ftrack.com/en/), but can also run independently or be integrated into a different project management solution.
-
-AYON provides a robust platform for your studio, without the worry of a vendor lock. You will always have full access to the source-code and your project database will run locally or in the cloud of your choice.
+Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. it acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone destkop application, it doesn't do anything until it's connected to an AYON server instance .
 
 
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
