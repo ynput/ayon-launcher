@@ -1,0 +1,120 @@
+# Created by .ignore support plugin (hsz.mobi)
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Mac Stuff
+###########
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+# Icon must end with two \r
+Icon
+# Thumbnails
+._*
+# rope project dir
+.ropeproject
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+
+# CX_Freeze
+###########
+/build
+/dist/
+
+/vendor/bin/*
+/vendor/python/*
+/.venv
+/venv/
+
+# Documentation
+###############
+/docs/build
+
+# Editor backup files #
+#######################
+*~
+
+# Unit test / coverage reports
+##############################
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+/coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Node JS packages
+##################
+node_modules
+package-lock.json
+package.json
+yarn.lock
+
+openpype/premiere/ppro/js/debug.log
+
+
+# IDEA
+######
+.idea/
+
+# VScode files
+.vscode/
+.env
+dump.sql
+test_localsystem.txt
+
+# website
+##########
+website/translated_docs
+website/build/
+website/node_modules
+website/i18n/*
+
+website/debug.log
+
+website/.docusaurus
+
+# Poetry
+########
+
+.poetry/
+.python-version
+.editorconfig
+.pre-commit-config.yaml
+mypy.ini
+
+tools/run_eventserver.*
+
+#  Developer tools
+tools/dev_*
+
+.github_changelog_generator
+
+
+# Addons
+########
+/openpype/addons/*
+!/openpype/addons/README.md
