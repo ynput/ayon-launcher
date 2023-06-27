@@ -31,7 +31,7 @@ appdirs = { git = "https://github.com/ActiveState/appdirs.git", branch = "master
 blessed = "^1.17" # terminal formatting
 coolname = "*"
 Click = "^8"
- dnspython = "^2.1.0"
+dnspython = "^2.1.0"
 arrow = "^0.17"
 keyring = "^22.0.1"
 QtPy = "^2.3.0"
@@ -68,11 +68,6 @@ pre-commit = "*"
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/ynput/OpenPype/issues"
 "Discussions" = "https://github.com/ynput/OpenPype/discussions"
-
-[[tool.poetry.source]]
-name = "ayon"
-url = "https://distribute.openpype.io/wheels/"
-secondary = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

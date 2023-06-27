@@ -1,10 +1,9 @@
 import re
-import sys
 from semver import VersionInfo
 from git import Repo
 from optparse import OptionParser
 from github import Github
-import os
+
 
 def get_release_type_github(Log, github_token):
     minor_labels = ["Bump Minor"]
@@ -89,7 +88,7 @@ def file_regex_replace(filename, regex, version):
 
 def bump_file_versions(version, nightly=False):
 
-    filename = "./openpype/version.py"
+    filename = "./version.py"
     regex = "(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-((0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?"
     file_regex_replace(filename, regex, version)
 
@@ -100,7 +99,7 @@ def bump_file_versions(version, nightly=False):
     # bump pyproject.toml
     filename = "pyproject.toml"
     regex = "version = \"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(\+((0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?\" # OpenPype"
-    pyproject_version = f"version = \"{version}\" # OpenPype"
+    pyproject_version = f"version = \"{version}\" # AYON"
     file_regex_replace(filename, regex, pyproject_version)
 
 
