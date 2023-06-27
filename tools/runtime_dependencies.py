@@ -112,6 +112,12 @@ def install_qtbinding(pyproject, runtime_dep_root, platform_name):
             os.remove(str(filepath))
 
 
+def install_runtime_dependencies(pyproject, runtime_dep_root):
+    runtime_deps = pyproject["ayon"]["runtime"]["deps"]
+    for package, version in runtime_deps.items():
+        _pip_install(runtime_dep_root, package, version)
+
+
 def main():
     start_time = time.time_ns()
     repo_root = Path(os.path.dirname(__file__)).parent
@@ -119,6 +125,7 @@ def main():
     pyproject = toml.load(repo_root / "pyproject.toml")
     platform_name = platform.system().lower()
     install_qtbinding(pyproject, runtime_dep_root, platform_name)
+    install_runtime_dependencies(pyproject, runtime_dep_root)
     end_time = time.time_ns()
     total_time = (end_time - start_time) / 1000000000
     _print(f"Downloading and extracting took {total_time} secs.")
