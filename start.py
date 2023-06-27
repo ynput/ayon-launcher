@@ -66,6 +66,11 @@ if "--skip-headers" in sys.argv:
     sys.argv.remove("--skip-headers")
     SKIP_HEADERS = True
 
+SKIP_BOOTSTRAP = False
+if "--skip-bootstrap" in sys.argv:
+    sys.argv.remove("--skip-bootstrap")
+    SKIP_BOOTSTRAP = True
+
 if "--use-staging" in sys.argv:
     sys.argv.remove("--use-staging")
     os.environ["AYON_USE_STAGING"] = "1"
@@ -290,11 +295,11 @@ def _check_and_update_from_ayon_server():
 def boot():
     """Bootstrap AYON."""
 
-    use_staging = os.environ.get("AYON_USE_STAGING") == "1"
-
     _connect_to_ayon_server()
     _check_and_update_from_ayon_server()
 
+
+def main_cli():
     from openpype import cli
 
     _print(">>> loading environments ...")
@@ -305,6 +310,7 @@ def boot():
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
+        use_staging = os.environ.get("AYON_USE_STAGING") == "1"
         info = get_info(use_staging)
         info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
 
@@ -327,6 +333,29 @@ def boot():
         sys.exit(1)
 
 
+def script_cli():
+    """Run and execute script."""
+
+    filepath = os.path.abspath(sys.argv[1])
+
+    # Find '__main__.py' in directory
+    if os.path.isdir(filepath):
+        new_filepath = os.path.join(filepath, "__main__.py")
+        if not os.path.exists(new_filepath):
+            raise RuntimeError(
+                f"can't find '__main__' module in '{filepath}'")
+        filepath = new_filepath
+
+    # Add parent dir to sys path
+    sys.path.insert(0, os.path.dirname(filepath))
+
+    # Read content and execute
+    with open(filepath, "r") as stream:
+        content = stream.read()
+
+    exec(compile(content, filepath, "exec"), globals())
+
+
 def get_info(use_staging=None) -> list:
     """Print additional information to console."""
 
@@ -347,5 +376,17 @@ def get_info(use_staging=None) -> list:
     return formatted
 
 
+def main():
+    if not SKIP_BOOTSTRAP:
+        boot()
+
+    args = list(sys.argv)
+    args.pop(0)
+    if args and os.path.exists(args[0]):
+        script_cli()
+    else:
+        main_cli()
+
+
 if __name__ == "__main__":
-    boot()
+    main()
