@@ -128,7 +128,6 @@ class HTTPDownloader(SourceDownloader):
 
     @classmethod
     def cleanup(cls, source, destination_dir, data):
-        # Nothing to do - download does not copy anything
         filename = cls.get_filename(source)
         filepath = os.path.join(destination_dir, filename)
         if os.path.exists(filepath) and os.path.isfile(filepath):
@@ -195,7 +194,6 @@ class AyonServerDownloader(SourceDownloader):
 
     @classmethod
     def cleanup(cls, source, destination_dir, data):
-        # Nothing to do - download does not copy anything
         filename = source["filename"]
         filepath = os.path.join(destination_dir, filename)
         if os.path.exists(filepath) and os.path.isfile(filepath):
