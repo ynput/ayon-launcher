@@ -215,6 +215,7 @@ class Installer:
     platform_name = attr.ib()
     size = attr.ib()
     checksum = attr.ib()
+    checksum_algorithm = attr.ib()
     python_version = attr.ib()
     python_modules = attr.ib()
     sources = attr.ib(default=attr.Factory(list))
@@ -233,6 +234,7 @@ class Installer:
             sources=sources,
             unknown_sources=unknown_sources,
             checksum=installer_info["checksum"],
+            checksum_type=installer_info["checksumAlgorithm"],
             python_version=installer_info["pythonVersion"],
             python_modules=installer_info["pythonModules"]
         )
