@@ -15,9 +15,9 @@ USER_AGENT = "openpype"
 class RemoteFileHandler:
     """Download file from url, might be GDrive shareable link"""
 
-    IMPLEMENTED_ZIP_FORMATS = [
+    IMPLEMENTED_ZIP_FORMATS = {
         "zip", "tar", "tgz", "tar.gz", "tar.xz", "tar.bz2"
-    ]
+    }
 
     @staticmethod
     def calculate_md5(fpath, chunk_size=10000):
@@ -183,7 +183,7 @@ class RemoteFileHandler:
         archive_type = archive_type.lstrip(".")
 
         if archive_type in ["zip"]:
-            print("Unzipping {}->{}".format(path, destination_path))
+            print(f"Unzipping {path}->{destination_path}")
             zip_file = zipfile.ZipFile(path)
             zip_file.extractall(destination_path)
             zip_file.close()
@@ -191,7 +191,7 @@ class RemoteFileHandler:
         elif archive_type in [
             "tar", "tgz", "tar.gz", "tar.xz", "tar.bz2"
         ]:
-            print("Unzipping {}->{}".format(path, destination_path))
+            print(f"Unzipping {path}->{destination_path}")
             if archive_type == "tar":
                 tar_type = "r:"
             elif archive_type.endswith("xz"):
