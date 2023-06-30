@@ -198,6 +198,8 @@ from ayon_common.distribution import (
     show_missing_bundle_information,
 )
 
+from ayon_common.utils import store_current_executable_info
+
 
 def set_global_environments() -> None:
     """Set global OpenPype's environments."""
@@ -339,6 +341,7 @@ def boot():
 
     _connect_to_ayon_server()
     _check_and_update_from_ayon_server()
+    store_current_executable_info()
 
 
 def main_cli():
