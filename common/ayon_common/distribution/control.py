@@ -21,6 +21,7 @@ from .utils import (
 )
 from .downloaders import get_default_download_factory
 from .data_structures import (
+    Installer,
     AddonInfo,
     DependencyItem,
     Bundle,
@@ -453,6 +454,7 @@ class AyonDistribution:
         addon_dirpath=None,
         dependency_dirpath=None,
         dist_factory=None,
+        installers_info=NOT_SET,
         addons_info=NOT_SET,
         dependency_packages_info=NOT_SET,
         bundles_info=NOT_SET,
@@ -469,6 +471,9 @@ class AyonDistribution:
         self._dist_factory = (
             dist_factory or get_default_download_factory()
         )
+
+        self._installers_info = installers_info
+        self._installer_items = NOT_SET
 
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME", NOT_SET)
@@ -633,6 +638,21 @@ class AyonDistribution:
     def bundle_name_to_use(self):
         bundle = self.bundle_to_use
         return None if bundle is None else bundle.name
+
+    @property
+    def installers_info(self):
+        if self._installers_info is NOT_SET:
+            self._installers_info = ayon_api.get_installers()["installers"]
+        return self._installers_info
+
+    @property
+    def installer_items(self):
+        if self._installer_items is NOT_SET:
+            self._installer_items = [
+                Installer.from_dict(info)
+                for info in self.installers_info
+            ]
+        return self._installer_items
 
     @property
     def addons_info(self):
