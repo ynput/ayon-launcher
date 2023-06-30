@@ -1,7 +1,6 @@
 import copy
 import tempfile
 
-
 import attr
 import pytest
 
