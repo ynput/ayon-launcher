@@ -71,13 +71,6 @@ def sample_addon_info():
             "1.0.0": {
                 "hasSettings": True,
                 "hasSiteSettings": False,
-                "frontendScopes": {},
-                "clientSourceInfo": [
-                    {
-                        "type": "server",
-                        "filename": "client.zip"
-                    }
-                ],
                 "clientPyproject": {
                     "tool": {
                         "poetry": {
