@@ -182,6 +182,7 @@ elif os.getenv("SSL_CERT_FILE") != certifi.where():
 
 from ayon_api import get_base_url
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
+from ayon_common import is_staging_enabled
 from ayon_common.connection.credentials import (
     ask_to_login_ui,
     add_server,
@@ -289,12 +290,6 @@ def _check_and_update_from_ayon_server():
             bundle_name = bundle.name
     except BundleNotFoundError as exc:
         bundle_name = exc.bundle_name
-        if HEADLESS_MODE_ENABLED:
-            _print("!!! Server does not have defined bundle to use.")
-            _print(
-                "!!! Make sure server has set bundle."
-            )
-            sys.exit(1)
 
     if bundle is None:
         url = get_base_url()
@@ -303,16 +298,22 @@ def _check_and_update_from_ayon_server():
 
         elif bundle_name:
             _print((
-                f"!!! Requested bundle '{bundle_name}'"
+                f"!!! Requested release bundle '{bundle_name}'"
                 " is not available on server."
             ))
             _print(
-                f"!!! Check if server '{url}' still have bundle available.")
+                "!!! Check if selected release bundle"
+                f" is available on the server '{url}'."
+            )
 
         else:
-            _print("!!! Server does not have defined bundle to use.")
+            mode = "staging" if is_staging_enabled() else "production"
             _print(
-                f"!!! Make sure server '{url}' has set bundle."
+                f"!!! No release bundle is set as {mode} on the AYON server."
+            )
+            _print(
+                "!!! Make sure there is a release bundle set"
+                f" as \"{mode}\" on the AYON server '{url}'."
             )
         sys.exit(1)
 
@@ -351,8 +352,7 @@ def main_cli():
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
-        use_staging = os.environ.get("AYON_USE_STAGING") == "1"
-        info = get_info(use_staging)
+        info = get_info(is_staging_enabled())
         info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
 
         t_width = 20
