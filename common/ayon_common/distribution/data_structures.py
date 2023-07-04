@@ -240,7 +240,7 @@ class Installer:
             sources=sources,
             unknown_sources=unknown_sources,
             checksum=installer_info["checksum"],
-            checksum_type=installer_info["checksumAlgorithm"],
+            checksum_algorithm=installer_info.get("checksumAlgorithm"),
             python_version=installer_info["pythonVersion"],
             python_modules=installer_info["pythonModules"]
         )
