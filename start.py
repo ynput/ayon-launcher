@@ -200,10 +200,7 @@ from ayon_common.distribution import (
     show_missing_bundle_information,
 )
 
-from ayon_common.utils import (
-    store_current_executable_info,
-    run_detached_process,
-)
+from ayon_common.utils import store_current_executable_info
 
 
 def set_global_environments() -> None:
