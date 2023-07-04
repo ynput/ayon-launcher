@@ -184,7 +184,7 @@ def get_executables_info_by_version(version):
     executables_info = get_executables_info()
     return [
         item
-        for item in executables_info["available_versions"]
+        for item in executables_info.get("available_versions", [])
         if item["version"] == version
     ]
 
