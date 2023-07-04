@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import tempfile
 import traceback
 import collections
 import datetime
@@ -13,7 +14,10 @@ from enum import Enum
 
 import ayon_api
 
-from ayon_common.utils import is_staging_enabled
+from ayon_common.utils import (
+    is_staging_enabled,
+    get_executables_info_by_version,
+)
 
 from .utils import (
     get_addons_dir,
@@ -419,6 +423,58 @@ class BaseDistributionItem:
             self._post_distribute()
 
 
+class InstallerDistributionItem(BaseDistributionItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = None
+
+    @property
+    def executable(self):
+        return self._executable
+
+    def _install_windows(self, filepath):
+        raise NotImplementedError(
+            "Windows installer distribution is not implemented."
+        )
+
+    def _install_linux(self, filepath):
+        raise NotImplementedError(
+            "Linux installer distribution is not implemented."
+        )
+
+    def _install_macos(self, filepath):
+        raise NotImplementedError(
+            "MacOS installer distribution is not implemented."
+        )
+
+    def _install_file(self, filepath):
+        platform_name = platform.system().lower()
+        if platform_name == "windows":
+            self._install_windows(filepath)
+        elif platform_name == "linux":
+            self._install_linux(filepath)
+        elif platform_name == "darwin":
+            self._install_macos(filepath)
+
+    def _post_source_process(
+        self, filepath, source_data, source_progress, downloader
+    ):
+        try:
+            self._install_file(filepath)
+            self.state = UpdateState.UPDATED
+        except Exception:
+            self.state = UpdateState.UPDATE_FAILED
+            message = "Installation failed"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+        self._used_source = source_data
+
+        return True
+
+
 class DistributionItem(BaseDistributionItem):
     """Distribution item with sources and target directories.
 
@@ -511,6 +567,8 @@ class AyonDistribution:
         use_staging (Optional[bool]): Use staging versions of an addon.
             If not passed, 'is_staging_enabled' is used as default value.
             checked for value '1'.
+        skip_installer_dist (Optional[bool]): Skip installer distribution. This
+            is for testing purposes and for running from code.
     """
 
     def __init__(
@@ -523,7 +581,8 @@ class AyonDistribution:
         dependency_packages_info=NOT_SET,
         bundles_info=NOT_SET,
         bundle_name=NOT_SET,
-        use_staging=None
+        use_staging=None,
+        skip_installer_dist=False,
     ):
         self._log = None
 
@@ -536,11 +595,15 @@ class AyonDistribution:
             dist_factory or get_default_download_factory()
         )
 
-        self._installers_info = installers_info
-        self._installer_items = NOT_SET
-
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME", NOT_SET)
+
+        self._installers_info = installers_info
+        self._installer_items = NOT_SET
+        self._expected_installer_version = NOT_SET
+        self._installer_item = NOT_SET
+        self._installer_executable = NOT_SET
+        self._skip_installer_dist = skip_installer_dist
 
         # Raw addons data from server
         self._addons_info = addons_info
@@ -700,23 +763,182 @@ class AyonDistribution:
 
     @property
     def bundle_name_to_use(self):
+        """Name of bundle that will be used for distribution.
+
+        Returns:
+            Union[str, None]: Name of bundle that will be used for
+                distribution.
+        """
+
         bundle = self.bundle_to_use
         return None if bundle is None else bundle.name
 
     @property
     def installers_info(self):
+        """Installers information from server.
+
+        Returns:
+            list[dict[str, Any]]: Installers information from server.
+        """
+
         if self._installers_info is NOT_SET:
             self._installers_info = ayon_api.get_installers()["installers"]
         return self._installers_info
 
     @property
     def installer_items(self):
+        """Installers as objects.
+
+        Returns:
+            list[Installer]: List of installers info from server.
+        """
+
         if self._installer_items is NOT_SET:
             self._installer_items = [
                 Installer.from_dict(info)
                 for info in self.installers_info
             ]
         return self._installer_items
+
+    @property
+    def expected_installer_version(self):
+        """Excepted installer version.
+
+        Returns:
+            Union[str, None]: Expected installer version or None defined by
+                bundle that should be used.
+        """
+
+        if self._expected_installer_version is not NOT_SET:
+            return self._expected_installer_version
+
+        bundle = self.bundle_to_use
+        version = None if bundle is None else bundle.installer_version
+        self._expected_installer_version = version
+        return version
+
+    @property
+    def need_installer_change(self):
+        """Installer should be changed.
+
+        Current installer is using different version than what is expected
+            by bundle.
+
+        Returns:
+            bool: True if installer should be changed.
+        """
+
+        if self._skip_installer_dist:
+            return False
+
+        version = os.getenv("AYON_VERSION")
+        return version != self.expected_installer_version
+
+    @property
+    def need_installer_distribution(self):
+        """Installer distribution is needed.
+
+        Todos:
+            Add option to skip if running from code?
+
+        Returns:
+            bool: True if installer distribution is needed.
+        """
+
+        if not self.need_installer_change:
+            return False
+
+        return self.installer_executable is None
+
+    @property
+    def installer_executable(self):
+        """Path to installer executable that should be used.
+
+        Returns:
+            Union[str, None]: Path to installer executable that should be
+                used. None if executable is not found and must be distributed
+                or bundle does not have defined an installer to use.
+        """
+
+        if self._installer_executable is not NOT_SET:
+            return self._installer_executable
+
+        path = None
+        if not self.need_installer_change:
+            path = sys.executable
+
+        else:
+            executables_info = get_executables_info_by_version(
+                self.expected_installer_version)
+            for executable_info in executables_info:
+                executable_path = executable_info["executable"]
+                if os.path.exists(executable_path):
+                    path = executable_path
+                    break
+
+        self._installer_executable = path
+        return path
+
+    @property
+    def installer_item(self):
+        """Installer item that should be used for distribution.
+
+        Returns:
+            Union[Installer, None]: Installer information item.
+        """
+
+        if self._installer_item is not NOT_SET:
+            return self._installer_item
+
+        final_item = None
+        expected_version = self.expected_installer_version
+        if expected_version:
+            final_item = next(
+                (
+                    item
+                    for item in self.installer_items
+                    if (
+                        item.version == expected_version
+                        and item.platform_name == platform.system().lower()
+                    )
+                ),
+                None
+            )
+
+        self._installer_item = final_item
+        return final_item
+
+    def distribute_installer(self):
+        """Distribute installer."""
+
+        installer_item = self.installer_item
+        if installer_item is None:
+            self._installer_executable = None
+            return
+
+        downloader_data = {
+            "type": "installer",
+            "version": installer_item.version,
+            "filename": installer_item.filename,
+        }
+
+        tmp_dir = tempfile.mkdtemp(prefix="ayon_installer")
+
+        try:
+            dist_item = InstallerDistributionItem(
+                tmp_dir,
+                UpdateState.OUTDATED,
+                installer_item.checksum,
+                self._dist_factory,
+                list(installer_item.sources),
+                downloader_data,
+                f"Installer {installer_item.version}"
+            )
+            dist_item.distribute()
+            self._installer_executable = dist_item.executable
+
+        finally:
+            shutil.rmtree(tmp_dir)
 
     @property
     def addons_info(self):
@@ -1129,6 +1351,12 @@ class AyonDistribution:
         if self._dist_started:
             raise RuntimeError("Distribution already started")
         self._dist_started = True
+
+        if self.need_installer_change:
+            if self.need_installer_distribution:
+                self.distribute_installer()
+            return
+
         threads = collections.deque()
         for item in self.get_all_distribution_items():
             if threaded:

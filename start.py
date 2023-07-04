@@ -8,9 +8,11 @@ import sys
 import site
 import traceback
 import contextlib
-
+import subprocess
 
 from version import __version__
+
+ORIGINAL_ARGS = list(sys.argv)
 
 # Enabled logging debug mode when "--debug" is passed
 if "--verbose" in sys.argv:
@@ -198,7 +200,10 @@ from ayon_common.distribution import (
     show_missing_bundle_information,
 )
 
-from ayon_common.utils import store_current_executable_info
+from ayon_common.utils import (
+    store_current_executable_info,
+    run_detached_process,
+)
 
 
 def set_global_environments() -> None:
@@ -283,7 +288,9 @@ def _check_and_update_from_ayon_server():
         RuntimeError
     """
 
-    distribution = AyonDistribution()
+    distribution = AyonDistribution(
+        skip_installer_dist=not IS_BUILT_APPLICATION
+    )
     bundle = None
     bundle_name = None
     try:
@@ -320,9 +327,22 @@ def _check_and_update_from_ayon_server():
         sys.exit(1)
 
     distribution.distribute()
+    if distribution.need_installer_change:
+        executable = distribution.installer_executable
+        # TODO handle all these cases
+        if executable is None:
+            raise RuntimeError("Failed to install executable")
+
+        args = [executable] + ORIGINAL_ARGS
+        # TODO figure out how this should be launched
+        #   - it can technically cause infinite loop of subprocesses
+        sys.exit(subprocess.call(args))
+
+    # TODO check failed distribution and inform user
     distribution.validate_distribution()
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
+    # TODO probably remove paths to other addons?
     python_paths = [
         path
         for path in os.getenv("PYTHONPATH", "").split(os.pathsep)
