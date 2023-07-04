@@ -532,8 +532,8 @@ def store_installer_metadata(build_root, installer_path):
         file_hash = hashlib.md5(stream.read()).hexdigest()
 
     metadata.update({
-        "hash": file_hash,
-        "hash_type": "md5",
+        "checksum": file_hash,
+        "checksum_algorithm": "md5",
         "size": os.path.getsize(installer_path),
         "installer_path": installer_path
     })
