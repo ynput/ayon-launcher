@@ -192,8 +192,8 @@ class AyonServerDownloader(SourceDownloader):
 
         if data["type"] == "installer":
             return ayon_api.download_installer(
-                data["filename"],
-                destination_dir,
+                filename,
+                os.path.join(destination_dir, filename),
                 chunk_size=cls.CHUNK_SIZE,
                 progress=transfer_progress
             )
