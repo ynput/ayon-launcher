@@ -182,12 +182,14 @@ class AyonServerDownloader(SourceDownloader):
             )
 
         if data["type"] == "installer":
-            return ayon_api.download_installer(
+            filepath = os.path.join(destination_dir, filename)
+            ayon_api.download_installer(
                 filename,
-                os.path.join(destination_dir, filename),
+                filepath,
                 chunk_size=cls.CHUNK_SIZE,
                 progress=transfer_progress
             )
+            return filepath
 
         raise ValueError(f"Unknown type to download \"{data['type']}\"")
 
