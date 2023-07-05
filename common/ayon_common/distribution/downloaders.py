@@ -107,10 +107,6 @@ class HTTPDownloader(SourceDownloader):
         filename = source.get("filename")
         if not filename:
             filename = os.path.basename(source_url)
-            basename, ext = os.path.splitext(filename)
-            allowed_exts = set(RemoteFileHandler.IMPLEMENTED_ZIP_FORMATS)
-            if ext.lower().lstrip(".") not in allowed_exts:
-                filename = f"{basename}.zip"
         return filename
 
     @classmethod
