@@ -136,7 +136,7 @@ class DistributeTransferProgress:
 
     @property
     def hash_check_finished(self):
-        return self._has_check_finished
+        return self._hash_check_finished
 
     @property
     def unzip_started(self):
