@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 import urllib.request
 import urllib.error
 import itertools
-import hashlib
 import tarfile
 import zipfile
 
@@ -16,58 +15,6 @@ USER_AGENT = "AYON-launcher"
 
 class RemoteFileHandler:
     """Download file from url, might be GDrive shareable link"""
-
-    IMPLEMENTED_ZIP_FORMATS = {
-        "zip", "tar", "tgz", "tar.gz", "tar.xz", "tar.bz2"
-    }
-
-    @staticmethod
-    def calculate_md5(fpath, chunk_size=10000):
-        md5 = hashlib.md5()
-        with open(fpath, "rb") as f:
-            for chunk in iter(lambda: f.read(chunk_size), b""):
-                md5.update(chunk)
-        return md5.hexdigest()
-
-    @staticmethod
-    def check_md5(fpath, md5, **kwargs):
-        return md5 == RemoteFileHandler.calculate_md5(fpath, **kwargs)
-
-    @staticmethod
-    def calculate_sha256(fpath):
-        """Calculate sha256 for content of the file.
-
-        Args:
-             fpath (str): Path to file.
-
-        Returns:
-            str: hex encoded sha256
-
-        """
-        h = hashlib.sha256()
-        b = bytearray(128 * 1024)
-        mv = memoryview(b)
-        with open(fpath, "rb", buffering=0) as f:
-            for n in iter(lambda: f.readinto(mv), 0):
-                h.update(mv[:n])
-        return h.hexdigest()
-
-    @staticmethod
-    def check_sha256(fpath, sha256, **kwargs):
-        return sha256 == RemoteFileHandler.calculate_sha256(fpath, **kwargs)
-
-    @staticmethod
-    def check_integrity(fpath, hash_value=None, hash_type=None):
-        if not os.path.isfile(fpath):
-            return False
-        if hash_value is None:
-            return True
-        if not hash_type:
-            raise ValueError("Provide hash type, md5 or sha256")
-        if hash_type == "md5":
-            return RemoteFileHandler.check_md5(fpath, hash_value)
-        if hash_type == "sha256":
-            return RemoteFileHandler.check_sha256(fpath, hash_value)
 
     @staticmethod
     def download_url(
