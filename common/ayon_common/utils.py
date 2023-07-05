@@ -386,6 +386,9 @@ def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
 
     import hashlib
 
+    if not filepath:
+        raise ValueError("Filepath is empty.")
+
     if not os.path.exists(filepath):
         raise ValueError("{} doesn't exist.".format(filepath))
 
