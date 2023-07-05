@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 from dataclasses import dataclass
 from typing import Any, Optional, Union
@@ -86,10 +85,13 @@ def create_connection(
     )
 
 
-def create_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
+def create_installer(
+    api: ayon_api.ServerAPI, installer_info: InstallerInfo, force:bool
+):
     server_installers: list[dict[str, Any]] = (
         api.get_installers()["installers"])
 
+    matched_installer = None
     for server_installer in server_installers:
         platform_name: Union[str, None] = server_installer.get("platform")
         version: Union[str, None] = server_installer.get("version")
@@ -97,8 +99,35 @@ def create_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
             platform_name == installer_info.platform
             and version == installer_info.version
         ):
-            print(f"Version {version} already exists on server")
+            matched_installer = InstallerInfo(
+                version=server_installer.get("version"),
+                platform=server_installer.get("platform"),
+                filename=server_installer.get("filename"),
+                installer_path=installer_info.installer_path,
+                python_version=server_installer.get("pythonVersion"),
+                checksum=server_installer.get("checksum"),
+                checksum_algorithm=server_installer.get("checksumAlgorithm"),
+                size=server_installer.get("size"),
+                python_modules=server_installer.get("pythonModules"),
+                runtime_python_modules=(
+                    server_installer.get("runtimePythonModules")),
+            )
+            break
+
+    if matched_installer is not None:
+        if matched_installer == installer_info:
             return False
+        if not force:
+            raise RuntimeError(
+                "Installer already exists on server"
+                " but with different values."
+                " Use --force to overwrite it."
+            )
+        print(
+            "Removing existing installer on server"
+            " because have different metadata"
+        )
+        api.delete_installer(matched_installer.filename)
 
     print(
         f"Creating installer {installer_info.version}"
@@ -115,11 +144,12 @@ def create_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
         installer_info.checksum_algorithm,
         installer_info.size,
     )
+    return True
 
 
 def upload_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
     # TODO print progress over time
-    print("Upload started")
+    print(f"Upload started ({installer_info.installer_path})")
     api.upload_installer(
         installer_info.installer_path,
         installer_info.filename,
@@ -151,10 +181,15 @@ def cli():
     "--metadata",
     default=None,
     help="Path to metadata.json file")
-def upload(server, api_key, username, password, metadata):
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force installer creation even if it already exists")
+def upload(server, api_key, username, password, metadata, force):
     installer_info: InstallerInfo = find_installer_info(metadata)
     api = create_connection(server, api_key, username, password)
-    create_installer(api, installer_info)
+    create_installer(api, installer_info, force)
     upload_installer(api, installer_info)
 
 
@@ -176,10 +211,17 @@ def upload(server, api_key, username, password, metadata):
     "--metadata",
     default=None,
     help="Path to metadata.json file")
-def create_server_installer(server, api_key, username, password, metadata):
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force installer creation even if it already exists")
+def create_server_installer(
+    server, api_key, username, password, metadata, force
+):
     installer_info = find_installer_info(metadata)
     api = create_connection(server, api_key, username, password)
-    create_installer(api, installer_info)
+    create_installer(api, installer_info, force)
 
 
 def main():
