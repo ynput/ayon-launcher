@@ -17,6 +17,7 @@ import ayon_api
 from ayon_common.utils import (
     is_staging_enabled,
     get_executables_info_by_version,
+    get_downloads_dir,
 )
 
 from .utils import (
@@ -333,10 +334,16 @@ class BaseDistributionItem:
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
     ):
-        self.state = UpdateState.UPDATED
-        self._used_source = source_data
+        if filepath:
+            self.state = UpdateState.UPDATED
+            self._used_source = source_data
 
-        return True
+        downloader.cleanup(
+            source_data,
+            self.download_dirpath,
+            self.downloader_data
+        )
+        return bool(filepath)
 
     def _process_source(self, source, source_progress):
         self._current_source_progress = source_progress
@@ -357,17 +364,9 @@ class BaseDistributionItem:
             source_progress,
             downloader
         )
-        post_process_result = False
-        if filepath:
-            post_process_result = self._post_source_process(
-                filepath, source_data, source_progress, downloader
-            )
-        downloader.cleanup(
-            source_data,
-            self.download_dirpath,
-            self.downloader_data
+        return self._post_source_process(
+            filepath, source_data, source_progress, downloader
         )
-        return post_process_result
 
     def _distribute(self):
         if not self.sources:
@@ -429,13 +428,19 @@ class BaseDistributionItem:
 
 
 class InstallerDistributionItem(BaseDistributionItem):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cleanup_on_fail, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._cleanup_on_fail = cleanup_on_fail
         self._executable = None
+        self._installer_path = None
 
     @property
     def executable(self):
         return self._executable
+
+    @property
+    def installer_path(self):
+        return self._installer_path
 
     def _install_windows(self, filepath):
         raise NotImplementedError(
@@ -464,18 +469,35 @@ class InstallerDistributionItem(BaseDistributionItem):
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
     ):
+        self._installer_path = filepath
+        success = False
         try:
-            self._install_file(filepath)
-            self.state = UpdateState.UPDATED
+            if filepath:
+                self._install_file(filepath)
+                success = True
+            else:
+                message = "File was not downloaded"
+                source_progress.set_failed(message)
+
         except Exception:
-            self.state = UpdateState.UPDATE_FAILED
             message = "Installation failed"
             source_progress.set_failed(message)
             self.log.warning(
                 f"{self.item_label}: {message}",
                 exc_info=True
             )
+
+        self.state = (
+            UpdateState.UPDATED if success else UpdateState.UPDATE_FAILED
+        )
+
         self._used_source = source_data
+        if success or self._cleanup_on_fail:
+            downloader.cleanup(
+                source_data,
+                self.download_dirpath,
+                self.downloader_data
+            )
 
         return True
 
@@ -607,6 +629,7 @@ class AyonDistribution:
         self._installer_items = NOT_SET
         self._expected_installer_version = NOT_SET
         self._installer_item = NOT_SET
+        self._installer_filepath = NOT_SET
         self._installer_executable = NOT_SET
         self._skip_installer_dist = skip_installer_dist
 
@@ -927,11 +950,17 @@ class AyonDistribution:
             "filename": installer_item.filename,
         }
 
-        tmp_dir = tempfile.mkdtemp(prefix="ayon_installer")
+        tmp_used = False
+        downloads_dir = get_downloads_dir()
+        if not downloads_dir or not os.path.exists(downloads_dir):
+            tmp_used = True
+            downloads_dir = tempfile.mkdtemp(prefix="ayon_installer")
 
+        dist_item = None
         try:
             dist_item = InstallerDistributionItem(
-                tmp_dir,
+                tmp_used,
+                downloads_dir,
                 UpdateState.OUTDATED,
                 installer_item.checksum,
                 installer_item.checksum_algorithm,
@@ -944,7 +973,11 @@ class AyonDistribution:
             self._installer_executable = dist_item.executable
 
         finally:
-            shutil.rmtree(tmp_dir)
+            if dist_item is not None:
+                self._installer_filepath = dist_item.installer_path
+
+            if tmp_used and os.path.exists(downloads_dir):
+                shutil.rmtree(downloads_dir)
 
     @property
     def addons_info(self):
