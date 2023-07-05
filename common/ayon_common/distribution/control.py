@@ -180,7 +180,8 @@ class BaseDistributionItem:
         download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
-        file_hash (str): Hash of file for validation.
+        checksum (str): Hash of file for validation.
+        checksum_algorithm (str): Algorithm used to generate the hash.
         factory (DownloadFactory): Downloaders factory object.
         sources (List[SourceInfo]): Possible sources to receive the
             distribution item.
@@ -193,7 +194,8 @@ class BaseDistributionItem:
         self,
         download_dirpath,
         state,
-        file_hash,
+        checksum,
+        checksum_algorithm,
         factory,
         sources,
         downloader_data,
@@ -205,7 +207,8 @@ class BaseDistributionItem:
         self.log = logger
         self.state = state
         self.download_dirpath = download_dirpath
-        self.file_hash = file_hash
+        self.checksum = checksum
+        self.checksum_algorithm = checksum_algorithm
         self.factory = factory
         self.sources = self._prepare_sources(sources)
         self.downloader_data = downloader_data
@@ -313,7 +316,9 @@ class BaseDistributionItem:
 
         source_progress.set_hash_check_started()
         try:
-            downloader.check_hash(filepath, self.file_hash)
+            downloader.check_hash(
+                filepath, self.checksum, self.checksum_algorithm
+            )
         except Exception:
             message = "File hash does not match"
             source_progress.set_failed(message)
@@ -929,6 +934,7 @@ class AyonDistribution:
                 tmp_dir,
                 UpdateState.OUTDATED,
                 installer_item.checksum,
+                installer_item.checksum_algorithm,
                 self._dist_factory,
                 list(installer_item.sources),
                 downloader_data,
@@ -1077,7 +1083,8 @@ class AyonDistribution:
                 addon_dest,
                 addon_dest,
                 state,
-                addon_version_item.hash,
+                addon_version_item.checksum,
+                addon_version_item.checksum_algorithm,
                 self._dist_factory,
                 list(addon_version_item.sources),
                 downloader_data,
@@ -1285,7 +1292,9 @@ class AyonDistribution:
             if source is not None:
                 data = {
                     "source": source,
-                    "file_hash": dependency_dist_item.file_hash,
+                    "checksum": dependency_dist_item.checksum,
+                    "checksum_algorithm": (
+                        dependency_dist_item.checksum_alhorithm),
                     "distributed_dt": stored_time
                 }
                 self.update_dependency_metadata(package.name, data)
@@ -1308,7 +1317,8 @@ class AyonDistribution:
             addons_info.setdefault(addon_name, {})
             addons_info[addon_name][addon_version] = {
                 "source": source_data,
-                "file_hash": dist_item.file_hash,
+                "checksum": dist_item.checksum,
+                "checksum_algorithm": dist_item.checksum_algorithm,
                 "distributed_dt": stored_time
             }
 
