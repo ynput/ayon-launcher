@@ -217,3 +217,57 @@ def cleanup_executables_info():
     ]
     if len(new_executables_info) != len(executables_info):
         store_executables_info(new_executables_info)
+
+
+def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
+    """Calculate file checksum for given algorithm.
+
+    Args:
+        filepath (str): Path to a file.
+        checksum_algorithm (str): Algorithm to use. ('md5', 'sha1', 'sha256')
+        chunk_size (Optional[int]): Chunk size to read file.
+            Defaults to 10000.
+
+    Returns:
+        str: Calculated checksum.
+
+    Raises:
+        ValueError: File not found or unknown checksum algorithm.
+    """
+
+    import hashlib
+
+    if not os.path.exists(filepath):
+        raise ValueError("{} doesn't exist.".format(filepath))
+
+    if not os.path.isfile(filepath):
+        raise ValueError("{} is not a file.".format(filepath))
+
+    func = getattr(hashlib, checksum_algorithm, None)
+    if func is None:
+        raise ValueError(
+            "Unknown checksum algorithm '{}'".format(checksum_algorithm))
+
+    hash_obj = func()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()
+
+
+def validate_file_checksum(filepath, checksum, checksum_algorithm):
+    """Validate file checksum.
+
+    Args:
+        filepath (str): Path to file.
+        checksum (str): Hash of file.
+        checksum_algorithm (str): Type of checksum.
+
+    Returns:
+        bool: Hash is valid/invalid.
+
+    Raises:
+        ValueError: File not found or unknown checksum algorithm.
+    """
+
+    return checksum == calculate_file_checksum(filepath, checksum_algorithm)
