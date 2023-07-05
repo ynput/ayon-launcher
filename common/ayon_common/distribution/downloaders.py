@@ -151,15 +151,6 @@ class AyonServerDownloader(SourceDownloader):
 
         cls.log.debug(f"Downloading {filename} to {destination_dir}")
 
-        _, ext = os.path.splitext(filename)
-        ext = ext.lower().lstrip(".")
-        valid_exts = set(RemoteFileHandler.IMPLEMENTED_ZIP_FORMATS)
-        if ext not in valid_exts:
-            raise ValueError((
-                f"Invalid file extension \"{ext}\"."
-                f" Expected {', '.join(valid_exts)}"
-            ))
-
         if path:
             filepath = os.path.join(destination_dir, filename)
             return ayon_api.download_file(
