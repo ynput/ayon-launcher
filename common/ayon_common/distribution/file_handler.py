@@ -123,9 +123,7 @@ class RemoteFileHandler:
             RemoteFileHandler._urlretrieve(url, fpath, headers=headers)
 
     @staticmethod
-    def download_file_from_google_drive(
-        file_id, root, filename=None
-    ):
+    def download_file_from_google_drive(file_id, root, filename=None):
         """Download a Google Drive file from  and place it in root.
         Args:
             file_id (str): id of file to be downloaded
@@ -144,36 +142,38 @@ class RemoteFileHandler:
 
         os.makedirs(root, exist_ok=True)
 
-        if os.path.isfile(fpath) and RemoteFileHandler.check_integrity(fpath):
-            print(f"Using downloaded and verified file: {fpath}")
-        else:
-            session = requests.Session()
+        # TODO validate checksum of existing file and download
+        #   only if incomplete.
+        if os.path.isfile(fpath):
+            os.remove(fpath)
 
-            response = session.get(url, params={"id": file_id}, stream=True)
-            token = RemoteFileHandler._get_confirm_token(response)
+        session = requests.Session()
 
-            if token:
-                params = {"id": file_id, "confirm": token}
-                response = session.get(url, params=params, stream=True)
+        response = session.get(url, params={"id": file_id}, stream=True)
+        token = RemoteFileHandler._get_confirm_token(response)
 
-            response_content_generator = response.iter_content(32768)
-            first_chunk = None
-            while not first_chunk:  # filter out keep-alive new chunks
-                first_chunk = next(response_content_generator)
+        if token:
+            params = {"id": file_id, "confirm": token}
+            response = session.get(url, params=params, stream=True)
 
-            if RemoteFileHandler._quota_exceeded(first_chunk):
-                msg = (
-                    f"The daily quota of the file {filename} is exceeded and "
-                    f"it can't be downloaded. This is a limitation of "
-                    f"Google Drive and can only be overcome by trying "
-                    f"again later."
-                )
-                raise RuntimeError(msg)
+        response_content_generator = response.iter_content(32768)
+        first_chunk = None
+        while not first_chunk:  # filter out keep-alive new chunks
+            first_chunk = next(response_content_generator)
 
-            RemoteFileHandler._save_response_content(
-                itertools.chain((first_chunk, ),
-                                response_content_generator), fpath)
-            response.close()
+        if RemoteFileHandler._quota_exceeded(first_chunk):
+            msg = (
+                f"The daily quota of the file {filename} is exceeded and "
+                f"it can't be downloaded. This is a limitation of "
+                f"Google Drive and can only be overcome by trying "
+                f"again later."
+            )
+            raise RuntimeError(msg)
+
+        RemoteFileHandler._save_response_content(
+            itertools.chain((first_chunk, ),
+                            response_content_generator), fpath)
+        response.close()
 
     @staticmethod
     def unzip(path, destination_path=None):
