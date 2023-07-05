@@ -51,20 +51,20 @@ class SourceDownloader(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def check_hash(cls, addon_path, addon_hash, hash_type="sha256"):
+    def check_hash(cls, filepath, checksum, checksum_algorithm="sha256"):
         """Compares 'hash' of downloaded 'addon_url' file.
 
         Args:
-            addon_path (str): Local path to addon file.
-            addon_hash (str): Hash of downloaded file.
-            hash_type (str): Type of hash.
+            filepath (str): Local path to addon file.
+            checksum (str): Hash of downloaded file.
+            checksum_algorithm (str): Type of hash.
 
         Raises:
             ValueError if hashes doesn't match
         """
 
-        if not validate_file_checksum(fpath, hash_value, hash_type):
-            raise ValueError(f"{addon_path} doesn't match expected hash.")
+        if not validate_file_checksum(filepath, checksum, checksum_algorithm):
+            raise ValueError(f"{filepath} doesn't match expected hash.")
 
     @classmethod
     def unzip(cls, filepath, destination_dir):
