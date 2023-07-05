@@ -1,11 +1,15 @@
 import os
 import sys
+import platform
 import json
 import datetime
+import subprocess
+from uuid import UUID
 
 import appdirs
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
+WIN_DOWNLOAD_FOLDER_ID = UUID("{374DE290-123F-4565-9164-39C4925E467B}")
 IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
@@ -222,6 +226,97 @@ def cleanup_executables_info():
         store_executables_info(new_executables_info)
 
 
+class _Cache:
+    downloads_dir = 0
+
+
+def _get_linux_downloads_dir():
+    return subprocess.run(
+        ["xdg-user-dir", "DOWNLOAD"],
+        capture_output=True, text=True
+    ).stdout.strip("\n")
+
+
+def _get_windows_downloads_dir():
+    import ctypes
+    from ctypes import windll, wintypes
+
+    class GUID(ctypes.Structure):  # [1]
+        _fields_ = [
+            ("Data1", wintypes.DWORD),
+            ("Data2", wintypes.WORD),
+            ("Data3", wintypes.WORD),
+            ("Data4", wintypes.BYTE * 8)
+        ]
+
+        def __init__(self, uuid_):
+            ctypes.Structure.__init__(self)
+            (
+                self.Data1,
+                self.Data2,
+                self.Data3,
+                self.Data4[0],
+                self.Data4[1],
+                rest
+            ) = uuid_.fields
+            for i in range(2, 8):
+                self.Data4[i] = rest >> (8 - i - 1) * 8 & 0xff
+
+    pathptr = ctypes.c_wchar_p()
+    guid = GUID(WIN_DOWNLOAD_FOLDER_ID)
+    if windll.shell32.SHGetKnownFolderPath(
+        ctypes.byref(guid), 0, 0, ctypes.byref(pathptr)
+    ):
+        return None
+    return pathptr.value
+
+
+def _get_macos_downloads_dir():
+    """Get downloads directory on MacOS.
+
+    Notes:
+        By community forum '~/Downloads' is right way, which is default.
+
+    Returns:
+        Union[str, None]: Path to downloads directory or None if not found.
+    """
+
+    return None
+
+
+def get_downloads_dir():
+    """Downloads directory path.
+
+    Each platform may use different approach how the downloads directory is
+    received. This function will try to find the directory and return it.
+
+    Returns:
+        Union[str, None]: Path to downloads directory or None if not found.
+    """
+
+    if _Cache.downloads_dir != 0:
+        return _Cache.downloads_dir
+
+    path = None
+    try:
+        platform_name = platform.system().lower()
+        if platform_name == "linux":
+            path = _get_linux_downloads_dir()
+        elif platform_name == "windows":
+            path = _get_windows_downloads_dir()
+        elif platform_name == "darwin":
+            path = _get_macos_downloads_dir()
+
+    except Exception:
+        pass
+
+    if path is None:
+        default = os.path.expanduser("~/Downloads")
+        if os.path.exists(default):
+            path = default
+
+    _Cache.downloads_dir = path
+    return path
 
 
 def extract_archive_file(archive_file, dst_folder=None):
