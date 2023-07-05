@@ -6,6 +6,9 @@ import datetime
 import appdirs
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
+IMPLEMENTED_ARCHIVE_FORMATS = {
+    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
+}
 
 
 def get_ayon_appdirs(*args):
@@ -217,6 +220,49 @@ def cleanup_executables_info():
     ]
     if len(new_executables_info) != len(executables_info):
         store_executables_info(new_executables_info)
+
+
+
+
+def extract_archive_file(archive_file, dst_folder=None):
+    _, ext = os.path.splitext(archive_file)
+    ext = ext.lower()
+
+    if not dst_folder:
+        dst_folder = os.path.dirname(archive_file)
+
+    print("Extracting {}->{}".format(archive_file, dst_folder))
+    if ext == ".zip":
+        import zipfile
+
+        zip_file = zipfile.ZipFile(archive_file)
+        zip_file.extractall(dst_folder)
+        zip_file.close()
+
+    elif ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
+        import tarfile
+
+        if ext == ".tar":
+            tar_type = "r:"
+        elif ext.endswith(".xz"):
+            tar_type = "r:xz"
+        elif ext.endswith(".gz"):
+            tar_type = "r:gz"
+        elif ext.endswith(".bz2"):
+            tar_type = "r:bz2"
+        else:
+            tar_type = "r:*"
+        try:
+            tar_file = tarfile.open(archive_file, tar_type)
+        except tarfile.ReadError:
+            raise SystemExit("corrupted archive")
+        tar_file.extractall(dst_folder)
+        tar_file.close()
+
+    raise ValueError((
+        f"Invalid file extension \"{ext}\"."
+        f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
+    ))
 
 
 def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
