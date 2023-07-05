@@ -103,7 +103,8 @@ class AddonVersionInfo(object):
     require_distribution = attr.ib(default=False)
     sources = attr.ib(default=attr.Factory(list))
     unknown_sources = attr.ib(default=attr.Factory(list))
-    hash = attr.ib(default=None)
+    checksum = attr.ib(default=None)
+    checksum_algorithm = attr.ib(default=None)
 
     @classmethod
     def from_dict(
@@ -128,6 +129,9 @@ class AddonVersionInfo(object):
         source_info = version_data.get("clientSourceInfo")
         require_distribution = source_info is not None
         sources, unknown_sources = prepare_sources(source_info)
+        checksum = version_data.get("checksum")
+        if checksum is None:
+            checksum = version_data.get("hash")
 
         return cls(
             version=addon_version,
@@ -135,8 +139,9 @@ class AddonVersionInfo(object):
             require_distribution=require_distribution,
             sources=sources,
             unknown_sources=unknown_sources,
-            hash=version_data.get("hash"),
-            title=title
+            checksum=checksum,
+            checksum_algorithm=version_data.get("checksumAlgorithm", "sha256"),
+            title=title,
         )
 
 
@@ -189,6 +194,7 @@ class DependencyItem(object):
     name = attr.ib()
     platform_name = attr.ib()
     checksum = attr.ib()
+    checksum_algorithm = attr.ib(default=None)
     sources = attr.ib(default=attr.Factory(list))
     unknown_sources = attr.ib(default=attr.Factory(list))
     source_addons = attr.ib(default=attr.Factory(dict))
@@ -209,6 +215,8 @@ class DependencyItem(object):
             sources=sources,
             unknown_sources=unknown_sources,
             checksum=package["checksum"],
+            # Backwards compatibility
+            checksum_algorithm=package.get("checksumAlgorithm", "sha256"),
             source_addons=package["sourceAddons"],
             python_modules=package["pythonModules"]
         )
