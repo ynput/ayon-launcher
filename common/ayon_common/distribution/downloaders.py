@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod
 
 import ayon_api
 
+from ayon_common import extract_archive_file, validate_file_checksum
+
 from .file_handler import RemoteFileHandler
 from .data_structures import UrlType
 
@@ -61,24 +63,20 @@ class SourceDownloader(metaclass=ABCMeta):
             ValueError if hashes doesn't match
         """
 
-        if not os.path.exists(addon_path):
-            raise ValueError(f"{addon_path} doesn't exist.")
-        if not RemoteFileHandler.check_integrity(
-            addon_path, addon_hash, hash_type=hash_type
-        ):
+        if not validate_file_checksum(fpath, hash_value, hash_type):
             raise ValueError(f"{addon_path} doesn't match expected hash.")
 
     @classmethod
-    def unzip(cls, addon_zip_path, destination_dir):
+    def unzip(cls, filepath, destination_dir):
         """Unzips local 'addon_zip_path' to 'destination'.
 
         Args:
-            addon_zip_path (str): local path to addon zip file
+            filepath (str): local path to addon zip file
             destination_dir (str): local folder to unzip
         """
 
-        RemoteFileHandler.unzip(addon_zip_path, destination_dir)
-        os.remove(addon_zip_path)
+        extract_archive_file(filepath, destination_dir)
+        os.remove(filepath)
 
 
 class OSDownloader(SourceDownloader):
