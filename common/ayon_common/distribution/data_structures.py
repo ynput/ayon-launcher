@@ -237,8 +237,12 @@ class Installer:
 
     @classmethod
     def from_dict(cls, installer_info):
-        sources, unknown_sources = prepare_sources(
-            installer_info.get("sources"))
+        src_sources = installer_info.get("sources") or []
+        for source in src_sources:
+            if source.get("type") == "server" and not source.get("filename"):
+                source["filename"] = installer_info["filename"]
+
+        sources, unknown_sources = prepare_sources(src_sources)
 
         return cls(
             version=installer_info["version"],
