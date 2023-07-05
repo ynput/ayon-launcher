@@ -47,7 +47,12 @@ install_requires = [
 ]
 
 includes = []
-excludes = []
+excludes = [
+    # Make sure 'common' subfolder is not included in 'lib'
+    # - can happen when there are testing imports like:
+    #       'from common.ayon_common import ...'
+    "common",
+]
 # WARNING: As of cx_freeze there is a bug?
 # when this is empty, its hooks will not kick in
 # and won't clean platform irrelevant modules
