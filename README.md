@@ -2,7 +2,7 @@
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-28-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
-AYON Desktop application
+AYON Launcher - Desktop application
 ========
 
 [![documentation](https://github.com/pypeclub/pype/actions/workflows/documentation.yml/badge.svg)](https://github.com/pypeclub/pype/actions/workflows/documentation.yml) ![GitHub VFX Platform](https://img.shields.io/badge/vfx%20platform-2022-lightgrey?labelColor=303846)
@@ -11,8 +11,9 @@ AYON Desktop application
 Introduction
 ------------
 
-Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. it acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone destkop application, it doesn't do anything until it's connected to an AYON server instance .
+Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. it acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone destkop application, it doesn't do anything until it's connected to an AYON server instance.
 
+The documentation is not up-to-date as development is still in progress and code is changing every day.
 
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
 
@@ -31,18 +32,6 @@ The main things you will need to run and build AYON are:
 - [**Python 3.9.6**](#python) or higher
 
 
-It can be built and ran on all common platforms. We develop and test on the following:
-
-- **Windows** 10
-- **Linux**
-    - **Ubuntu** 20.04 LTS
-    - **Centos** 7
-- **Mac OSX**
-    - **10.15** Catalina
-    - **11.1** Big Sur (using Rosetta2)
-
-For more details on requirements visit [requirements documentation](https://ayon.ynput.io/docs/dev_requirements)
-
 Building AYON Desktop application
 -----------------
 
@@ -59,15 +48,15 @@ development tools like [CMake](https://cmake.org/) and [Visual Studio](https://v
 
 #### Clone repository:
 ```sh
-git clone --recurse-submodules git@github.com:ynput/OpenPype.git
-git checkout ayon/desktop-app
+git clone --recurse-submodules git@github.com:ynput/ayon-launcher.git
 ```
 
 #### To build AYON Desktop:
 
-1) Run `.\tools\create_env.ps1` to create virtual environment in `.\venv`.
-2) Run `.\tools\fetch_thirdparty_libs.ps1` to download third-party dependencies like ffmpeg and oiio. Those will be included in build.
-3) Run `.\tools\build.ps1` to build AYON executables in `.\build\`.
+1) Run `./tools/manage.ps1 create-env` to create virtual environment in `./.venv`.
+2) Run `./tools/manage.ps1 install-runtime-dependencies` to install python runtime dependencies like PySide, Pillow.
+3) Run `./tools/manage.ps1 build` to build AYON executables in `./build/output/`.
+4) Run `./tools/manage.ps1 make-installer` to create an installer file in `./build/`.
 
 AYON is build using [CX_Freeze](https://cx-freeze.readthedocs.io/en/latest) to freeze itself and all dependencies.
 
@@ -114,26 +103,12 @@ Easy way of installing everything necessary is to use [Homebrew](https://brew.sh
 
 #### To build AYON:
 
-1) Run `.\tools\create_env.sh` to create virtual environment in `.\venv`
-2) Run `.\tools\fetch_thirdparty_libs.sh` to download third-party dependencies like ffmpeg and oiio. Those will be included in build.
-3) Run `.\tools\build.sh` to build AYON executables in `.\build\`
+1) Run `./tools/make.sh create-env` to create virtual environment in `./.venv`.
+2) Run `./tools/make.sh install-runtime-dependencies` to install python runtime dependencies like PySide, Pillow.
+3) Run `./tools/make.sh build` to build AYON executables in `./build/output/`.
+4) Run `./tools/make.sh make-installer` to create an installer file in `./build/`.
 
 ### Linux
-
-#### Docker
-Easiest way to build AYON on Linux is using [Docker](https://www.docker.com/). Just run:
-
-```sh
-sudo ./tools/docker_build.sh
-```
-
-This will by default use Debian as base image. If you need to make Centos 7 compatible build, please run:
-
-```sh
-sudo ./tools/docker_build.sh centos7
-```
-
-If all is successful, you'll find built AYON in `./build/` folder.
 
 #### Manual build
 You will need [Python >= 3.9](https://www.python.org/downloads/) and [git](https://git-scm.com/downloads). You'll also need [curl](https://curl.se) on systems that doesn't have one preinstalled.
@@ -227,8 +202,10 @@ pyenv local 3.9.6
 
 #### To build AYON:
 
-1) Run `.\tools\create_env.sh` to create virtual environment in `.\venv`
-2) Run `.\tools\build.sh` to build AYON executables in `.\build\`
+1) Run `./tools/make.sh create-env` to create virtual environment in `./.venv`.
+2) Run `./tools/make.sh install-runtime-dependencies` to install python runtime dependencies like PySide, Pillow.
+3) Run `./tools/make.sh build` to build AYON executables in `./build/output/`.
+4) Run `./tools/make.sh make-installer` to create an installer file in `./build/`.
 
 
 Running AYON Desktop application
@@ -246,15 +223,6 @@ poetry run python start.py &args
 
 ### From frozen code
 
-You need to build AYON first. This will produce executable - `ayon(.exe)` and `ayon_console.exe` for window.
-First one will act as GUI application and will not create console (useful in production environments).
-The second one will create console and will write output there - useful for headless application and
-debugging purposes.
-
-
-Developer tools
----------------
-
-In case you wish to add your own tools to  `.\tools` folder without git tracking, it is possible by adding it with `dev_*` suffix (example: `dev_clear_pyc(.ps1|.sh)`).
-
-
+You need to build AYON first. This will produce executable - `ayon(.exe)`, and `ayon_console.exe` on Windows.
+First one is the main production executable, that will act as GUI application on Windows.
+The second `ayon_console.exe` is available only on windows. Create console with output - useful for headless application and debugging purposes.
