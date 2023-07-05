@@ -320,13 +320,21 @@ def get_downloads_dir():
 
 
 def extract_archive_file(archive_file, dst_folder=None):
+    """Extract archived file to a directory.
+
+    Args:
+        archive_file (str): Path to a archive file.
+        dst_folder (Optional[str]): Directory where content will be extracted.
+            By default, same folder where archive file is.
+    """
+
     _, ext = os.path.splitext(archive_file)
     ext = ext.lower()
 
     if not dst_folder:
         dst_folder = os.path.dirname(archive_file)
 
-    print("Extracting {}->{}".format(archive_file, dst_folder))
+    print("Extracting {} -> {}".format(archive_file, dst_folder))
     if ext == ".zip":
         import zipfile
 
