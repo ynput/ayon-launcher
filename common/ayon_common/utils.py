@@ -139,6 +139,105 @@ def store_executables_info(info):
         json.dump(info, stream, indent=4)
 
 
+def load_version_from_file(filepath):
+    """Execute python file and return '__version__' variable."""
+
+    with open(filepath, "r") as stream:
+        version_content = stream.read()
+    version_globals = {}
+    exec(version_content, version_globals)
+    return version_globals["__version__"]
+
+
+def load_version_from_root(root):
+    """Get version of executable.
+
+    Args:
+        root (str): Path to executable.
+
+    Returns:
+        Union[str, None]: Version of executable.
+    """
+
+    version = None
+    if not root or not os.path.exists(root):
+        return version
+
+    version_filepath = os.path.join(root, "version.py")
+    if os.path.exists(version_filepath):
+        try:
+            version = load_version_from_file(version_filepath)
+        except Exception as exc:
+            print("Failed lo load version file {}. {}".format(
+                version_filepath, exc))
+
+    return version
+
+
+def load_executable_version(executable):
+    """Get version of executable.
+
+    Args:
+        executable (str): Path to executable.
+
+    Returns:
+        Union[str, None]: Version of executable.
+    """
+
+    if not executable:
+        return None
+    return load_version_from_root(os.path.dirname(executable))
+
+
+def store_executables(executables):
+    """Store information about executables.
+
+    Args:
+        executables (Iterable[str]): Paths to executables.
+    """
+
+    info = get_executables_info()
+    info.setdefault("available_versions", [])
+    for executable in executables:
+        if not executable or not os.path.exists(executable):
+            continue
+
+        root, filename = os.path.split(executable)
+        # Store only 'ayon.exe' executable
+        if filename == "ayon_console.exe":
+            filename = "ayon.exe"
+            executable = os.path.join(root, filename)
+
+        version = load_version_from_root(root)
+
+        match_item = None
+        item_is_new = True
+        for item in info["available_versions"]:
+            # 'executable' is unique identifier if available versions
+            item_executable = item.get("executable")
+            if not item_executable or item_executable != executable:
+                continue
+
+            # Version has changed, update it
+            if item.get("version") != version:
+                match_item = item
+            item_is_new = False
+            break
+
+        if match_item is None:
+            if not item_is_new:
+                continue
+            match_item = {}
+            info["available_versions"].append(match_item)
+
+        match_item.update({
+            "version": version,
+            "executable": executable,
+            "added": datetime.datetime.now().strftime("%y-%m-%d-%H%M"),
+        })
+    store_executables_info(info)
+
+
 def store_current_executable_info():
     """Store information about current executable to a file for future usage.
 
@@ -147,36 +246,15 @@ def store_current_executable_info():
 
     The function won't do anything if the application is not built or if
     version is not set or the executable is already available.
+
+    Todos:
+        Don't store executable if is located inside 'ayon-launcher' codebase?
     """
 
-    version = os.getenv("AYON_VERSION")
-    if not IS_BUILT_APPLICATION or not version:
+    if not IS_BUILT_APPLICATION:
         return
 
-    executable = sys.executable
-
-    info = get_executables_info()
-    info.setdefault("available_versions", [])
-
-    match_item = None
-    for item in info["available_versions"]:
-        if item["executable"] == executable:
-            # Version has changed, update it
-            if item["version"] == version:
-                return
-            match_item = item
-            break
-
-    if match_item is None:
-        match_item = {}
-        info["available_versions"].append(match_item)
-
-    match_item.update({
-        "version": version,
-        "executable": executable,
-        "added": datetime.datetime.now().strftime("%y-%m-%d-%H%M")
-    })
-    store_executables_info(info)
+    store_executables([sys.executable])
 
 
 def get_executables_info_by_version(version):
