@@ -22,6 +22,7 @@ from ayon_common.utils import (
     get_downloads_dir,
 )
 
+from .exceptions import BundleNotFoundError
 from .utils import (
     get_addons_dir,
     get_dependencies_dir,
@@ -35,20 +36,6 @@ from .data_structures import (
 )
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
-
-
-class BundleNotFoundError(Exception):
-    """Bundle name is defined but is not available on server.
-
-    Args:
-        bundle_name (str): Name of bundle that was not found.
-    """
-
-    def __init__(self, bundle_name):
-        self.bundle_name = bundle_name
-        super().__init__(
-            f"Bundle '{bundle_name}' is not available on server"
-        )
 
 
 class UpdateState(Enum):

@@ -1,4 +1,5 @@
-from .control import AyonDistribution, BundleNotFoundError
+from .exceptions import BundleNotFoundError
+from .control import AyonDistribution
 from .utils import show_missing_bundle_information
 
 
