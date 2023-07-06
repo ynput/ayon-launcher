@@ -956,10 +956,14 @@ class AyonDistribution:
             executables_info = get_executables_info_by_version(
                 self.expected_installer_version)
             for executable_info in executables_info:
-                executable_path = executable_info["executable"]
-                if os.path.exists(executable_path):
-                    path = executable_path
-                    break
+                executable_path = executable_info.get("executable")
+                if (
+                    not os.path.exists(executable_path)
+                    or executable_path == sys.executable
+                ):
+                    continue
+                path = executable_path
+                break
 
         self._installer_executable = path
         return path
