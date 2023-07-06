@@ -789,7 +789,7 @@ class AyonDistribution:
 
     def _prepare_dependency_progress(self):
         package = self.dependency_package_item
-        if package is None or not package.require_distribution:
+        if package is None:
             return None
 
         metadata = self.get_dependency_metadata()
