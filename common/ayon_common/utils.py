@@ -217,13 +217,21 @@ def get_executable_paths_by_version(version, only_available=True):
 def cleanup_executables_info():
     """Remove executables that do not exist anymore."""
 
-    executables_info = get_executables_info()
-    new_executables_info = [
-        item
-        for item in get_executables_info()
-        if os.path.exists(item["executable"])
-    ]
-    if len(new_executables_info) != len(executables_info):
+    new_executables_info = []
+    changed = False
+    for item in get_executables_info():
+        executable = item.get("executable")
+        if not executable or not os.path.exists(executable):
+            changed = True
+            continue
+
+        version = load_executable_version(executable)
+        if version and item.get("version") != version:
+            changed = True
+            item["version"] = version
+        new_executables_info.append(item)
+
+    if changed:
         store_executables_info(new_executables_info)
 
 
