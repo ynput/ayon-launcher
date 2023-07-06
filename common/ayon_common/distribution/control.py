@@ -796,7 +796,7 @@ class AyonDistribution:
         downloader_data = {
             "type": "dependency_package",
             "name": package.name,
-            "platform": package.platform
+            "platform": package.platform_name
         }
         zip_dir = package_dir = os.path.join(
             self._dependency_dirpath, package.name
