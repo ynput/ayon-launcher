@@ -9,12 +9,14 @@ import logging
 import shutil
 import threading
 import platform
-import attr
+import subprocess
 from enum import Enum
 
+import attr
 import ayon_api
 
 from ayon_common.utils import (
+    HEADLESS_MODE_ENABLED,
     is_staging_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
@@ -442,10 +444,65 @@ class InstallerDistributionItem(BaseDistributionItem):
     def installer_path(self):
         return self._installer_path
 
+    def _find_windows_executable(self, log_output):
+        """Find executable path in log output.
+
+        Args:
+            log_output (str): Output from installer log.
+        """
+
+        exe_name = "ayon.exe"
+        for line in log_output.splitlines():
+            idx = line.find(exe_name)
+            if idx < 0:
+                continue
+
+            line = line[:idx + len(exe_name)]
+            parts = line.split("\\")
+            if len(parts) < 2:
+                parts = line.replace("/", "\\").split("\\")
+
+            last_part = parts.pop(-1)
+            found_valid = False
+            final_parts = []
+            for part in parts:
+                if found_valid:
+                    final_parts.append(part)
+                    continue
+                part = part + "\\"
+                while part:
+                    if os.path.exists(part):
+                        break
+                    part = part[1:]
+
+                if part:
+                    found_valid = True
+                    final_parts.append(part[:-1])
+            final_parts.append(last_part)
+            executable_path = "\\".join(final_parts)
+            if os.path.exists(executable_path):
+                return executable_path
+
     def _install_windows(self, filepath):
-        raise NotImplementedError(
-            "Windows installer distribution is not implemented."
-        )
+        with tempfile.NamedTemporaryFile(
+            suffix="ayon_install", delete=False
+        ) as tmp:
+            log_file = tmp.name
+        args = [filepath, "/CURRENTUSER", "/NOCANCEL", f"/LOG={log_file}"]
+        if not HEADLESS_MODE_ENABLED:
+            args.append("/SILENT")
+        else:
+            args.append("/VERYSILENT")
+
+        code = subprocess.call(args)
+        with open(log_file, "r") as log:
+            log_output = log.read()
+        os.remove(log_file)
+        if code != 0:
+            self.log.error(log_output)
+            raise RuntimeError(f"Failed to install {filepath}")
+
+        self._executable = self._find_windows_executable(log_output)
 
     def _install_linux(self, filepath):
         raise NotImplementedError(
