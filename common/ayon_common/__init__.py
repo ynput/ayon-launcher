@@ -1,5 +1,6 @@
 from .utils import (
     IS_BUILT_APPLICATION,
+    HEADLESS_MODE_ENABLED,
     is_staging_enabled,
     get_local_site_id,
     get_ayon_appdirs,
@@ -13,6 +14,7 @@ from .utils import (
 
 __all__ = (
     "IS_BUILT_APPLICATION",
+    "HEADLESS_MODE_ENABLED",
     "is_staging_enabled",
     "get_local_site_id",
     "get_ayon_appdirs",
