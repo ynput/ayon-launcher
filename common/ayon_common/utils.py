@@ -193,7 +193,7 @@ def get_executables_info_by_version(version):
     return [
         item
         for item in executables_info.get("available_versions", [])
-        if item["version"] == version
+        if item.get("version") == version
     ]
 
 
@@ -206,11 +206,15 @@ def get_executable_paths_by_version(version, only_available=True):
 
     output = []
     for item in get_executables_info_by_version(version):
-        path = item["executable"]
-        # Skip if executable was not found
-        if only_available and not os.path.exists(path):
+        executable = item.get("executable")
+        if not executable:
             continue
-        output.append(path)
+
+        # Skip if executable was not found
+        if only_available and not os.path.exists(executable):
+            continue
+
+        output.append(executable)
     return output
 
 
