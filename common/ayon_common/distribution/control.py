@@ -347,15 +347,25 @@ class BaseDistributionItem:
             self.log.warning(message, exc_info=True)
             return False
 
-        source_data = attr.asdict(source)
-        filepath = self._receive_file(
-            source_data,
-            source_progress,
-            downloader
-        )
-        return self._post_source_process(
-            filepath, source_data, source_progress, downloader
-        )
+        try:
+            source_data = attr.asdict(source)
+            filepath = self._receive_file(
+                source_data,
+                source_progress,
+                downloader
+            )
+            return self._post_source_process(
+                filepath, source_data, source_progress, downloader
+            )
+
+        except Exception:
+            message = "Failed to process source"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+            return False
 
     def _distribute(self):
         if not self.sources:
