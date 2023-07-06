@@ -136,7 +136,7 @@ class DistributeTransferProgress:
 
     @property
     def hash_check_finished(self):
-        return self._has_check_finished
+        return self._hash_check_finished
 
     @property
     def unzip_started(self):
@@ -789,14 +789,14 @@ class AyonDistribution:
 
     def _prepare_dependency_progress(self):
         package = self.dependency_package_item
-        if package is None or not package.require_distribution:
+        if package is None:
             return None
 
         metadata = self.get_dependency_metadata()
         downloader_data = {
             "type": "dependency_package",
             "name": package.name,
-            "platform": package.platform
+            "platform": package.platform_name
         }
         zip_dir = package_dir = os.path.join(
             self._dependency_dirpath, package.name
