@@ -121,7 +121,10 @@ def get_executables_info():
         except Exception:
             pass
 
-    return {"file_version": "1.0.0"}
+    return {
+        "file_version": "1.0.0",
+        "available_versions": []
+    }
 
 
 def store_executables_info(info):
