@@ -403,7 +403,7 @@ class BaseDistributionItem:
                 traceback.format_exception(*sys.exc_info())
             )
             self.log.error(
-                f"{self.item_label}: Distibution filed",
+                f"{self.item_label}: Distibution failed",
                 exc_info=True
             )
 
