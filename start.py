@@ -330,7 +330,9 @@ def _check_and_update_from_ayon_server():
         if executable is None:
             raise RuntimeError("Failed to install executable")
 
-        args = [executable] + ORIGINAL_ARGS
+        args = list(ORIGINAL_ARGS)
+        # Replace executable with new executable
+        args[0] = executable
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
         sys.exit(subprocess.call(args))
