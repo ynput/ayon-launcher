@@ -434,7 +434,7 @@ def _create_windows_installer(
 
     inno_setup_path = ayon_root / "inno_setup.iss"
     env = os.environ.copy()
-    installer_basename = f"AYON-{ayon_version}-install"
+    installer_basename = f"AYON-{ayon_version}-win-setup"
 
     env["BUILD_SRC_DIR"] = str(build_content_root.relative_to(ayon_root))
     env["BUILD_DST_DIR"] = str(build_root.relative_to(ayon_root))
