@@ -22,7 +22,7 @@ from ayon_common.utils import (
     get_downloads_dir,
 )
 
-from .exceptions import BundleNotFoundError
+from .exceptions import BundleNotFoundError, InstallerDistributionError
 from .utils import (
     get_addons_dir,
     get_dependencies_dir,
@@ -432,6 +432,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         self._cleanup_on_fail = cleanup_on_fail
         self._executable = None
         self._installer_path = None
+        self._installer_error = None
 
     @property
     def executable(self):
@@ -440,6 +441,10 @@ class InstallerDistributionItem(BaseDistributionItem):
     @property
     def installer_path(self):
         return self._installer_path
+
+    @property
+    def installer_error(self):
+        return self._installer_error
 
     def _find_windows_executable(self, log_output):
         """Find executable path in log output.
@@ -497,7 +502,10 @@ class InstallerDistributionItem(BaseDistributionItem):
         os.remove(log_file)
         if code != 0:
             self.log.error(log_output)
-            raise RuntimeError(f"Failed to install {filepath}")
+            raise InstallerDistributionError(
+                "Install process failed without known reason."
+                f" Try to install AYON manually."
+            )
 
         self._executable = self._find_windows_executable(log_output)
 
@@ -533,13 +541,20 @@ class InstallerDistributionItem(BaseDistributionItem):
                 message = "File was not downloaded"
                 source_progress.set_failed(message)
 
-        except Exception:
+        except Exception as exc:
             message = "Installation failed"
             source_progress.set_failed(message)
-            self.log.warning(
-                f"{self.item_label}: {message}",
-                exc_info=True
-            )
+            if isinstance(exc, InstallerDistributionError):
+                self._installer_error = str(exc)
+            else:
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                self._installer_error = (
+                    f"Distribution of AYON launcher"
+                    " failed with unexpected reason."
+                )
 
         self.state = (
             UpdateState.UPDATED if success else UpdateState.UPDATE_FAILED
@@ -686,6 +701,7 @@ class AyonDistribution:
         self._installer_filepath = NOT_SET
         self._installer_executable = NOT_SET
         self._skip_installer_dist = skip_installer_dist
+        self._installer_dist_error = None
 
         # Raw addons data from server
         self._addons_info = addons_info
@@ -933,6 +949,17 @@ class AyonDistribution:
         return self.installer_executable is None
 
     @property
+    def installer_dist_error(self):
+        """Installer distribution error message.
+
+        Returns:
+              Union[str, None]: Error that happened during installer
+                distribution.
+        """
+
+        return self._installer_dist_error
+
+    @property
     def installer_executable(self):
         """Path to installer executable that should be used.
 
@@ -1010,6 +1037,10 @@ class AyonDistribution:
         installer_item = self.installer_item
         if installer_item is None:
             self._installer_executable = None
+            self._installer_dist_error = (
+                f"Release bundle {self.bundle_name_to_use}"
+                " does not have set installer version to use."
+            )
             return
 
         downloader_data = {
@@ -1039,6 +1070,30 @@ class AyonDistribution:
             )
             dist_item.distribute()
             self._installer_executable = dist_item.executable
+            if dist_item.installer_error is not None:
+                self._installer_dist_error = dist_item.installer_error
+
+            elif dist_item.state == UpdateState.MISS_SOURCE_FILES:
+                self._installer_dist_error = (
+                    "Couldn't find valid installer source for required"
+                    f" AYON launcher version {installer_item.version}."
+                )
+
+            elif not self._installer_executable:
+                self._installer_dist_error = (
+                    "Couldn't find installed AYON launcher."
+                    " Please try to launch AYON manually."
+                )
+
+        except Exception:
+            self.log.warning(
+                "Installer distribution failed do to unknown reasons.",
+                exc_info=True
+            )
+            self._installer_dist_error = (
+                f"Distribution of AYON launcher {installer_item.version}"
+                " failed with unexpected reason."
+            )
 
         finally:
             if dist_item is not None:

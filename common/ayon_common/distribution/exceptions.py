@@ -10,3 +10,7 @@ class BundleNotFoundError(Exception):
         super().__init__(
             f"Bundle '{bundle_name}' is not available on server"
         )
+
+
+class InstallerDistributionError(Exception):
+    pass
