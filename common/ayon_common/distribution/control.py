@@ -698,9 +698,9 @@ class AyonDistribution:
         self._installer_items = NOT_SET
         self._expected_installer_version = NOT_SET
         self._installer_item = NOT_SET
-        self._installer_filepath = NOT_SET
         self._installer_executable = NOT_SET
         self._skip_installer_dist = skip_installer_dist
+        self._installer_filepath = None
         self._installer_dist_error = None
 
         # Raw addons data from server
@@ -958,6 +958,10 @@ class AyonDistribution:
         """
 
         return self._installer_dist_error
+
+    @property
+    def installer_filepath(self):
+        return self._installer_filepath
 
     @property
     def installer_executable(self):
