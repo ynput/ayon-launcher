@@ -23,23 +23,44 @@ class MessageWindow(QtWidgets.QDialog):
         icon_path = get_icon_path()
         icon = QtGui.QIcon(icon_path)
         self.setWindowIcon(icon)
-        self.setWindowTitle("AYON-launcher distribution issue")
+        self.setWindowTitle("AYON-launcher distribution")
 
         self._first_show = True
 
-        info_label = QtWidgets.QLabel(message, self)
+        body_widget = QtWidgets.QWidget(self)
+
+        icon_side = QtWidgets.QWidget(body_widget)
+        icon_label = QtWidgets.QLabel(icon_side)
+        icon_side_layout = QtWidgets.QVBoxLayout(icon_side)
+        icon_side_layout.setContentsMargins(3, 3, 3, 3)
+        icon_side_layout.addWidget(icon_label, 0)
+        icon_side_layout.addStretch(1)
+
+        info_widget = QtWidgets.QWidget(body_widget)
+        info_label = QtWidgets.QLabel(message, info_widget)
         info_label.setWordWrap(True)
 
         installer_path_label = None
         if installer_path and os.path.exists(installer_path):
             installer_path_label = QtWidgets.QLabel(
                 (
-                    "NOTE: Setup can be found"
-                    f" <a href=\"file:///{installer_path}\">"
-                    f"{installer_path}</a>"
+                    "NOTE: Install file can be found here:"
+                    f"<br/><b>{installer_path}</b>"
                 ),
-                self
+                info_widget
             )
+
+        info_layout = QtWidgets.QVBoxLayout(info_widget)
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.addWidget(info_label, 0)
+        info_layout.addStretch(1)
+        if installer_path_label:
+            info_layout.addWidget(installer_path_label, 0)
+
+        body_layout = QtWidgets.QHBoxLayout(body_widget)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.addWidget(icon_side, 0)
+        body_layout.addWidget(info_widget, 1)
 
         btns_widget = QtWidgets.QWidget(self)
         confirm_btn = QtWidgets.QPushButton("Close", btns_widget)
@@ -50,14 +71,12 @@ class MessageWindow(QtWidgets.QDialog):
         btns_layout.addWidget(confirm_btn, 0)
 
         main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.addWidget(info_label, 0)
-        main_layout.addStretch(1)
-        if installer_path_label:
-            main_layout.addWidget(installer_path_label, 0)
+        main_layout.addWidget(body_widget, 1)
         main_layout.addWidget(btns_widget, 0)
 
         confirm_btn.clicked.connect(self._on_confirm_click)
 
+        self._icon_label = icon_label
         self._confirm_btn = confirm_btn
 
     def showEvent(self, event):
@@ -71,10 +90,20 @@ class MessageWindow(QtWidgets.QDialog):
         super().resizeEvent(event)
         self._recalculate_sizes()
 
+    def _update_icon(self):
+        style = self.style()
+        size = style.pixelMetric(
+            QtWidgets.QStyle.PM_MessageBoxIconSize, None, self)
+        icon = style.standardIcon(
+            QtWidgets.QStyle.SP_MessageBoxCritical, None, self)
+
+        self._icon_label.setPixmap(icon.pixmap(size, size))
+
     def _recalculate_sizes(self):
         hint = self._confirm_btn.sizeHint()
         new_width = max((hint.width(), hint.height() * 3))
         self._confirm_btn.setMinimumWidth(new_width)
+        self._update_icon()
 
     def _on_first_show(self):
         self.setStyleSheet(load_stylesheet())
