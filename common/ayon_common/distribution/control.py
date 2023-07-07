@@ -286,6 +286,19 @@ class BaseDistributionItem:
             os.makedirs(download_dirpath)
 
     def _receive_file(self, source_data, source_progress, downloader):
+        """Receive source filepath using source data and downloader.
+
+        Args:
+            source_data (dict[str, Any]): Source information.
+            source_progress (DistributeTransferProgress): Object where to
+                track process of a source.
+            downloader (SourceDownloader): Downloader object which should care
+                about receiving file from source.
+
+        Returns:
+            Union[str, None]: Filepath to received file from source.
+        """
+
         download_dirpath = self.download_dirpath
 
         try:
@@ -323,6 +336,26 @@ class BaseDistributionItem:
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
     ):
+        """Process source after it is downloaded and validated.
+
+        Override this method if downloaded file needs more logic to do, like
+            extraction.
+
+        This part will mark source as updated and will trigger cleanup of
+        source files via downloader (e.g. to remove downloaded file).
+
+        Args:
+            filepath (str): Path to a downloaded source.
+            source_data (dict[str, Any]): Source information data.
+            downloader (SourceDownloader): Object which cared about download
+                of file.
+
+        Returns:
+            bool: Post processing finished in a way that it is not needed to
+                process other possible sources. Does not mean that it was
+                successful.
+        """
+
         if filepath:
             self.state = UpdateState.UPDATED
             self._used_source = source_data
@@ -335,6 +368,20 @@ class BaseDistributionItem:
         return bool(filepath)
 
     def _process_source(self, source, source_progress):
+        """Process single source item.
+
+        Cares about download, validate and process source.
+
+        Args:
+            source (SourceInfo): Source information.
+            source_progress (DistributeTransferProgress): Object to keep track
+                about process of an source.
+
+        Returns:
+            bool: Source was processed so any other sources can be skipped.
+                Does not have to be successfull.
+        """
+
         self._current_source_progress = source_progress
         source_progress.set_started()
 
@@ -427,6 +474,8 @@ class BaseDistributionItem:
 
 
 class InstallerDistributionItem(BaseDistributionItem):
+    """Distribution of new version of AYON launcher/Installer."""
+
     def __init__(self, cleanup_on_fail, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cleanup_on_fail = cleanup_on_fail
@@ -436,18 +485,47 @@ class InstallerDistributionItem(BaseDistributionItem):
 
     @property
     def executable(self):
+        """Path to distributed ayon executable.
+
+        Returns:
+            Union[str, None]: Path to executable path which was distributed.
+        """
+
         return self._executable
 
     @property
     def installer_path(self):
+        """Path to a distribution package/installer.
+
+        This can be used as reference for user where to find downloaded
+            installer on disk and distribute it manually.
+
+        Returns:
+            Union[str, None]: Path to installer.
+        """
+
         return self._installer_path
 
     @property
     def installer_error(self):
+        """Known installer error that happened during distribution.
+
+        Returns:
+            Union[str, None]: Message that will be shown to user and logged
+                out.
+        """
+
         return self._installer_error
 
     def _find_windows_executable(self, log_output):
         """Find executable path in log output.
+
+        Setup exe should print out log output to a file where are described
+        steps that happened during installation.
+
+        Todos:
+            Find a better way how to find out where AYON launcher was
+                installed.
 
         Args:
             log_output (str): Output from installer log.
@@ -486,6 +564,12 @@ class InstallerDistributionItem(BaseDistributionItem):
                 return executable_path
 
     def _install_windows(self, filepath):
+        """Install windows AYON launcher.
+
+        Args:
+            filepath (str): Path to setup .exe file.
+        """
+
         with tempfile.NamedTemporaryFile(
             suffix="ayon_install", delete=False
         ) as tmp:
@@ -510,16 +594,30 @@ class InstallerDistributionItem(BaseDistributionItem):
         self._executable = self._find_windows_executable(log_output)
 
     def _install_linux(self, filepath):
+        """Install linux AYON launcher.
+
+        Args:
+            filepath (str): Path to a .tar file.
+        """
+
         raise NotImplementedError(
             "Linux installer distribution is not implemented."
         )
 
     def _install_macos(self, filepath):
+        """Install macOS AYON launcher.
+
+        Args:
+            filepath (str): Path to a .dmg file.
+        """
+
         raise NotImplementedError(
             "MacOS installer distribution is not implemented."
         )
 
     def _install_file(self, filepath):
+        """Trigger installation installer file based on platform."""
+
         platform_name = platform.system().lower()
         if platform_name == "windows":
             self._install_windows(filepath)
@@ -961,11 +1059,24 @@ class AyonDistribution:
 
     @property
     def installer_filepath(self):
+        """Path to a distribution package/installer.
+
+        This can be used as reference for user where to find downloaded
+            installer on disk and distribute it manually.
+
+        Returns:
+            Union[str, None]: Path to installer.
+        """
+
         return self._installer_filepath
 
     @property
     def installer_executable(self):
         """Path to installer executable that should be used.
+
+        Notes:
+            The 'installer_executable' is maybe confusing naming. It might be
+                called 'ayon_executable'?
 
         Returns:
             Union[str, None]: Path to installer executable that should be
@@ -981,6 +1092,7 @@ class AyonDistribution:
             path = sys.executable
 
         else:
+            # Compare existing executable with current executable
             current_executable = sys.executable
             # Use 'ayon.exe' for executable lookup on Windows
             root, filename = os.path.split(current_executable)
