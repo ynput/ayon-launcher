@@ -198,6 +198,7 @@ from ayon_common.distribution import (
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
+    show_installer_issue_information,
 )
 
 from ayon_common.utils import store_current_executable_info
@@ -325,11 +326,20 @@ def _check_and_update_from_ayon_server():
 
     distribution.distribute()
     if distribution.need_installer_change:
-        executable = distribution.installer_executable
-        # TODO handle all these cases
-        if executable is None:
-            raise RuntimeError("Failed to install executable")
+        # Check if any error happened
+        error = distribution.installer_dist_error
+        if error:
+            if HEADLESS_MODE_ENABLED:
+                _print(error)
+            else:
+                show_installer_issue_information(
+                    error,
+                    distribution.installer_filepath
+                )
+            sys.exit(1)
 
+        # Use new executable to relaunch different AYON launcher version
+        executable = distribution.installer_executable
         args = list(ORIGINAL_ARGS)
         # Replace executable with new executable
         args[0] = executable
