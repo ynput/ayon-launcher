@@ -118,13 +118,17 @@ else:
 sys.path.append(_dependencies_path)
 _python_paths.append(_dependencies_path)
 
+# Add common package to PYTHONPATH
+# - common contains common code and bootstrap logic (like connection and bootstrap)
+common_path = os.path.join(AYON_ROOT, "common")
+sys.path.insert(0, common_path)
+if common_path in _python_paths:
+    _python_paths.remove(common_path)
+_python_paths.insert(0, _dependencies_path)
+
 # Vendored python modules that must not be in PYTHONPATH environment but
 #   are required for OpenPype processes
 sys.path.insert(0, os.path.join(AYON_ROOT, "vendor", "python"))
-
-# Add common package to sys path
-# - common contains common code for bootstraping and OpenPype processes
-sys.path.insert(0, os.path.join(AYON_ROOT, "common"))
 
 os.environ["PYTHONPATH"] = os.pathsep.join(_python_paths)
 
