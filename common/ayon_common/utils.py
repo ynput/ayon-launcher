@@ -457,10 +457,11 @@ def extract_archive_file(archive_file, dst_folder=None):
         tar_file.extractall(dst_folder)
         tar_file.close()
 
-    raise ValueError((
-        f"Invalid file extension \"{ext}\"."
-        f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
-    ))
+    else:
+        raise ValueError((
+            f"Invalid file extension \"{ext}\"."
+            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
+        ))
 
 
 def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
