@@ -394,7 +394,9 @@ def script_cli():
     with open(filepath, "r") as stream:
         content = stream.read()
 
-    exec(compile(content, filepath, "exec"), globals())
+    script_globals = dict(globals())
+    script_globals["__file__"] = filepath
+    exec(compile(content, filepath, "exec"), script_globals)
 
 
 def get_info(use_staging=None) -> list:
