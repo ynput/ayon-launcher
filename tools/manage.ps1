@@ -197,6 +197,8 @@ function Create-Env {
         Write-Color -Text ">>> ", "Installing virtual environment from lock." -Color Green, Gray
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.in-project true --local
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.create true --local
     & "$env:POETRY_HOME\bin\poetry" install --no-root $poetry_verbosity --ansi
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
