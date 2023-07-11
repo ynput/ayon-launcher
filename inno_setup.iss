@@ -20,7 +20,7 @@ AppPublisher=Ynput s.r.o
 AppPublisherURL=https://ynput.io
 AppSupportURL=https://ynput.io
 AppUpdatesURL=https://ynput.io
-DefaultDirName={autopf}\{#MyAppName}\{#AppVer}
+DefaultDirName={autopf64}\Ynput\AYON\app\{#MyAppName} {#AppVer}
 UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 OutputBaseFilename={#OutputFilename}
@@ -55,3 +55,50 @@ Name: "{autodesktop}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"; Tasks:
 
 [Run]
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function CompareParameter(param, expected: String): Boolean;
+begin
+  Result := False;
+  if Length(param) >= Length(expected) then
+  begin
+    if CompareText(Copy(param, 1, Length(expected)), expected) = 0 then
+    begin
+      Result := True;
+    end;
+  end;
+end;
+
+function GetParameter(expectedParam: String): String;
+var
+  i : LongInt;
+begin
+  Result := '';
+  for i := 0 to ParamCount() do
+  begin
+    if CompareParameter(ParamStr(i), '/' + expectedParam + '=') then
+    begin
+      Result := Copy(ParamStr(i), Length(expectedParam) + 3, Length(ParamStr(i)));
+      break;
+    end;
+  end;
+end;
+
+procedure InitializeWizard();
+var
+  NewInstallFolder: String;
+  CurrentDefaultDir: String;
+  ProgramFilesDir: String;
+begin
+  NewInstallFolder := GetParameter('DIR');
+  if Length(NewInstallFolder) = 0 then
+  begin
+      CurrentDefaultDir := ExpandConstant('{autopf64}');
+      ProgramFilesDir := ExpandConstant('{commonpf64}');
+      if CompareStr(CurrentDefaultDir, ProgramFilesDir) = 0 then
+        NewInstallFolder := ExpandConstant('{commonpf64}') + '\Ynput\{#MyAppName} {#AppVer}'
+      else
+        NewInstallFolder := ExpandConstant('{localappdata}') + '\Ynput\AYON\app\{#MyAppName} {#AppVer}';
+  end;
+  WizardForm.DirEdit.Text := NewInstallFolder;
+end;
