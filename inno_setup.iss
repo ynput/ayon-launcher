@@ -35,6 +35,7 @@ OutputDir={#OutputDir}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+UninstallDisplayIcon={app}\ayon.exe
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
