@@ -473,6 +473,14 @@ class BaseDistributionItem:
             self._post_distribute()
 
 
+def create_tmp_file(suffix=None, prefix=None):
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix, prefix=prefix, delete=False
+    ) as tmp:
+        filepath = tmp.name
+    return filepath
+
+
 class InstallerDistributionItem(BaseDistributionItem):
     """Distribution of new version of AYON launcher/Installer."""
 
@@ -570,20 +578,31 @@ class InstallerDistributionItem(BaseDistributionItem):
             filepath (str): Path to setup .exe file.
         """
 
-        with tempfile.NamedTemporaryFile(
-            suffix="ayon_install", delete=False
-        ) as tmp:
-            log_file = tmp.name
-        args = [filepath, "/CURRENTUSER", "/NOCANCEL", f"/LOG={log_file}"]
+        # A file where installer may store log output
+        log_file = create_tmp_file(suffix="ayon_install")
+        # A file where installer may store output directory
+        install_exe_tmp = create_tmp_file(suffix="ayon_install_dir")
+        args = [
+            filepath,
+            "/CURRENTUSER",
+            "/NOCANCEL",
+            f"/LOG={log_file}",
+        ]
         if not HEADLESS_MODE_ENABLED:
             args.append("/SILENT")
         else:
             args.append("/VERYSILENT")
 
-        code = subprocess.call(args)
-        with open(log_file, "r") as log:
-            log_output = log.read()
+        env = dict(os.environ.items())
+        env["AYON_INSTALL_EXE_OUTPUT"] = install_exe_tmp
+
+        code = subprocess.call(args, env=env)
+        with open(log_file, "r") as stream:
+            log_output = stream.read()
+        with open(install_exe_tmp, "r") as stream:
+            install_exe_path = stream.read()
         os.remove(log_file)
+        os.remove(install_exe_tmp)
         if code != 0:
             self.log.error(log_output)
             raise InstallerDistributionError(
@@ -591,7 +610,11 @@ class InstallerDistributionItem(BaseDistributionItem):
                 f" Try to install AYON manually."
             )
 
-        self._executable = self._find_windows_executable(log_output)
+        executable = install_exe_path.strip() or None
+        if not executable or not os.path.exists(executable):
+            executable = self._find_windows_executable(log_output)
+
+        self._executable = executable
 
     def _install_linux(self, filepath):
         """Install linux AYON launcher.

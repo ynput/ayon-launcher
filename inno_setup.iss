@@ -68,13 +68,13 @@ var
   OutputFilepath: String;
   InstallDir: String;
 begin
-  OutputFilepath := GetEnv('AYON_EXE_OUTPUT');
+  OutputFilepath := GetEnv('AYON_INSTALL_EXE_OUTPUT');
   InstallDir := ExpandConstant('{app}');
   if Length(OutputFilepath) > 0 then
   begin
     if FileExists(OutputFilepath) then
     begin
-      SaveStringToFile(OutputFilepath, InstallDir, False)
+      SaveStringToFile(OutputFilepath, InstallDir+'\ayon.exe', False)
     end;
   end;
 end;
