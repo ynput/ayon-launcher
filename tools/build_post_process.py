@@ -36,8 +36,6 @@ from pathlib import Path
 import blessed
 import enlighten
 
-from python_packages_info import get_packages_info
-
 term = blessed.Terminal()
 manager = enlighten.get_manager()
 
@@ -345,6 +343,42 @@ def get_runtime_modules(root):
     return data
 
 
+def get_packages_info(build_root):
+    """Read lock file to get packages.
+
+    Retruns:
+        list[tuple[str, Union[str, None]]]: List of tuples containing package
+            name and version.
+    """
+
+    requirements_path = build_root / "requirements.txt"
+    if not requirements_path.exists():
+        raise RuntimeError(
+            "Failed to get packages info -> couldn't find 'requirements.txt'."
+        )
+
+    with open(str(requirements_path), "r") as stream:
+        content = stream.read()
+
+    packages = {}
+    for line in content.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("==")
+        if len(parts) != 2:
+            parts = line.split("@")
+            if len(parts) < 2:
+                raise ValueError(f"Cannot parse package info '{line}'.")
+
+            if len(parts) > 2:
+                parts = [parts[0], "@".join(parts[1:])]
+        package, version = parts
+        packages[package.strip()] = version.strip()
+
+    return packages
+
+
 def store_base_metadata(build_root, build_content_root, ayon_version):
     """Store metadata about build.
 
@@ -362,7 +396,7 @@ def store_base_metadata(build_root, build_content_root, ayon_version):
         "version": ayon_version,
         "platform": platform.system().lower(),
         "python_version": platform.python_version(),
-        "python_modules": get_packages_info(),
+        "python_modules": get_packages_info(build_root),
         "runtime_python_modules": get_runtime_modules(build_content_root),
     }
     store_build_metadata(build_root, metadata)

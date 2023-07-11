@@ -253,6 +253,7 @@ build_ayon () {
     git submodule update --init --recursive || { echo -e "${BIRed}!!!${RST} Poetry installation failed"; return 1; }
   fi
   echo -e "${BIGreen}>>>${RST} Building ..."
+  "$POETRY_HOME/bin/poetry" run python -m pip freeze > "$repo_root/build/requirements.txt"
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" build &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   elif [[ "$OSTYPE" == "darwin"* ]]; then
