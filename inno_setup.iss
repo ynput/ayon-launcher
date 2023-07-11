@@ -15,11 +15,13 @@
 AppId={{B9E9DF6A-5BDA-42DD-9F35-C09D564C4D93}
 AppName={#MyAppName}
 AppVersion={#AppVer}
-AppVerName={#MyAppName} version {#AppVer}
+; 'AppVerName' What is shown in app remove section of Control Panel
+AppVerName={#MyAppName} {#AppVer}
 AppPublisher=Ynput s.r.o
 AppPublisherURL=https://ynput.io
 AppSupportURL=https://ynput.io
 AppUpdatesURL=https://ynput.io
+; 'DefaultDirName' We don't use this value!!! Go to 'InitializeWizard'
 DefaultDirName={autopf64}\Ynput\AYON\app\{#MyAppName} {#AppVer}
 UsePreviousAppDir=no
 DisableProgramGroupPage=yes
