@@ -85,13 +85,12 @@ def create_connection(
     )
 
 
-def create_installer(
-    api: ayon_api.ServerAPI, installer_info: InstallerInfo, force:bool
-):
+def _find_matching_installer(
+    api: ayon_api.ServerAPI, installer_info: InstallerInfo
+) -> Union[InstallerInfo, None]:
     server_installers: list[dict[str, Any]] = (
         api.get_installers()["installers"])
 
-    matched_installer = None
     for server_installer in server_installers:
         platform_name: Union[str, None] = server_installer.get("platform")
         version: Union[str, None] = server_installer.get("version")
@@ -99,7 +98,7 @@ def create_installer(
             platform_name == installer_info.platform
             and version == installer_info.version
         ):
-            matched_installer = InstallerInfo(
+            return InstallerInfo(
                 version=server_installer.get("version"),
                 platform=server_installer.get("platform"),
                 filename=server_installer.get("filename"),
@@ -112,8 +111,13 @@ def create_installer(
                 runtime_python_modules=(
                     server_installer.get("runtimePythonModules")),
             )
-            break
+    return None
 
+
+def create_installer(
+    api: ayon_api.ServerAPI, installer_info: InstallerInfo, force:bool
+) -> bool:
+    matched_installer = _find_matching_installer(api, installer_info)
     if matched_installer is not None:
         if matched_installer == installer_info:
             return False
