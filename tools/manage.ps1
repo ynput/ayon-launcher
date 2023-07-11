@@ -197,6 +197,8 @@ function Create-Env {
         Write-Color -Text ">>> ", "Installing virtual environment from lock." -Color Green, Gray
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.in-project true --local
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.create true --local
     & "$env:POETRY_HOME\bin\poetry" install --no-root $poetry_verbosity --ansi
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
@@ -215,7 +217,7 @@ function Create-Env {
     Restore-Cwd
     try
     {
-        New-BurntToastNotification -AppLogo "$app_logo" -Text "OpenPype", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
+        New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
     } catch {}
     Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
 }
@@ -254,7 +256,7 @@ function Build-Ayon($MakeInstaller = $false) {
     if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        & "$repo_root\tools\create_env.ps1"
+        Create-Env
     } else {
         Write-Color -Text "OK" -Color Green
     }
@@ -317,7 +319,7 @@ function Install-Runtime-Dependencies() {
     if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        & "$repo_root\tools\create_env.ps1"
+        Create-Env
     } else {
         Write-Color -Text "OK" -Color Green
     }
