@@ -217,7 +217,7 @@ function Create-Env {
     Restore-Cwd
     try
     {
-        New-BurntToastNotification -AppLogo "$app_logo" -Text "OpenPype", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
+        New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
     } catch {}
     Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
 }
