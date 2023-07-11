@@ -76,8 +76,8 @@ if IS_WINDOWS:
     ])
 
 
-icon_path = resources_dir / "ayon.ico"
-mac_icon_path = resources_dir / "ayon.icns"
+icon_path = resources_dir / "AYON.ico"
+mac_icon_path = resources_dir / "AYON.icns"
 
 build_exe_options = dict(
     build_exe="build/output",
