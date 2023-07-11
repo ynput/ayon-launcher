@@ -256,7 +256,7 @@ function Build-Ayon($MakeInstaller = $false) {
     if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        & "$repo_root\tools\create_env.ps1"
+        Create-Env
     } else {
         Write-Color -Text "OK" -Color Green
     }
@@ -319,7 +319,7 @@ function Install-Runtime-Dependencies() {
     if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        & "$repo_root\tools\create_env.ps1"
+        Create-Env
     } else {
         Write-Color -Text "OK" -Color Green
     }
