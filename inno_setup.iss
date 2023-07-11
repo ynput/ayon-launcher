@@ -42,8 +42,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [InstallDelete]
 ; clean everything in previous installation folder
-Type: filesandordirs; Name: "{app}\*"
+Type: filesandordirs; Name: "{app}"
 
+[UninstallDelete]
+; clean everything in installation folder - it is not recommended by inno setup documentation but we need to do it
+;  because there may be files that were not available in install files (like .pyc files)
+Type: filesandordirs; Name: "{app}"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
