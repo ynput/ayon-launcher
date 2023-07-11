@@ -52,7 +52,7 @@ Type: filesandordirs; Name: "{app}"
 Type: filesandordirs; Name: "{app}"
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; AfterInstall: AfterInstallProc(); Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -63,6 +63,22 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\ayon.exe"; Tasks: desktopic
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+procedure AfterInstallProc();
+var
+  OutputFilepath: String;
+  InstallDir: String;
+begin
+  OutputFilepath := GetEnv('AYON_EXE_OUTPUT');
+  InstallDir := ExpandConstant('{app}');
+  if Length(OutputFilepath) > 0 then
+  begin
+    if FileExists(OutputFilepath) then
+    begin
+      SaveStringToFile(OutputFilepath, InstallDir, False)
+    end;
+  end;
+end;
+
 function CompareParameter(param, expected: String): Boolean;
 begin
   Result := False;
