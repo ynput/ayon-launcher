@@ -109,12 +109,17 @@ end;
 procedure InitializeWizard();
 var
   NewInstallFolder: String;
+  NewInstallRoot: String;
   CurrentDefaultDir: String;
   ProgramFilesDir: String;
 begin
   NewInstallFolder := GetParameter('DIR');
   if Length(NewInstallFolder) = 0 then
   begin
+    NewInstallRoot := GetParameter('INSTALLROOT');
+    if Length(NewInstallFolder) = 0 then
+      NewInstallRoot := NewInstallRoot + '\{#MyAppName} {#AppVer}'
+    else
       CurrentDefaultDir := ExpandConstant('{autopf64}');
       ProgramFilesDir := ExpandConstant('{commonpf64}');
       if CompareStr(CurrentDefaultDir, ProgramFilesDir) = 0 then

@@ -578,6 +578,8 @@ class InstallerDistributionItem(BaseDistributionItem):
             filepath (str): Path to setup .exe file.
         """
 
+        install_root = os.path.dirname(os.path.dirname(sys.executable))
+
         # A file where installer may store log output
         log_file = create_tmp_file(suffix="ayon_install")
         # A file where installer may store output directory
@@ -587,6 +589,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             "/CURRENTUSER",
             "/NOCANCEL",
             f"/LOG={log_file}",
+            f"/INSTALLROOT={install_root}"
         ]
         if not HEADLESS_MODE_ENABLED:
             args.append("/SILENT")
