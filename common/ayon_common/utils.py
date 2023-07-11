@@ -1,8 +1,20 @@
 import os
 import sys
+import platform
+import json
+import datetime
+import subprocess
+from uuid import UUID
+
 import appdirs
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
+HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
+# UUID of the default Windows download folder
+WIN_DOWNLOAD_FOLDER_ID = UUID("{374DE290-123F-4565-9164-39C4925E467B}")
+IMPLEMENTED_ARCHIVE_FORMATS = {
+    ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
+}
 
 
 def get_ayon_appdirs(*args):
@@ -16,7 +28,7 @@ def get_ayon_appdirs(*args):
     """
 
     return os.path.join(
-        appdirs.user_data_dir("ayon", "ynput"),
+        appdirs.user_data_dir("AYON", "Ynput"),
         *args
     )
 
@@ -88,3 +100,422 @@ def get_ayon_launch_args(*args):
         output.append(sys.argv[0])
     output.extend(args)
     return output
+
+
+# Store executables info to a file
+def get_executables_info_filepath():
+    """Get path to file where information about executables is stored.
+
+    Returns:
+        str: Path to json file where executables info are stored.
+    """
+
+    return get_ayon_appdirs("executables.json")
+
+
+def get_executables_info():
+    filepath = get_executables_info_filepath()
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r") as stream:
+                return json.load(stream)
+        except Exception:
+            pass
+
+    return {
+        "file_version": "1.0.0",
+        "available_versions": []
+    }
+
+
+def store_executables_info(info):
+    """Store information about executables.
+
+    This will override existing information so use it wisely.
+    """
+
+    filepath = get_executables_info_filepath()
+    dirpath = os.path.dirname(filepath)
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+    with open(filepath, "w") as stream:
+        json.dump(info, stream, indent=4)
+
+
+def load_version_from_file(filepath):
+    """Execute python file and return '__version__' variable."""
+
+    with open(filepath, "r") as stream:
+        version_content = stream.read()
+    version_globals = {}
+    exec(version_content, version_globals)
+    return version_globals["__version__"]
+
+
+def load_version_from_root(root):
+    """Get version of executable.
+
+    Args:
+        root (str): Path to executable.
+
+    Returns:
+        Union[str, None]: Version of executable.
+    """
+
+    version = None
+    if not root or not os.path.exists(root):
+        return version
+
+    version_filepath = os.path.join(root, "version.py")
+    if os.path.exists(version_filepath):
+        try:
+            version = load_version_from_file(version_filepath)
+        except Exception as exc:
+            print("Failed lo load version file {}. {}".format(
+                version_filepath, exc))
+
+    return version
+
+
+def load_executable_version(executable):
+    """Get version of executable.
+
+    Args:
+        executable (str): Path to executable.
+
+    Returns:
+        Union[str, None]: Version of executable.
+    """
+
+    if not executable:
+        return None
+    return load_version_from_root(os.path.dirname(executable))
+
+
+def store_executables(executables):
+    """Store information about executables.
+
+    Args:
+        executables (Iterable[str]): Paths to executables.
+    """
+
+    info = get_executables_info()
+    info.setdefault("available_versions", [])
+    for executable in executables:
+        if not executable or not os.path.exists(executable):
+            continue
+
+        root, filename = os.path.split(executable)
+        # Store only 'ayon.exe' executable
+        if filename == "ayon_console.exe":
+            filename = "ayon.exe"
+            executable = os.path.join(root, filename)
+
+        version = load_version_from_root(root)
+
+        match_item = None
+        item_is_new = True
+        for item in info["available_versions"]:
+            # 'executable' is unique identifier if available versions
+            item_executable = item.get("executable")
+            if not item_executable or item_executable != executable:
+                continue
+
+            # Version has changed, update it
+            if item.get("version") != version:
+                match_item = item
+            item_is_new = False
+            break
+
+        if match_item is None:
+            if not item_is_new:
+                continue
+            match_item = {}
+            info["available_versions"].append(match_item)
+
+        match_item.update({
+            "version": version,
+            "executable": executable,
+            "added": datetime.datetime.now().strftime("%y-%m-%d-%H%M"),
+        })
+    store_executables_info(info)
+
+
+def store_current_executable_info():
+    """Store information about current executable to a file for future usage.
+
+    Use information about current executable and version of executable and
+    add it to a list of available executables.
+
+    The function won't do anything if the application is not built or if
+    version is not set or the executable is already available.
+
+    Todos:
+        Don't store executable if is located inside 'ayon-launcher' codebase?
+    """
+
+    if not IS_BUILT_APPLICATION:
+        return
+
+    store_executables([sys.executable])
+
+
+def get_executables_info_by_version(version):
+    """Get available executable info by version.
+
+    Args:
+        version (str): Version of executable.
+
+    Returns:
+        list[dict[str, Any]]: Executable info matching version.
+    """
+
+    executables_info = get_executables_info()
+    return [
+        item
+        for item in executables_info.get("available_versions", [])
+        if item.get("version") == version
+    ]
+
+
+def get_executable_paths_by_version(version, only_available=True):
+    """Get executable paths by version.
+
+    Returns:
+        list[str]: Paths to executables.
+    """
+
+    output = []
+    for item in get_executables_info_by_version(version):
+        executable = item.get("executable")
+        if not executable:
+            continue
+
+        # Skip if executable was not found
+        if only_available and not os.path.exists(executable):
+            continue
+
+        output.append(executable)
+    return output
+
+
+def cleanup_executables_info():
+    """Remove executables that do not exist anymore."""
+
+    new_executables_info = []
+    changed = False
+    for item in get_executables_info():
+        executable = item.get("executable")
+        if not executable or not os.path.exists(executable):
+            changed = True
+            continue
+
+        version = load_executable_version(executable)
+        if version and item.get("version") != version:
+            changed = True
+            item["version"] = version
+        new_executables_info.append(item)
+
+    if changed:
+        store_executables_info(new_executables_info)
+
+
+class _Cache:
+    downloads_dir = 0
+
+
+def _get_linux_downloads_dir():
+    return subprocess.run(
+        ["xdg-user-dir", "DOWNLOAD"],
+        capture_output=True, text=True
+    ).stdout.strip("\n")
+
+
+def _get_windows_downloads_dir():
+    import ctypes
+    from ctypes import windll, wintypes
+
+    class GUID(ctypes.Structure):  # [1]
+        _fields_ = [
+            ("Data1", wintypes.DWORD),
+            ("Data2", wintypes.WORD),
+            ("Data3", wintypes.WORD),
+            ("Data4", wintypes.BYTE * 8)
+        ]
+
+        def __init__(self, uuid_):
+            ctypes.Structure.__init__(self)
+            (
+                self.Data1,
+                self.Data2,
+                self.Data3,
+                self.Data4[0],
+                self.Data4[1],
+                rest
+            ) = uuid_.fields
+            for i in range(2, 8):
+                self.Data4[i] = rest >> (8 - i - 1) * 8 & 0xff
+
+    pathptr = ctypes.c_wchar_p()
+    guid = GUID(WIN_DOWNLOAD_FOLDER_ID)
+    if windll.shell32.SHGetKnownFolderPath(
+        ctypes.byref(guid), 0, 0, ctypes.byref(pathptr)
+    ):
+        return None
+    return pathptr.value
+
+
+def _get_macos_downloads_dir():
+    """Get downloads directory on MacOS.
+
+    Notes:
+        By community forum '~/Downloads' is right way, which is default.
+
+    Returns:
+        Union[str, None]: Path to downloads directory or None if not found.
+    """
+
+    return None
+
+
+def get_downloads_dir():
+    """Downloads directory path.
+
+    Each platform may use different approach how the downloads directory is
+    received. This function will try to find the directory and return it.
+
+    Returns:
+        Union[str, None]: Path to downloads directory or None if not found.
+    """
+
+    if _Cache.downloads_dir != 0:
+        return _Cache.downloads_dir
+
+    path = None
+    try:
+        platform_name = platform.system().lower()
+        if platform_name == "linux":
+            path = _get_linux_downloads_dir()
+        elif platform_name == "windows":
+            path = _get_windows_downloads_dir()
+        elif platform_name == "darwin":
+            path = _get_macos_downloads_dir()
+
+    except Exception:
+        pass
+
+    if path is None:
+        default = os.path.expanduser("~/Downloads")
+        if os.path.exists(default):
+            path = default
+
+    _Cache.downloads_dir = path
+    return path
+
+
+def extract_archive_file(archive_file, dst_folder=None):
+    """Extract archived file to a directory.
+
+    Args:
+        archive_file (str): Path to a archive file.
+        dst_folder (Optional[str]): Directory where content will be extracted.
+            By default, same folder where archive file is.
+    """
+
+    _, ext = os.path.splitext(archive_file)
+    ext = ext.lower()
+
+    if not dst_folder:
+        dst_folder = os.path.dirname(archive_file)
+
+    print("Extracting {} -> {}".format(archive_file, dst_folder))
+    if ext == ".zip":
+        import zipfile
+
+        zip_file = zipfile.ZipFile(archive_file)
+        zip_file.extractall(dst_folder)
+        zip_file.close()
+
+    elif ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
+        import tarfile
+
+        if ext == ".tar":
+            tar_type = "r:"
+        elif ext.endswith(".xz"):
+            tar_type = "r:xz"
+        elif ext.endswith(".gz"):
+            tar_type = "r:gz"
+        elif ext.endswith(".bz2"):
+            tar_type = "r:bz2"
+        else:
+            tar_type = "r:*"
+        try:
+            tar_file = tarfile.open(archive_file, tar_type)
+        except tarfile.ReadError:
+            raise SystemExit("corrupted archive")
+        tar_file.extractall(dst_folder)
+        tar_file.close()
+
+    else:
+        raise ValueError((
+            f"Invalid file extension \"{ext}\"."
+            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
+        ))
+
+
+def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
+    """Calculate file checksum for given algorithm.
+
+    Args:
+        filepath (str): Path to a file.
+        checksum_algorithm (str): Algorithm to use. ('md5', 'sha1', 'sha256')
+        chunk_size (Optional[int]): Chunk size to read file.
+            Defaults to 10000.
+
+    Returns:
+        str: Calculated checksum.
+
+    Raises:
+        ValueError: File not found or unknown checksum algorithm.
+    """
+
+    import hashlib
+
+    if not filepath:
+        raise ValueError("Filepath is empty.")
+
+    if not os.path.exists(filepath):
+        raise ValueError("{} doesn't exist.".format(filepath))
+
+    if not os.path.isfile(filepath):
+        raise ValueError("{} is not a file.".format(filepath))
+
+    func = getattr(hashlib, checksum_algorithm, None)
+    if func is None:
+        raise ValueError(
+            "Unknown checksum algorithm '{}'".format(checksum_algorithm))
+
+    hash_obj = func()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()
+
+
+def validate_file_checksum(filepath, checksum, checksum_algorithm):
+    """Validate file checksum.
+
+    Args:
+        filepath (str): Path to file.
+        checksum (str): Hash of file.
+        checksum_algorithm (str): Type of checksum.
+
+    Returns:
+        bool: Hash is valid/invalid.
+
+    Raises:
+        ValueError: File not found or unknown checksum algorithm.
+    """
+
+    return checksum == calculate_file_checksum(filepath, checksum_algorithm)

@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod
 
 import ayon_api
 
+from ayon_common import extract_archive_file, validate_file_checksum
+
 from .file_handler import RemoteFileHandler
 from .data_structures import UrlType
 
@@ -49,36 +51,32 @@ class SourceDownloader(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def check_hash(cls, addon_path, addon_hash, hash_type="sha256"):
+    def check_hash(cls, filepath, checksum, checksum_algorithm="sha256"):
         """Compares 'hash' of downloaded 'addon_url' file.
 
         Args:
-            addon_path (str): Local path to addon file.
-            addon_hash (str): Hash of downloaded file.
-            hash_type (str): Type of hash.
+            filepath (str): Local path to addon file.
+            checksum (str): Hash of downloaded file.
+            checksum_algorithm (str): Type of hash.
 
         Raises:
             ValueError if hashes doesn't match
         """
 
-        if not os.path.exists(addon_path):
-            raise ValueError(f"{addon_path} doesn't exist.")
-        if not RemoteFileHandler.check_integrity(
-            addon_path, addon_hash, hash_type=hash_type
-        ):
-            raise ValueError(f"{addon_path} doesn't match expected hash.")
+        if not validate_file_checksum(filepath, checksum, checksum_algorithm):
+            raise ValueError(f"{filepath} doesn't match expected hash.")
 
     @classmethod
-    def unzip(cls, addon_zip_path, destination_dir):
+    def unzip(cls, filepath, destination_dir):
         """Unzips local 'addon_zip_path' to 'destination'.
 
         Args:
-            addon_zip_path (str): local path to addon zip file
+            filepath (str): local path to addon zip file
             destination_dir (str): local folder to unzip
         """
 
-        RemoteFileHandler.unzip(addon_zip_path, destination_dir)
-        os.remove(addon_zip_path)
+        extract_archive_file(filepath, destination_dir)
+        os.remove(filepath)
 
 
 class OSDownloader(SourceDownloader):
@@ -109,10 +107,6 @@ class HTTPDownloader(SourceDownloader):
         filename = source.get("filename")
         if not filename:
             filename = os.path.basename(source_url)
-            basename, ext = os.path.splitext(filename)
-            allowed_exts = set(RemoteFileHandler.IMPLEMENTED_ZIP_FORMATS)
-            if ext.lower().lstrip(".") not in allowed_exts:
-                filename = f"{basename}.zip"
         return filename
 
     @classmethod
@@ -157,15 +151,6 @@ class AyonServerDownloader(SourceDownloader):
 
         cls.log.debug(f"Downloading {filename} to {destination_dir}")
 
-        _, ext = os.path.splitext(filename)
-        ext = ext.lower().lstrip(".")
-        valid_exts = set(RemoteFileHandler.IMPLEMENTED_ZIP_FORMATS)
-        if ext not in valid_exts:
-            raise ValueError((
-                f"Invalid file extension \"{ext}\"."
-                f" Expected {', '.join(valid_exts)}"
-            ))
-
         if path:
             filepath = os.path.join(destination_dir, filename)
             return ayon_api.download_file(
@@ -195,6 +180,16 @@ class AyonServerDownloader(SourceDownloader):
                 chunk_size=cls.CHUNK_SIZE,
                 progress=transfer_progress
             )
+
+        if data["type"] == "installer":
+            filepath = os.path.join(destination_dir, filename)
+            ayon_api.download_installer(
+                filename,
+                filepath,
+                chunk_size=cls.CHUNK_SIZE,
+                progress=transfer_progress
+            )
+            return filepath
 
         raise ValueError(f"Unknown type to download \"{data['type']}\"")
 

@@ -1,5 +1,7 @@
 import os
+import json
 import subprocess
+import tempfile
 
 from ayon_common.utils import get_ayon_appdirs, get_ayon_launch_args
 
@@ -88,3 +90,33 @@ def show_missing_bundle_information(url, bundle_name=None):
     if bundle_name:
         args.extend(["--bundle", bundle_name])
     subprocess.call(args)
+
+
+def show_installer_issue_information(message, installer_path=None):
+    """Show a message that something went wrong during installer distribution.
+
+    This will trigger a subprocess with UI message dialog.
+
+    Args:
+        message (str): Error message with description of an issue.
+        installer_path (Optional[str]): Path to installer file so user can
+            try to install it manually.
+    """
+
+    ui_dir = os.path.join(os.path.dirname(__file__), "ui")
+    script_path = os.path.join(ui_dir, "installer_distribution_error.py")
+
+    with tempfile.NamedTemporaryFile(
+        suffix=".json", delete=False
+    ) as tmp:
+        filepath = tmp.name
+    with open(filepath, "w") as stream:
+        json.dump(
+            {"message": message, "installer_path": installer_path},
+            stream
+        )
+
+    args = get_ayon_launch_args(script_path, "--skip-bootstrap", filepath)
+    subprocess.call(args)
+    if os.path.exists(filepath):
+        os.remove(filepath)

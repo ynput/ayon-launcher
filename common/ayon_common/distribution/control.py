@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import tempfile
 import traceback
 import collections
 import datetime
@@ -8,39 +9,33 @@ import logging
 import shutil
 import threading
 import platform
-import attr
+import subprocess
 from enum import Enum
 
+import attr
 import ayon_api
 
-from ayon_common.utils import is_staging_enabled
+from ayon_common.utils import (
+    HEADLESS_MODE_ENABLED,
+    is_staging_enabled,
+    get_executables_info_by_version,
+    get_downloads_dir,
+)
 
+from .exceptions import BundleNotFoundError, InstallerDistributionError
 from .utils import (
     get_addons_dir,
     get_dependencies_dir,
 )
 from .downloaders import get_default_download_factory
 from .data_structures import (
+    Installer,
     AddonInfo,
     DependencyItem,
     Bundle,
 )
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
-
-
-class BundleNotFoundError(Exception):
-    """Bundle name is defined but is not available on server.
-
-    Args:
-        bundle_name (str): Name of bundle that was not found.
-    """
-
-    def __init__(self, bundle_name):
-        self.bundle_name = bundle_name
-        super().__init__(
-            f"Bundle '{bundle_name}' is not available on server"
-        )
 
 
 class UpdateState(Enum):
@@ -155,13 +150,14 @@ class DistributeTransferProgress:
         return self._fail_reason or self._transfer_progress.fail_reason
 
 
-class DistributionItem:
+class BaseDistributionItem:
     """Distribution item with sources and target directories.
 
-    Distribution item can be an addon or dependency package. Distribution item
-    can be already distributed and don't need any progression. The item keeps
-    track of the progress. The reason is to be able to use the distribution
-    items as source data for UI without implementing the same logic.
+    Distribution item can be an installer, addon or dependency package.
+    Distribution item can be already distributed and don't need any
+    progression. The item keeps track of the progress. The reason is to be
+    able to use the distribution items as source data for UI without
+    implementing the same logic.
 
     Distribution is "state" based. Distribution can be 'UPDATED' or 'OUTDATED'
     at the initialization. If item is 'UPDATED' the distribution is skipped
@@ -171,11 +167,11 @@ class DistributionItem:
     progress item.
 
     Args:
+        download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
-        unzip_dirpath (str): Path to directory where zip is downloaded.
-        download_dirpath (str): Path to directory where file is unzipped.
-        file_hash (str): Hash of file for validation.
+        checksum (str): Hash of file for validation.
+        checksum_algorithm (str): Algorithm used to generate the hash.
         factory (DownloadFactory): Downloaders factory object.
         sources (List[SourceInfo]): Possible sources to receive the
             distribution item.
@@ -186,10 +182,10 @@ class DistributionItem:
 
     def __init__(
         self,
-        state,
-        unzip_dirpath,
         download_dirpath,
-        file_hash,
+        state,
+        checksum,
+        checksum_algorithm,
         factory,
         sources,
         downloader_data,
@@ -200,14 +196,11 @@ class DistributionItem:
             logger = logging.getLogger(self.__class__.__name__)
         self.log = logger
         self.state = state
-        self.unzip_dirpath = unzip_dirpath
         self.download_dirpath = download_dirpath
-        self.file_hash = file_hash
+        self.checksum = checksum
+        self.checksum_algorithm = checksum_algorithm
         self.factory = factory
-        self.sources = [
-            (source, DistributeTransferProgress())
-            for source in sources
-        ]
+        self.sources = self._prepare_sources(sources)
         self.downloader_data = downloader_data
         self.item_label = item_label
 
@@ -220,6 +213,12 @@ class DistributionItem:
 
         self._error_msg = None
         self._error_detail = None
+
+    def _prepare_sources(self, sources):
+        return [
+            (source, DistributeTransferProgress())
+            for source in sources
+        ]
 
     @property
     def need_distribution(self):
@@ -281,6 +280,144 @@ class DistributionItem:
 
         return self._error_detail
 
+    def _pre_source_process(self):
+        download_dirpath = self.download_dirpath
+        if not os.path.isdir(download_dirpath):
+            os.makedirs(download_dirpath)
+
+    def _receive_file(self, source_data, source_progress, downloader):
+        """Receive source filepath using source data and downloader.
+
+        Args:
+            source_data (dict[str, Any]): Source information.
+            source_progress (DistributeTransferProgress): Object where to
+                track process of a source.
+            downloader (SourceDownloader): Downloader object which should care
+                about receiving file from source.
+
+        Returns:
+            Union[str, None]: Filepath to received file from source.
+        """
+
+        download_dirpath = self.download_dirpath
+
+        try:
+            filepath = downloader.download(
+                source_data,
+                download_dirpath,
+                self.downloader_data,
+                source_progress.transfer_progress,
+            )
+        except Exception:
+            message = "Failed to download source"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+            return None
+
+        source_progress.set_hash_check_started()
+        try:
+            # WARNING This condition was added because addons don't have
+            #   information about checksum at the moment.
+            # TODO remove once addon can supply checksum.
+            if self.checksum:
+                downloader.check_hash(
+                    filepath, self.checksum, self.checksum_algorithm
+                )
+        except Exception:
+            message = "File hash does not match"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+            return None
+        source_progress.set_hash_check_finished()
+        return filepath
+
+    def _post_source_process(
+        self, filepath, source_data, source_progress, downloader
+    ):
+        """Process source after it is downloaded and validated.
+
+        Override this method if downloaded file needs more logic to do, like
+            extraction.
+
+        This part will mark source as updated and will trigger cleanup of
+        source files via downloader (e.g. to remove downloaded file).
+
+        Args:
+            filepath (str): Path to a downloaded source.
+            source_data (dict[str, Any]): Source information data.
+            downloader (SourceDownloader): Object which cared about download
+                of file.
+
+        Returns:
+            bool: Post processing finished in a way that it is not needed to
+                process other possible sources. Does not mean that it was
+                successful.
+        """
+
+        if filepath:
+            self.state = UpdateState.UPDATED
+            self._used_source = source_data
+
+        downloader.cleanup(
+            source_data,
+            self.download_dirpath,
+            self.downloader_data
+        )
+        return bool(filepath)
+
+    def _process_source(self, source, source_progress):
+        """Process single source item.
+
+        Cares about download, validate and process source.
+
+        Args:
+            source (SourceInfo): Source information.
+            source_progress (DistributeTransferProgress): Object to keep track
+                about process of an source.
+
+        Returns:
+            bool: Source was processed so any other sources can be skipped.
+                Does not have to be successfull.
+        """
+
+        self._current_source_progress = source_progress
+        source_progress.set_started()
+
+        self._pre_source_process()
+        try:
+            downloader = self.factory.get_downloader(source.type)
+        except Exception:
+            message = f"Unknown downloader {source.type}"
+            source_progress.set_failed(message)
+            self.log.warning(message, exc_info=True)
+            return False
+
+        try:
+            source_data = attr.asdict(source)
+            filepath = self._receive_file(
+                source_data,
+                source_progress,
+                downloader
+            )
+            return self._post_source_process(
+                filepath, source_data, source_progress, downloader
+            )
+
+        except Exception:
+            message = "Failed to process source"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+            return False
+
     def _distribute(self):
         if not self.sources:
             message = (
@@ -292,86 +429,9 @@ class DistributionItem:
             self.state = UpdateState.MISS_SOURCE_FILES
             return
 
-        download_dirpath = self.download_dirpath
-        unzip_dirpath = self.unzip_dirpath
         for source, source_progress in self.sources:
-            self._current_source_progress = source_progress
-            source_progress.set_started()
-
-            # Remove directory if exists
-            if os.path.isdir(unzip_dirpath):
-                self.log.debug(f"Cleaning {unzip_dirpath}")
-                shutil.rmtree(unzip_dirpath)
-
-            # Create directory
-            os.makedirs(unzip_dirpath)
-            if not os.path.isdir(download_dirpath):
-                os.makedirs(download_dirpath)
-
-            try:
-                downloader = self.factory.get_downloader(source.type)
-            except Exception:
-                message = f"Unknown downloader {source.type}"
-                source_progress.set_failed(message)
-                self.log.warning(message, exc_info=True)
-                continue
-
-            source_data = attr.asdict(source)
-            cleanup_args = (
-                source_data,
-                download_dirpath,
-                self.downloader_data
-            )
-
-            try:
-                zip_filepath = downloader.download(
-                    source_data,
-                    download_dirpath,
-                    self.downloader_data,
-                    source_progress.transfer_progress,
-                )
-            except Exception:
-                message = "Failed to download source"
-                source_progress.set_failed(message)
-                self.log.warning(
-                    f"{self.item_label}: {message}",
-                    exc_info=True
-                )
-                downloader.cleanup(*cleanup_args)
-                continue
-
-            source_progress.set_hash_check_started()
-            try:
-                downloader.check_hash(zip_filepath, self.file_hash)
-            except Exception:
-                message = "File hash does not match"
-                source_progress.set_failed(message)
-                self.log.warning(
-                    f"{self.item_label}: {message}",
-                    exc_info=True
-                )
-                downloader.cleanup(*cleanup_args)
-                continue
-
-            source_progress.set_hash_check_finished()
-            source_progress.set_unzip_started()
-            try:
-                downloader.unzip(zip_filepath, unzip_dirpath)
-            except Exception:
-                message = "Couldn't unzip source file"
-                source_progress.set_failed(message)
-                self.log.warning(
-                    f"{self.item_label}: {message}",
-                    exc_info=True
-                )
-                downloader.cleanup(*cleanup_args)
-                continue
-
-            source_progress.set_unzip_finished()
-            downloader.cleanup(*cleanup_args)
-            self.state = UpdateState.UPDATED
-            self._used_source = source_data
-            break
+            if self._process_source(source, source_progress):
+                break
 
         last_progress = self._current_source_progress
         self._current_source_progress = None
@@ -382,6 +442,9 @@ class DistributionItem:
 
         self.log.error(f"{self.item_label}: Failed to distribute")
         self._error_msg = "Failed to receive or install source files"
+
+    def _post_distribute(self):
+        pass
 
     def distribute(self):
         """Execute distribution logic."""
@@ -401,7 +464,7 @@ class DistributionItem:
                 traceback.format_exception(*sys.exc_info())
             )
             self.log.error(
-                f"{self.item_label}: Distibution filed",
+                f"{self.item_label}: Distibution failed",
                 exc_info=True
             )
 
@@ -411,13 +474,295 @@ class DistributionItem:
                 self.state = UpdateState.UPDATE_FAILED
                 self._error_msg = "Distribution failed"
 
-            if (
-                self.state != UpdateState.UPDATED
-                and self.unzip_dirpath
-                and os.path.isdir(self.unzip_dirpath)
-            ):
-                self.log.debug(f"Cleaning {self.unzip_dirpath}")
-                shutil.rmtree(self.unzip_dirpath)
+            self._post_distribute()
+
+
+def create_tmp_file(suffix=None, prefix=None):
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix, prefix=prefix, delete=False
+    ) as tmp:
+        filepath = tmp.name
+    return filepath
+
+
+class InstallerDistributionItem(BaseDistributionItem):
+    """Distribution of new version of AYON launcher/Installer."""
+
+    def __init__(self, cleanup_on_fail, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cleanup_on_fail = cleanup_on_fail
+        self._executable = None
+        self._installer_path = None
+        self._installer_error = None
+
+    @property
+    def executable(self):
+        """Path to distributed ayon executable.
+
+        Returns:
+            Union[str, None]: Path to executable path which was distributed.
+        """
+
+        return self._executable
+
+    @property
+    def installer_path(self):
+        """Path to a distribution package/installer.
+
+        This can be used as reference for user where to find downloaded
+            installer on disk and distribute it manually.
+
+        Returns:
+            Union[str, None]: Path to installer.
+        """
+
+        return self._installer_path
+
+    @property
+    def installer_error(self):
+        """Known installer error that happened during distribution.
+
+        Returns:
+            Union[str, None]: Message that will be shown to user and logged
+                out.
+        """
+
+        return self._installer_error
+
+    def _find_windows_executable(self, log_output):
+        """Find executable path in log output.
+
+        Setup exe should print out log output to a file where are described
+        steps that happened during installation.
+
+        Todos:
+            Find a better way how to find out where AYON launcher was
+                installed.
+
+        Args:
+            log_output (str): Output from installer log.
+        """
+
+        exe_name = "ayon.exe"
+        for line in log_output.splitlines():
+            idx = line.find(exe_name)
+            if idx < 0:
+                continue
+
+            line = line[:idx + len(exe_name)]
+            parts = line.split("\\")
+            if len(parts) < 2:
+                parts = line.replace("/", "\\").split("\\")
+
+            last_part = parts.pop(-1)
+            found_valid = False
+            final_parts = []
+            for part in parts:
+                if found_valid:
+                    final_parts.append(part)
+                    continue
+                part = part + "\\"
+                while part:
+                    if os.path.exists(part):
+                        break
+                    part = part[1:]
+
+                if part:
+                    found_valid = True
+                    final_parts.append(part[:-1])
+            final_parts.append(last_part)
+            executable_path = "\\".join(final_parts)
+            if os.path.exists(executable_path):
+                return executable_path
+
+    def _install_windows(self, filepath):
+        """Install windows AYON launcher.
+
+        Args:
+            filepath (str): Path to setup .exe file.
+        """
+
+        install_root = os.path.dirname(os.path.dirname(sys.executable))
+
+        # A file where installer may store log output
+        log_file = create_tmp_file(suffix="ayon_install")
+        # A file where installer may store output directory
+        install_exe_tmp = create_tmp_file(suffix="ayon_install_dir")
+        args = [
+            filepath,
+            "/CURRENTUSER",
+            "/NOCANCEL",
+            f"/LOG={log_file}",
+            f"/INSTALLROOT={install_root}"
+        ]
+        if not HEADLESS_MODE_ENABLED:
+            args.append("/SILENT")
+        else:
+            args.append("/VERYSILENT")
+
+        env = dict(os.environ.items())
+        env["AYON_INSTALL_EXE_OUTPUT"] = install_exe_tmp
+
+        code = subprocess.call(args, env=env)
+        with open(log_file, "r") as stream:
+            log_output = stream.read()
+        with open(install_exe_tmp, "r") as stream:
+            install_exe_path = stream.read()
+        os.remove(log_file)
+        os.remove(install_exe_tmp)
+        if code != 0:
+            self.log.error(log_output)
+            raise InstallerDistributionError(
+                "Install process failed without known reason."
+                f" Try to install AYON manually."
+            )
+
+        executable = install_exe_path.strip() or None
+        if not executable or not os.path.exists(executable):
+            executable = self._find_windows_executable(log_output)
+
+        self._executable = executable
+
+    def _install_linux(self, filepath):
+        """Install linux AYON launcher.
+
+        Args:
+            filepath (str): Path to a .tar file.
+        """
+
+        raise NotImplementedError(
+            "Linux installer distribution is not implemented."
+        )
+
+    def _install_macos(self, filepath):
+        """Install macOS AYON launcher.
+
+        Args:
+            filepath (str): Path to a .dmg file.
+        """
+
+        raise NotImplementedError(
+            "MacOS installer distribution is not implemented."
+        )
+
+    def _install_file(self, filepath):
+        """Trigger installation installer file based on platform."""
+
+        platform_name = platform.system().lower()
+        if platform_name == "windows":
+            self._install_windows(filepath)
+        elif platform_name == "linux":
+            self._install_linux(filepath)
+        elif platform_name == "darwin":
+            self._install_macos(filepath)
+
+    def _post_source_process(
+        self, filepath, source_data, source_progress, downloader
+    ):
+        self._installer_path = filepath
+        success = False
+        try:
+            if filepath:
+                self._install_file(filepath)
+                success = True
+            else:
+                message = "File was not downloaded"
+                source_progress.set_failed(message)
+
+        except Exception as exc:
+            message = "Installation failed"
+            source_progress.set_failed(message)
+            if isinstance(exc, InstallerDistributionError):
+                self._installer_error = str(exc)
+            else:
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                self._installer_error = (
+                    f"Distribution of AYON launcher"
+                    " failed with unexpected reason."
+                )
+
+        self.state = (
+            UpdateState.UPDATED if success else UpdateState.UPDATE_FAILED
+        )
+
+        self._used_source = source_data
+        if success or self._cleanup_on_fail:
+            downloader.cleanup(
+                source_data,
+                self.download_dirpath,
+                self.downloader_data
+            )
+
+        return True
+
+
+class DistributionItem(BaseDistributionItem):
+    """Distribution item with sources and target directories.
+
+    Distribution item for addons and dependency packages. They have defined
+    unzip directory where the downloaded content is unzipped.
+
+    Args:
+        unzip_dirpath (str): Path to directory where zip is downloaded.
+        download_dirpath (str): Path to directory where file is unzipped.
+        state (UpdateState): Initial state (UpdateState.UPDATED or
+            UpdateState.OUTDATED).
+        file_hash (str): Hash of file for validation.
+        factory (DownloadFactory): Downloaders factory object.
+        sources (List[SourceInfo]): Possible sources to receive the
+            distribution item.
+        downloader_data (Dict[str, Any]): More information for downloaders.
+        item_label (str): Label used in log outputs (and in UI).
+        logger (logging.Logger): Logger object.
+    """
+
+    def __init__(self,unzip_dirpath, *args, **kwargs):
+        self.unzip_dirpath = unzip_dirpath
+        super().__init__(*args, **kwargs)
+
+    def _pre_source_process(self):
+        super()._pre_source_process()
+        unzip_dirpath = self.unzip_dirpath
+
+        # Remove directory if exists
+        if os.path.isdir(unzip_dirpath):
+            self.log.debug(f"Cleaning {unzip_dirpath}")
+            shutil.rmtree(unzip_dirpath)
+
+        # Create directory
+        os.makedirs(unzip_dirpath)
+
+    def _post_source_process(
+        self, filepath, source_data, source_progress, downloader
+    ):
+        source_progress.set_unzip_started()
+        try:
+            downloader.unzip(filepath, self.unzip_dirpath)
+        except Exception:
+            message = "Couldn't unzip source file"
+            source_progress.set_failed(message)
+            self.log.warning(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
+            return False
+        source_progress.set_unzip_finished()
+
+        return super()._post_source_process(
+            filepath, source_data, source_progress, downloader
+        )
+
+    def _post_distribute(self):
+        if (
+            self.state != UpdateState.UPDATED
+            and self.unzip_dirpath
+            and os.path.isdir(self.unzip_dirpath)
+        ):
+            self.log.debug(f"Cleaning {self.unzip_dirpath}")
+            shutil.rmtree(self.unzip_dirpath)
 
 
 class AyonDistribution:
@@ -446,6 +791,8 @@ class AyonDistribution:
         use_staging (Optional[bool]): Use staging versions of an addon.
             If not passed, 'is_staging_enabled' is used as default value.
             checked for value '1'.
+        skip_installer_dist (Optional[bool]): Skip installer distribution. This
+            is for testing purposes and for running from code.
     """
 
     def __init__(
@@ -453,11 +800,13 @@ class AyonDistribution:
         addon_dirpath=None,
         dependency_dirpath=None,
         dist_factory=None,
+        installers_info=NOT_SET,
         addons_info=NOT_SET,
         dependency_packages_info=NOT_SET,
         bundles_info=NOT_SET,
         bundle_name=NOT_SET,
-        use_staging=None
+        use_staging=None,
+        skip_installer_dist=False,
     ):
         self._log = None
 
@@ -472,6 +821,15 @@ class AyonDistribution:
 
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME", NOT_SET)
+
+        self._installers_info = installers_info
+        self._installer_items = NOT_SET
+        self._expected_installer_version = NOT_SET
+        self._installer_item = NOT_SET
+        self._installer_executable = NOT_SET
+        self._skip_installer_dist = skip_installer_dist
+        self._installer_filepath = None
+        self._installer_dist_error = None
 
         # Raw addons data from server
         self._addons_info = addons_info
@@ -631,8 +989,264 @@ class AyonDistribution:
 
     @property
     def bundle_name_to_use(self):
+        """Name of bundle that will be used for distribution.
+
+        Returns:
+            Union[str, None]: Name of bundle that will be used for
+                distribution.
+        """
+
         bundle = self.bundle_to_use
         return None if bundle is None else bundle.name
+
+    @property
+    def installers_info(self):
+        """Installers information from server.
+
+        Returns:
+            list[dict[str, Any]]: Installers information from server.
+        """
+
+        if self._installers_info is NOT_SET:
+            self._installers_info = ayon_api.get_installers()["installers"]
+        return self._installers_info
+
+    @property
+    def installer_items(self):
+        """Installers as objects.
+
+        Returns:
+            list[Installer]: List of installers info from server.
+        """
+
+        if self._installer_items is NOT_SET:
+            self._installer_items = [
+                Installer.from_dict(info)
+                for info in self.installers_info
+            ]
+        return self._installer_items
+
+    @property
+    def expected_installer_version(self):
+        """Excepted installer version.
+
+        Returns:
+            Union[str, None]: Expected installer version or None defined by
+                bundle that should be used.
+        """
+
+        if self._expected_installer_version is not NOT_SET:
+            return self._expected_installer_version
+
+        bundle = self.bundle_to_use
+        version = None if bundle is None else bundle.installer_version
+        self._expected_installer_version = version
+        return version
+
+    @property
+    def need_installer_change(self):
+        """Installer should be changed.
+
+        Current installer is using different version than what is expected
+            by bundle.
+
+        Returns:
+            bool: True if installer should be changed.
+        """
+
+        if self._skip_installer_dist:
+            return False
+
+        version = os.getenv("AYON_VERSION")
+        return version != self.expected_installer_version
+
+    @property
+    def need_installer_distribution(self):
+        """Installer distribution is needed.
+
+        Todos:
+            Add option to skip if running from code?
+
+        Returns:
+            bool: True if installer distribution is needed.
+        """
+
+        if not self.need_installer_change:
+            return False
+
+        return self.installer_executable is None
+
+    @property
+    def installer_dist_error(self):
+        """Installer distribution error message.
+
+        Returns:
+              Union[str, None]: Error that happened during installer
+                distribution.
+        """
+
+        return self._installer_dist_error
+
+    @property
+    def installer_filepath(self):
+        """Path to a distribution package/installer.
+
+        This can be used as reference for user where to find downloaded
+            installer on disk and distribute it manually.
+
+        Returns:
+            Union[str, None]: Path to installer.
+        """
+
+        return self._installer_filepath
+
+    @property
+    def installer_executable(self):
+        """Path to installer executable that should be used.
+
+        Notes:
+            The 'installer_executable' is maybe confusing naming. It might be
+                called 'ayon_executable'?
+
+        Returns:
+            Union[str, None]: Path to installer executable that should be
+                used. None if executable is not found and must be distributed
+                or bundle does not have defined an installer to use.
+        """
+
+        if self._installer_executable is not NOT_SET:
+            return self._installer_executable
+
+        path = None
+        if not self.need_installer_change:
+            path = sys.executable
+
+        else:
+            # Compare existing executable with current executable
+            current_executable = sys.executable
+            # Use 'ayon.exe' for executable lookup on Windows
+            root, filename = os.path.split(current_executable)
+            if filename == "ayon_console.exe":
+                current_executable = os.path.join(root, "ayon.exe")
+
+            executables_info = get_executables_info_by_version(
+                self.expected_installer_version)
+            for executable_info in executables_info:
+                executable_path = executable_info.get("executable")
+                if (
+                    not os.path.exists(executable_path)
+                    or executable_path == current_executable
+                ):
+                    continue
+                path = executable_path
+                break
+
+            # Make sure current executable filename is used on Windows
+            if path and filename == "ayon_console.exe":
+                path = os.path.join(os.path.dirname(path), filename)
+
+        self._installer_executable = path
+        return path
+
+    @property
+    def installer_item(self):
+        """Installer item that should be used for distribution.
+
+        Returns:
+            Union[Installer, None]: Installer information item.
+        """
+
+        if self._installer_item is not NOT_SET:
+            return self._installer_item
+
+        final_item = None
+        expected_version = self.expected_installer_version
+        if expected_version:
+            final_item = next(
+                (
+                    item
+                    for item in self.installer_items
+                    if (
+                        item.version == expected_version
+                        and item.platform_name == platform.system().lower()
+                    )
+                ),
+                None
+            )
+
+        self._installer_item = final_item
+        return final_item
+
+    def distribute_installer(self):
+        """Distribute installer."""
+
+        installer_item = self.installer_item
+        if installer_item is None:
+            self._installer_executable = None
+            self._installer_dist_error = (
+                f"Release bundle {self.bundle_name_to_use}"
+                " does not have set installer version to use."
+            )
+            return
+
+        downloader_data = {
+            "type": "installer",
+            "version": installer_item.version,
+            "filename": installer_item.filename,
+        }
+
+        tmp_used = False
+        downloads_dir = get_downloads_dir()
+        if not downloads_dir or not os.path.exists(downloads_dir):
+            tmp_used = True
+            downloads_dir = tempfile.mkdtemp(prefix="ayon_installer")
+
+        dist_item = None
+        try:
+            dist_item = InstallerDistributionItem(
+                tmp_used,
+                downloads_dir,
+                UpdateState.OUTDATED,
+                installer_item.checksum,
+                installer_item.checksum_algorithm,
+                self._dist_factory,
+                list(installer_item.sources),
+                downloader_data,
+                f"Installer {installer_item.version}"
+            )
+            dist_item.distribute()
+            self._installer_executable = dist_item.executable
+            if dist_item.installer_error is not None:
+                self._installer_dist_error = dist_item.installer_error
+
+            elif dist_item.state == UpdateState.MISS_SOURCE_FILES:
+                self._installer_dist_error = (
+                    "Couldn't find valid installer source for required"
+                    f" AYON launcher version {installer_item.version}."
+                )
+
+            elif not self._installer_executable:
+                self._installer_dist_error = (
+                    "Couldn't find installed AYON launcher."
+                    " Please try to launch AYON manually."
+                )
+
+        except Exception:
+            self.log.warning(
+                "Installer distribution failed do to unknown reasons.",
+                exc_info=True
+            )
+            self._installer_dist_error = (
+                f"Distribution of AYON launcher {installer_item.version}"
+                " failed with unexpected reason."
+            )
+
+        finally:
+            if dist_item is not None:
+                self._installer_filepath = dist_item.installer_path
+
+            if tmp_used and os.path.exists(downloads_dir):
+                shutil.rmtree(downloads_dir)
 
     @property
     def addons_info(self):
@@ -768,10 +1382,11 @@ class AyonDistribution:
             }
 
             dist_item = DistributionItem(
+                addon_dest,
+                addon_dest,
                 state,
-                addon_dest,
-                addon_dest,
-                addon_version_item.hash,
+                addon_version_item.checksum,
+                addon_version_item.checksum_algorithm,
                 self._dist_factory,
                 list(addon_version_item.sources),
                 downloader_data,
@@ -809,9 +1424,9 @@ class AyonDistribution:
             state = UpdateState.UPDATED
 
         return DistributionItem(
-            state,
             zip_dir,
             package_dir,
+            state,
             package.checksum,
             self._dist_factory,
             package.sources,
@@ -979,7 +1594,9 @@ class AyonDistribution:
             if source is not None:
                 data = {
                     "source": source,
-                    "file_hash": dependency_dist_item.file_hash,
+                    "checksum": dependency_dist_item.checksum,
+                    "checksum_algorithm": (
+                        dependency_dist_item.checksum_alhorithm),
                     "distributed_dt": stored_time
                 }
                 self.update_dependency_metadata(package.name, data)
@@ -1002,7 +1619,8 @@ class AyonDistribution:
             addons_info.setdefault(addon_name, {})
             addons_info[addon_name][addon_version] = {
                 "source": source_data,
-                "file_hash": dist_item.file_hash,
+                "checksum": dist_item.checksum,
+                "checksum_algorithm": dist_item.checksum_algorithm,
                 "distributed_dt": stored_time
             }
 
@@ -1045,6 +1663,12 @@ class AyonDistribution:
         if self._dist_started:
             raise RuntimeError("Distribution already started")
         self._dist_started = True
+
+        if self.need_installer_change:
+            if self.need_installer_distribution:
+                self.distribute_installer()
+            return
+
         threads = collections.deque()
         for item in self.get_all_distribution_items():
             if threaded:

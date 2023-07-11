@@ -62,6 +62,7 @@ bin_includes = [
     "vendor"
 ]
 include_files = [
+    "version.py",
     "common",
     "LICENSE",
     "README.md"

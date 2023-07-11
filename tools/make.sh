@@ -293,6 +293,10 @@ make_installer() {
   echo -e "${BIWhite}$repo_root/build${RST} directory."
 }
 
+upload_to_server() {
+  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/upload_to_server.py" "$@"
+}
+
 run_from_code() {
   pushd "$repo_root" > /dev/null || return > /dev/null
   echo -e "${BIGreen}>>>${RST} Running AYON from code ..."
@@ -349,6 +353,10 @@ main() {
       ;;
     "buildmakeinstaller")
       build_ayon 1 || return_code=$?
+      exit $return_code
+      ;;
+    "upload")
+      upload_to_server "${@:2}" || return_code=$?
       exit $return_code
       ;;
     "run")

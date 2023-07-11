@@ -15,12 +15,14 @@
 AppId={{EE9F8244-B9CD-4162-B28B-97B7F2F465E8}
 AppName={#MyAppName}
 AppVersion={#AppVer}
-AppVerName={#MyAppName} version {#AppVer}
+; 'AppVerName' What is shown in app remove section of Control Panel
+AppVerName={#MyAppName} {#AppVer}
 AppPublisher=Ynput s.r.o
 AppPublisherURL=https://ynput.io
 AppSupportURL=https://ynput.io
 AppUpdatesURL=https://ynput.io
-DefaultDirName={autopf}\{#MyAppName}\{#AppVer}
+; 'DefaultDirName' We don't use this value!!! Go to 'InitializeWizard'
+DefaultDirName={autopf64}\Ynput\AYON\app\{#MyAppName} {#AppVer}
 UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 OutputBaseFilename={#OutputFilename}
@@ -33,6 +35,7 @@ OutputDir={#OutputDir}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+UninstallDisplayIcon={app}\ayon.exe
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -42,16 +45,88 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [InstallDelete]
 ; clean everything in previous installation folder
-Type: filesandordirs; Name: "{app}\*"
+Type: filesandordirs; Name: "{app}"
 
+[UninstallDelete]
+; clean everything in installation folder - it is not recommended by inno setup documentation but we need to do it
+;  because there may be files that were not available in install files (like .pyc files)
+Type: filesandordirs; Name: "{app}"
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; AfterInstall: AfterInstallProc(); Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"
-Name: "{autodesktop}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\ayon.exe"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\ayon.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure AfterInstallProc();
+var
+  OutputFilepath: String;
+  InstallDir: String;
+begin
+  OutputFilepath := GetEnv('AYON_INSTALL_EXE_OUTPUT');
+  InstallDir := ExpandConstant('{app}');
+  if Length(OutputFilepath) > 0 then
+  begin
+    if FileExists(OutputFilepath) then
+    begin
+      SaveStringToFile(OutputFilepath, InstallDir+'\ayon.exe', False)
+    end;
+  end;
+end;
+
+function CompareParameter(param, expected: String): Boolean;
+begin
+  Result := False;
+  if Length(param) >= Length(expected) then
+  begin
+    if CompareText(Copy(param, 1, Length(expected)), expected) = 0 then
+    begin
+      Result := True;
+    end;
+  end;
+end;
+
+function GetParameter(expectedParam: String): String;
+var
+  i : LongInt;
+begin
+  Result := '';
+  for i := 0 to ParamCount() do
+  begin
+    if CompareParameter(ParamStr(i), '/' + expectedParam + '=') then
+    begin
+      Result := Copy(ParamStr(i), Length(expectedParam) + 3, Length(ParamStr(i)));
+      break;
+    end;
+  end;
+end;
+
+procedure InitializeWizard();
+var
+  NewInstallFolder: String;
+  NewInstallRoot: String;
+  CurrentDefaultDir: String;
+  ProgramFilesDir: String;
+begin
+  NewInstallFolder := GetParameter('DIR');
+  if Length(NewInstallFolder) = 0 then
+  begin
+    NewInstallRoot := GetParameter('INSTALLROOT');
+    if Length(NewInstallFolder) = 0 then
+      NewInstallRoot := NewInstallRoot + '\{#MyAppName} {#AppVer}'
+    else
+      CurrentDefaultDir := ExpandConstant('{autopf64}');
+      ProgramFilesDir := ExpandConstant('{commonpf64}');
+      if CompareStr(CurrentDefaultDir, ProgramFilesDir) = 0 then
+        NewInstallFolder := ExpandConstant('{commonpf64}') + '\Ynput\{#MyAppName} {#AppVer}'
+      else
+        NewInstallFolder := ExpandConstant('{localappdata}') + '\Ynput\AYON\app\{#MyAppName} {#AppVer}';
+  end;
+  WizardForm.DirEdit.Text := NewInstallFolder;
+end;

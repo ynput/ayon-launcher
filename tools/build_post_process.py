@@ -22,6 +22,7 @@ import os
 import sys
 import re
 import json
+import tempfile
 import time
 import site
 import platform
@@ -29,6 +30,7 @@ import subprocess
 import shutil
 import tarfile
 import hashlib
+import copy
 from pathlib import Path
 
 import blessed
@@ -297,6 +299,10 @@ def dependency_cleanup(ayon_root, build_content_root):
     _print(f"Dependency cleanup done in {total_time} secs.")
 
 
+class _RuntimeModulesCache:
+    cache = None
+
+
 def get_runtime_modules(root):
     """Get runtime modules and their versions.
 
@@ -310,28 +316,33 @@ def get_runtime_modules(root):
         dict[str, Union[str, None]]: Module name and version.
     """
 
-    version_regex = re.compile("__version__\s*=\s*[\"'](?P<version>.*)[\"']")
+    if _RuntimeModulesCache.cache is not None:
+        return copy.deepcopy(_RuntimeModulesCache.cache)
 
-    output = {}
-    runtime_dep_root = root / "vendor" / "python"
-    for subdir in runtime_dep_root.iterdir():
-        if not subdir.is_dir():
-            continue
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(current_dir, "_runtime_deps.py")
 
-        version_file = subdir / "version.py"
-        if not version_file.exists():
-            version_file = subdir / "__init__.py"
-            if not version_file.exists():
-                continue
+    executable = root / "ayon"
+    with tempfile.NamedTemporaryFile(
+        prefix="ayon_rtd", suffix=".json", delete=False
+    ) as tmp:
+        output_path = tmp.name
 
-        with open(version_file, "r") as stream:
-            content = stream.read()
-        version = None
-        for result in version_regex.findall(content):
-            version = result
+    try:
+        return_code = subprocess.call(
+            [str(executable), "--skip-bootstrap", script_path, output_path]
+        )
+        if return_code != 0:
+            raise ValueError("Wasn't able to get runtime modules.")
 
-        output[subdir.name] = version
-    return output
+        with open(output_path, "r") as stream:
+            data = json.load(stream)
+
+    finally:
+        os.remove(output_path)
+
+    _RuntimeModulesCache.cache = data
+    return data
 
 
 def store_base_metadata(build_root, build_content_root, ayon_version):
@@ -423,7 +434,7 @@ def _create_windows_installer(
 
     inno_setup_path = ayon_root / "inno_setup.iss"
     env = os.environ.copy()
-    installer_basename = f"AYON-{ayon_version}-install"
+    installer_basename = f"AYON-{ayon_version}-win-setup"
 
     env["BUILD_SRC_DIR"] = str(build_content_root.relative_to(ayon_root))
     env["BUILD_DST_DIR"] = str(build_root.relative_to(ayon_root))
@@ -532,8 +543,8 @@ def store_installer_metadata(build_root, installer_path):
         file_hash = hashlib.md5(stream.read()).hexdigest()
 
     metadata.update({
-        "hash": file_hash,
-        "hash_type": "md5",
+        "checksum": file_hash,
+        "checksum_algorithm": "md5",
         "size": os.path.getsize(installer_path),
         "installer_path": installer_path
     })

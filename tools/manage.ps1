@@ -18,9 +18,8 @@ PS> .\manage.ps1 create-env --verbose
 
 #>
 
-Param([Parameter(Position=0)]$FunctionName)
-
-$arguments=$ARGS
+$FunctionName=$ARGS[0]
+$arguments=$ARGS[1..($ARGS.Length-1)]
 $poetry_verbosity=$null
 $disable_submodule_update=""
 if($arguments -eq "--verbose") {
@@ -177,6 +176,7 @@ function Default-Func {
     Write-Host "  build                         Build desktop application"
     Write-Host "  make-installer                Make desktop application installer"
     Write-Host "  build-make-installer          Build desktop application and make installer"
+    Write-Host "  upload                        Upload installer to server"
     Write-Host "  run                           Run desktop application from code"
     Write-Host ""
 }
@@ -297,6 +297,10 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
+function Upload-To-Server() {
+    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\upload_to_server.py"  @args
+}
+
 function Make-Ayon-Installer-Raw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
@@ -358,6 +362,9 @@ function Main {
     } elseif ($FunctionName -eq "buildmakeinstaller") {
         Change-Cwd
         Build-Ayon -MakeInstaller true
+    } elseif ($FunctionName -eq "upload") {
+        Change-Cwd
+        Upload-To-Server "upload" @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func

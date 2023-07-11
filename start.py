@@ -8,9 +8,11 @@ import sys
 import site
 import traceback
 import contextlib
-
+import subprocess
 
 from version import __version__
+
+ORIGINAL_ARGS = list(sys.argv)
 
 # Enabled logging debug mode when "--debug" is passed
 if "--verbose" in sys.argv:
@@ -116,13 +118,17 @@ else:
 sys.path.append(_dependencies_path)
 _python_paths.append(_dependencies_path)
 
+# Add common package to PYTHONPATH
+# - common contains common code and bootstrap logic (like connection and bootstrap)
+common_path = os.path.join(AYON_ROOT, "common")
+sys.path.insert(0, common_path)
+if common_path in _python_paths:
+    _python_paths.remove(common_path)
+_python_paths.insert(0, _dependencies_path)
+
 # Vendored python modules that must not be in PYTHONPATH environment but
 #   are required for OpenPype processes
 sys.path.insert(0, os.path.join(AYON_ROOT, "vendor", "python"))
-
-# Add common package to sys path
-# - common contains common code for bootstraping and OpenPype processes
-sys.path.insert(0, os.path.join(AYON_ROOT, "common"))
 
 os.environ["PYTHONPATH"] = os.pathsep.join(_python_paths)
 
@@ -196,7 +202,10 @@ from ayon_common.distribution import (
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
+    show_installer_issue_information,
 )
+
+from ayon_common.utils import store_current_executable_info
 
 
 def set_global_environments() -> None:
@@ -281,7 +290,9 @@ def _check_and_update_from_ayon_server():
         RuntimeError
     """
 
-    distribution = AyonDistribution()
+    distribution = AyonDistribution(
+        skip_installer_dist=not IS_BUILT_APPLICATION
+    )
     bundle = None
     bundle_name = None
     try:
@@ -318,9 +329,33 @@ def _check_and_update_from_ayon_server():
         sys.exit(1)
 
     distribution.distribute()
+    if distribution.need_installer_change:
+        # Check if any error happened
+        error = distribution.installer_dist_error
+        if error:
+            if HEADLESS_MODE_ENABLED:
+                _print(error)
+            else:
+                show_installer_issue_information(
+                    error,
+                    distribution.installer_filepath
+                )
+            sys.exit(1)
+
+        # Use new executable to relaunch different AYON launcher version
+        executable = distribution.installer_executable
+        args = list(ORIGINAL_ARGS)
+        # Replace executable with new executable
+        args[0] = executable
+        # TODO figure out how this should be launched
+        #   - it can technically cause infinite loop of subprocesses
+        sys.exit(subprocess.call(args))
+
+    # TODO check failed distribution and inform user
     distribution.validate_distribution()
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
+    # TODO probably remove paths to other addons?
     python_paths = [
         path
         for path in os.getenv("PYTHONPATH", "").split(os.pathsep)
@@ -339,6 +374,7 @@ def boot():
 
     _connect_to_ayon_server()
     _check_and_update_from_ayon_server()
+    store_current_executable_info()
 
 
 def main_cli():
