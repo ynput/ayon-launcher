@@ -319,9 +319,13 @@ class BaseDistributionItem:
 
         source_progress.set_hash_check_started()
         try:
-            downloader.check_hash(
-                filepath, self.checksum, self.checksum_algorithm
-            )
+            # WARNING This condition was added because addons don't have
+            #   information about checksum at the moment.
+            # TODO remove once addon can supply checksum.
+            if self.checksum:
+                downloader.check_hash(
+                    filepath, self.checksum, self.checksum_algorithm
+                )
         except Exception:
             message = "File hash does not match"
             source_progress.set_failed(message)
