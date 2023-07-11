@@ -54,8 +54,8 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"
-Name: "{autodesktop}\{#MyAppName} {#AppVer}"; Filename: "{app}\ayon.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\ayon.exe"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\ayon.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
