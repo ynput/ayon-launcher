@@ -414,6 +414,26 @@ def get_downloads_dir():
     return path
 
 
+def get_archive_ext_and_type(archive_file):
+    """Get archive extension and type.
+
+    Args:
+        archive_file (str): Path to archive file.
+
+    Returns:
+        Tuple[str, str]: Archive extension and type.
+    """
+
+    ext = os.path.splitext(archive_file)[1].lower()
+    if ext == ".zip":
+        return ext, "zip"
+
+    if ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
+        return ext, "tar"
+
+    return None, None
+
+
 def extract_archive_file(archive_file, dst_folder=None):
     """Extract archived file to a directory.
 
@@ -423,30 +443,36 @@ def extract_archive_file(archive_file, dst_folder=None):
             By default, same folder where archive file is.
     """
 
-    _, ext = os.path.splitext(archive_file)
-    ext = ext.lower()
-
     if not dst_folder:
         dst_folder = os.path.dirname(archive_file)
 
+    archive_ext, archive_type = get_archive_ext_and_type(archive_file)
+
     print("Extracting {} -> {}".format(archive_file, dst_folder))
-    if ext == ".zip":
+    if archive_type is None:
+        _, ext = os.path.splitext(archive_file)
+        raise ValueError((
+            f"Invalid file extension \"{ext}\"."
+            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
+        ))
+
+    if archive_type == "zip":
         import zipfile
 
         zip_file = zipfile.ZipFile(archive_file)
         zip_file.extractall(dst_folder)
         zip_file.close()
 
-    elif ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
+    elif archive_type == "tar":
         import tarfile
 
-        if ext == ".tar":
+        if archive_ext == ".tar":
             tar_type = "r:"
-        elif ext.endswith(".xz"):
+        elif archive_ext.endswith(".xz"):
             tar_type = "r:xz"
-        elif ext.endswith(".gz"):
+        elif archive_ext.endswith(".gz"):
             tar_type = "r:gz"
-        elif ext.endswith(".bz2"):
+        elif archive_ext.endswith(".bz2"):
             tar_type = "r:bz2"
         else:
             tar_type = "r:*"
@@ -456,12 +482,6 @@ def extract_archive_file(archive_file, dst_folder=None):
             raise SystemExit("corrupted archive")
         tar_file.extractall(dst_folder)
         tar_file.close()
-
-    else:
-        raise ValueError((
-            f"Invalid file extension \"{ext}\"."
-            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
-        ))
 
 
 def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
