@@ -17,6 +17,7 @@ import ayon_api
 
 from ayon_common.utils import (
     HEADLESS_MODE_ENABLED,
+    extract_archive_file,
     is_staging_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
@@ -626,13 +627,32 @@ class InstallerDistributionItem(BaseDistributionItem):
     def _install_linux(self, filepath):
         """Install linux AYON launcher.
 
-        Args:
-            filepath (str): Path to a .tar file.
-        """
+        Linux installations are just an archive file, so we attempt to unzip the new
+        installation one level up of the one being run.
 
-        raise NotImplementedError(
-            "Linux installer distribution is not implemented."
-        )
+        Args:
+            filepath (str): Path to a .tar.gz file.
+        """
+        install_root = os.path.dirname(os.path.dirname(sys.executable))
+
+        self.log.info(f"Installing AYON launcher {filepath} into:\n{install_root}")
+        if not os.path.exists(install_root):
+            os.makedirs(install_root)
+
+        try:
+            extract_archive_file(filepath, destination_path=install_root)
+        except Exception as e:
+            self.log.error(e)
+            raise InstallerDistributionError(
+                "Install process failed without known reason."
+                " Try to install AYON manually."
+            )
+
+        installer_dir = os.path.basename(filepath).replace(".tar.gz", "")
+        executable = os.path.join(install_root, installer_dir, "ayon")
+        self.log.info(f"Setting executable to {executable}")
+        self._executable = executable
+
 
     def _install_macos(self, filepath):
         """Install macOS AYON launcher.
