@@ -5,8 +5,6 @@ from urllib.parse import urlparse
 import urllib.request
 import urllib.error
 import itertools
-import tarfile
-import zipfile
 
 import requests
 
@@ -121,41 +119,6 @@ class RemoteFileHandler:
             itertools.chain((first_chunk, ),
                             response_content_generator), fpath)
         response.close()
-
-    @staticmethod
-    def unzip(path, destination_path=None):
-        if not destination_path:
-            destination_path = os.path.dirname(path)
-
-        _, archive_type = os.path.splitext(path)
-        archive_type = archive_type.lstrip(".")
-
-        if archive_type in ["zip"]:
-            print(f"Unzipping {path}->{destination_path}")
-            zip_file = zipfile.ZipFile(path)
-            zip_file.extractall(destination_path)
-            zip_file.close()
-
-        elif archive_type in [
-            "tar", "tgz", "tar.gz", "tar.xz", "tar.bz2"
-        ]:
-            print(f"Unzipping {path}->{destination_path}")
-            if archive_type == "tar":
-                tar_type = "r:"
-            elif archive_type.endswith("xz"):
-                tar_type = "r:xz"
-            elif archive_type.endswith("gz"):
-                tar_type = "r:gz"
-            elif archive_type.endswith("bz2"):
-                tar_type = "r:bz2"
-            else:
-                tar_type = "r:*"
-            try:
-                tar_file = tarfile.open(path, tar_type)
-            except tarfile.ReadError:
-                raise SystemExit("corrupted archive")
-            tar_file.extractall(destination_path)
-            tar_file.close()
 
     @staticmethod
     def _urlretrieve(url, filename, chunk_size=None, headers=None):
