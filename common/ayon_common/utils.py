@@ -4,6 +4,8 @@ import platform
 import json
 import datetime
 import subprocess
+import zipfile
+import tarfile
 from uuid import UUID
 
 import appdirs
@@ -414,6 +416,29 @@ def get_downloads_dir():
     return path
 
 
+class ZipFileLongPaths(zipfile.ZipFile):
+    """Allows longer paths in zip files.
+
+    Regular DOS paths are limited to MAX_PATH (260) characters, including
+    the string's terminating NUL character.
+    That limit can be exceeded by using an extended-length path that
+    starts with the '\\?\' prefix.
+    """
+    _is_windows = platform.system().lower() == "windows"
+
+    def _extract_member(self, member, tpath, pwd):
+        if self._is_windows:
+            tpath = os.path.abspath(tpath)
+            if tpath.startswith("\\\\"):
+                tpath = "\\\\?\\UNC\\" + tpath[2:]
+            else:
+                tpath = "\\\\?\\" + tpath
+
+        return super(ZipFileLongPaths, self)._extract_member(
+            member, tpath, pwd
+        )
+
+
 def get_archive_ext_and_type(archive_file):
     """Get archive extension and type.
 
@@ -457,15 +482,11 @@ def extract_archive_file(archive_file, dst_folder=None):
         ))
 
     if archive_type == "zip":
-        import zipfile
-
-        zip_file = zipfile.ZipFile(archive_file)
+        zip_file = ZipFileLongPaths(archive_file)
         zip_file.extractall(dst_folder)
         zip_file.close()
 
     elif archive_type == "tar":
-        import tarfile
-
         if archive_ext == ".tar":
             tar_type = "r:"
         elif archive_ext.endswith(".xz"):
