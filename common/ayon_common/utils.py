@@ -449,12 +449,19 @@ def get_archive_ext_and_type(archive_file):
         Tuple[str, str]: Archive extension and type.
     """
 
-    ext = os.path.splitext(archive_file)[1].lower()
-    if ext == ".zip":
-        return ext, "zip"
+    tmp_name = archive_file.lower()
+    if tmp_name.endswith(".zip"):
+        return ".zip", "zip"
 
-    if ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
-        return ext, "tar"
+    for ext in (
+        ".tar",
+        ".tgz",
+        ".tar.gz",
+        ".tar.xz",
+        ".tar.bz2",
+    ):
+        if tmp_name.endswith(ext):
+            return ext, "tar"
 
     return None, None
 
