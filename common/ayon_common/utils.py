@@ -423,43 +423,42 @@ def extract_archive_file(archive_file, dst_folder=None):
             By default, same folder where archive file is.
     """
 
-    _, ext = os.path.splitext(archive_file)
-    ext = ext.lower()
-
     if not dst_folder:
         dst_folder = os.path.dirname(archive_file)
 
+    archive_file_lower = archive_file.lower()
     print("Extracting {} -> {}".format(archive_file, dst_folder))
-    if ext == ".zip":
-        import zipfile
 
+    if archive_file_lower.endswith(".zip"):
+        import zipfile
         zip_file = zipfile.ZipFile(archive_file)
         zip_file.extractall(dst_folder)
         zip_file.close()
 
-    elif ext in {".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"}:
+    elif archive_file_lower.endswith(("tar", "tgz", "tar.gz", "tar.xz", "tar.bz2")):
         import tarfile
+        # tgz
+        tar_type = "r:*"
 
-        if ext == ".tar":
-            tar_type = "r:"
-        elif ext.endswith(".xz"):
+        if archive_file_lower.endswith(".tar.xz"):
             tar_type = "r:xz"
-        elif ext.endswith(".gz"):
+        elif archive_file_lower.endswith(".tar.gz"):
             tar_type = "r:gz"
-        elif ext.endswith(".bz2"):
+        elif archive_file_lower.endswith(".tar.bz2"):
             tar_type = "r:bz2"
-        else:
-            tar_type = "r:*"
+        elif archive_file_lower.endswith(".tar"):
+            tar_type = "r:"
+
         try:
             tar_file = tarfile.open(archive_file, tar_type)
         except tarfile.ReadError:
             raise SystemExit("corrupted archive")
+
         tar_file.extractall(dst_folder)
         tar_file.close()
-
     else:
         raise ValueError((
-            f"Invalid file extension \"{ext}\"."
+            f"Invalid file extension \"{os.path.basename(archive_file)}\"."
             f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
         ))
 
