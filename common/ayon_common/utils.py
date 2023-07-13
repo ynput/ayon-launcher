@@ -504,10 +504,12 @@ def extract_archive_file(archive_file, dst_folder=None):
             tar_type = "r:bz2"
         else:
             tar_type = "r:*"
+
         try:
             tar_file = tarfile.open(archive_file, tar_type)
         except tarfile.ReadError:
             raise SystemExit("corrupted archive")
+
         tar_file.extractall(dst_folder)
         tar_file.close()
 
