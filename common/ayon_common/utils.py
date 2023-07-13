@@ -4,6 +4,8 @@ import platform
 import json
 import datetime
 import subprocess
+import zipfile
+import tarfile
 from uuid import UUID
 
 import appdirs
@@ -414,6 +416,56 @@ def get_downloads_dir():
     return path
 
 
+class ZipFileLongPaths(zipfile.ZipFile):
+    """Allows longer paths in zip files.
+
+    Regular DOS paths are limited to MAX_PATH (260) characters, including
+    the string's terminating NUL character.
+    That limit can be exceeded by using an extended-length path that
+    starts with the '\\?\' prefix.
+    """
+    _is_windows = platform.system().lower() == "windows"
+
+    def _extract_member(self, member, tpath, pwd):
+        if self._is_windows:
+            tpath = os.path.abspath(tpath)
+            if tpath.startswith("\\\\"):
+                tpath = "\\\\?\\UNC\\" + tpath[2:]
+            else:
+                tpath = "\\\\?\\" + tpath
+
+        return super(ZipFileLongPaths, self)._extract_member(
+            member, tpath, pwd
+        )
+
+
+def get_archive_ext_and_type(archive_file):
+    """Get archive extension and type.
+
+    Args:
+        archive_file (str): Path to archive file.
+
+    Returns:
+        Tuple[str, str]: Archive extension and type.
+    """
+
+    tmp_name = archive_file.lower()
+    if tmp_name.endswith(".zip"):
+        return ".zip", "zip"
+
+    for ext in (
+        ".tar",
+        ".tgz",
+        ".tar.gz",
+        ".tar.xz",
+        ".tar.bz2",
+    ):
+        if tmp_name.endswith(ext):
+            return ext, "tar"
+
+    return None, None
+
+
 def extract_archive_file(archive_file, dst_folder=None):
     """Extract archived file to a directory.
 
@@ -426,28 +478,32 @@ def extract_archive_file(archive_file, dst_folder=None):
     if not dst_folder:
         dst_folder = os.path.dirname(archive_file)
 
-    archive_file_lower = archive_file.lower()
-    print("Extracting {} -> {}".format(archive_file, dst_folder))
+    archive_ext, archive_type = get_archive_ext_and_type(archive_file)
 
-    if archive_file_lower.endswith(".zip"):
-        import zipfile
-        zip_file = zipfile.ZipFile(archive_file)
+    print("Extracting {} -> {}".format(archive_file, dst_folder))
+    if archive_type is None:
+        _, ext = os.path.splitext(archive_file)
+        raise ValueError((
+            f"Invalid file extension \"{ext}\"."
+            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
+        ))
+
+    if archive_type == "zip":
+        zip_file = ZipFileLongPaths(archive_file)
         zip_file.extractall(dst_folder)
         zip_file.close()
 
-    elif archive_file_lower.endswith(("tar", "tgz", "tar.gz", "tar.xz", "tar.bz2")):
-        import tarfile
-        # tgz
-        tar_type = "r:*"
-
-        if archive_file_lower.endswith(".tar.xz"):
-            tar_type = "r:xz"
-        elif archive_file_lower.endswith(".tar.gz"):
-            tar_type = "r:gz"
-        elif archive_file_lower.endswith(".tar.bz2"):
-            tar_type = "r:bz2"
-        elif archive_file_lower.endswith(".tar"):
+    elif archive_type == "tar":
+        if archive_ext == ".tar":
             tar_type = "r:"
+        elif archive_ext.endswith(".xz"):
+            tar_type = "r:xz"
+        elif archive_ext.endswith(".gz"):
+            tar_type = "r:gz"
+        elif archive_ext.endswith(".bz2"):
+            tar_type = "r:bz2"
+        else:
+            tar_type = "r:*"
 
         try:
             tar_file = tarfile.open(archive_file, tar_type)
@@ -456,11 +512,6 @@ def extract_archive_file(archive_file, dst_folder=None):
 
         tar_file.extractall(dst_folder)
         tar_file.close()
-    else:
-        raise ValueError((
-            f"Invalid file extension \"{os.path.basename(archive_file)}\"."
-            f" Expected {', '.join(IMPLEMENTED_ARCHIVE_FORMATS)}"
-        ))
 
 
 def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
