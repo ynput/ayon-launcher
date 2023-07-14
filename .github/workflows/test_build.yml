@@ -32,7 +32,7 @@ jobs:
     - name: 🧵 Install Requirements
       shell: pwsh
       run: |
-        ./tools/manage.ps1 create_env
+        ./tools/manage.ps1 create-env
 
     - name: 🔨 Build
       shell: pwsh
@@ -57,7 +57,7 @@ jobs:
 
     - name: 🧵 Install Requirements
       run: |
-        ./tools/make.sh create_env
+        ./tools/make.sh create-env
 
     - name: 🔨 Build
       run: |
