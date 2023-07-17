@@ -19,7 +19,10 @@ PS> .\manage.ps1 create-env --verbose
 #>
 
 $FunctionName=$ARGS[0]
-$arguments=$ARGS[1..($ARGS.Length-1)]
+$arguments=@()
+if ($ARGS.Length -gt 1) {
+    $arguments = $ARGS[1..($ARGS.Length - 1)]
+}
 $poetry_verbosity=$null
 $disable_submodule_update=""
 if($arguments -eq "--verbose") {
