@@ -1609,14 +1609,14 @@ class AyonDistribution:
             and dependency_dist_item.need_distribution
             and dependency_dist_item.state == UpdateState.UPDATED
         ):
-            package = self.dependency_package
+            package = self.dependency_package_item
             source = dependency_dist_item.used_source
             if source is not None:
                 data = {
                     "source": source,
                     "checksum": dependency_dist_item.checksum,
                     "checksum_algorithm": (
-                        dependency_dist_item.checksum_alhorithm),
+                        dependency_dist_item.checksum_algorithm),
                     "distributed_dt": stored_time
                 }
                 self.update_dependency_metadata(package.name, data)
