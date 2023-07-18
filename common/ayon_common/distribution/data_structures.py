@@ -1,3 +1,4 @@
+import os
 import attr
 from enum import Enum
 
@@ -191,7 +192,7 @@ class AddonInfo(object):
 @attr.s
 class DependencyItem(object):
     """Object matching payload from Server about single dependency package"""
-    name = attr.ib()
+    filename = attr.ib()
     platform_name = attr.ib()
     checksum = attr.ib()
     checksum_algorithm = attr.ib(default=None)
@@ -202,15 +203,16 @@ class DependencyItem(object):
 
     @classmethod
     def from_dict(cls, package):
+        filename = package["filename"]
         src_sources = package.get("sources") or []
         for source in src_sources:
             if source.get("type") == "server" and not source.get("filename"):
-                source["filename"] = package["filename"]
+                source["filename"] = filename
 
-        sources, unknown_sources = prepare_sources(package.get("sources"))
+        sources, unknown_sources = prepare_sources(src_sources)
 
         return cls(
-            name=package["filename"],
+            filename=filename,
             platform_name=package["platform"],
             sources=sources,
             unknown_sources=unknown_sources,

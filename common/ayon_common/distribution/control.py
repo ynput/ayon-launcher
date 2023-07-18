@@ -1329,7 +1329,7 @@ class AyonDistribution:
             dependenc_package_items = {}
             for item in self.dependency_packages_info:
                 item = DependencyItem.from_dict(item)
-                dependenc_package_items[item.name] = item
+                dependenc_package_items[item.filename] = item
             self._dependency_packages_items = dependenc_package_items
         return self._dependency_packages_items
 
@@ -1430,15 +1430,15 @@ class AyonDistribution:
         metadata = self.get_dependency_metadata()
         downloader_data = {
             "type": "dependency_package",
-            "name": package.name,
+            "name": package.filename,
             "platform": package.platform_name
         }
         zip_dir = package_dir = os.path.join(
-            self._dependency_dirpath, package.name
+            self._dependency_dirpath, package.filename
         )
-        self.log.debug(f"Checking {package.name} in {package_dir}")
+        self.log.debug(f"Checking {package.filename} in {package_dir}")
 
-        if not os.path.isdir(package_dir) or package.name not in metadata:
+        if not os.path.isdir(package_dir) or package.filename not in metadata:
             state = UpdateState.OUTDATED
         else:
             state = UpdateState.UPDATED
@@ -1619,7 +1619,7 @@ class AyonDistribution:
                         dependency_dist_item.checksum_algorithm),
                     "distributed_dt": stored_time
                 }
-                self.update_dependency_metadata(package.name, data)
+                self.update_dependency_metadata(package.filename, data)
 
         addons_info = {}
         for item in self.get_addon_dist_items():
