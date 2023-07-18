@@ -365,16 +365,12 @@ def get_packages_info(build_root):
         line = line.strip()
         if not line:
             continue
-        parts = line.split("==")
-        if len(parts) != 2:
-            parts = line.split("@")
-            if len(parts) < 2:
-                raise ValueError(f"Cannot parse package info '{line}'.")
 
-            if len(parts) > 2:
-                parts = [parts[0], "@".join(parts[1:])]
-        package, version = parts
-        packages[package.strip()] = version.strip()
+        match = re.match(r"^(.+?)(?:==|>=|<=|~=|!=|@)(.+)$", line)
+        if not match:
+            raise ValueError(f"Cannot parse package info '{line}'.")
+        package_name, version = match.groups()
+        packages[package_name.rstrip()] = version.lstrip()
 
     return packages
 
