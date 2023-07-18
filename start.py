@@ -362,10 +362,14 @@ def _check_and_update_from_ayon_server():
         if path
     ]
 
-    for path in distribution.get_sys_paths():
+    for path in distribution.get_python_paths():
         sys.path.insert(0, path)
         if path not in python_paths:
             python_paths.append(path)
+
+    for path in distribution.get_sys_paths():
+        sys.path.insert(0, path)
+
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 

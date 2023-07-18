@@ -1734,14 +1734,27 @@ class AyonDistribution:
         ))
 
     def get_sys_paths(self):
+        """Get all paths to python packages that should be added to path.
+
+        These packages will be added only to 'sys.path' and not into
+        'PYTHONPATH', so they won't be available in subprocesses.
+
+        Todos:
+            This is not yet implemented. The goal is that dependency
+                package will contain also 'build' python
+                dependencies (OpenTimelineIO, Pillow, etc.).
+
+        Returns:
+            List[str]: Paths that should be added to 'sys.path'.
+        """
+
+        return []
+
+    def get_python_paths(self):
         """Get all paths to python packages that should be added to python.
 
         These paths lead to addon directories and python dependencies in
         dependency package.
-
-        Todos:
-            Add dependency package directory to output. ATM is not structure of
-                dependency package 100% defined.
 
         Returns:
             List[str]: Paths that should be added to 'sys.path' and
@@ -1749,12 +1762,23 @@ class AyonDistribution:
         """
 
         output = []
-        for item in self.get_all_distribution_items():
-            if item.state != UpdateState.UPDATED:
+        for item in self.get_addon_dist_items():
+            dist_item = item["dist_item"]
+            if dist_item.state != UpdateState.UPDATED:
                 continue
-            unzip_dirpath = item.unzip_dirpath
+            unzip_dirpath = dist_item.unzip_dirpath
             if unzip_dirpath and os.path.exists(unzip_dirpath):
                 output.append(unzip_dirpath)
+
+        dependency_dist_item = self.get_dependency_dist_item()
+        if dependency_dist_item is not None:
+            dependencies_dir = None
+            unzip_dirpath = dependency_dist_item.unzip_dirpath
+            if unzip_dirpath:
+                dependencies_dir = os.path.join(unzip_dirpath, "dependencies")
+
+            if dependencies_dir and os.path.exists(dependencies_dir):
+                output.append(dependencies_dir)
         return output
 
 
