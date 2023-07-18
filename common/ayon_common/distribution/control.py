@@ -1403,15 +1403,15 @@ class AyonDistribution:
 
             dist_item = DistributionItem(
                 addon_dest,
-                addon_dest,
-                state,
-                addon_version_item.checksum,
-                addon_version_item.checksum_algorithm,
-                self._dist_factory,
-                list(addon_version_item.sources),
-                downloader_data,
-                full_name,
-                self.log
+                download_dirpath=addon_dest,
+                state=state,
+                checksum=addon_version_item.checksum,
+                checksum_algorithm=addon_version_item.checksum_algorithm,
+                factory=self._dist_factory,
+                sources=list(addon_version_item.sources),
+                downloader_data=downloader_data,
+                item_label=full_name,
+                logger=self.log
             )
             output.append({
                 "dist_item": dist_item,
@@ -1445,14 +1445,15 @@ class AyonDistribution:
 
         return DistributionItem(
             zip_dir,
-            package_dir,
-            state,
-            package.checksum,
-            self._dist_factory,
-            package.sources,
-            downloader_data,
-            package.name,
-            self.log,
+            download_dirpath=package_dir,
+            state=state,
+            checksum=package.checksum,
+            checksum_algorithm=package.checksum_algorithm,
+            factory=self._dist_factory,
+            sources=package.sources,
+            downloader_data=downloader_data,
+            item_label=os.path.splitext(package.filename)[0],
+            logger=self.log,
         )
 
     def get_addon_dist_items(self):
