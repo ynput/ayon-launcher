@@ -580,7 +580,8 @@ def store_installer_metadata(build_root, installer_path):
         "checksum": file_hash,
         "checksum_algorithm": "md5",
         "size": os.path.getsize(installer_path),
-        "installer_path": installer_path
+        "installer_path": installer_path,
+        "filename": os.path.basename(installer_path),
     })
     store_build_metadata(build_root, metadata)
 
@@ -592,7 +593,9 @@ def create_installer(ayon_root, build_root):
 
     installer_path = _create_installer(
         ayon_root, build_root, build_content_root, ayon_version)
-    store_installer_metadata(build_root, str(installer_path))
+    store_installer_metadata(
+        build_root, str(installer_path.absolute())
+    )
 
 
 def main():

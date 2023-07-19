@@ -1329,7 +1329,7 @@ class AyonDistribution:
             dependenc_package_items = {}
             for item in self.dependency_packages_info:
                 item = DependencyItem.from_dict(item)
-                dependenc_package_items[item.name] = item
+                dependenc_package_items[item.filename] = item
             self._dependency_packages_items = dependenc_package_items
         return self._dependency_packages_items
 
@@ -1403,15 +1403,15 @@ class AyonDistribution:
 
             dist_item = DistributionItem(
                 addon_dest,
-                addon_dest,
-                state,
-                addon_version_item.checksum,
-                addon_version_item.checksum_algorithm,
-                self._dist_factory,
-                list(addon_version_item.sources),
-                downloader_data,
-                full_name,
-                self.log
+                download_dirpath=addon_dest,
+                state=state,
+                checksum=addon_version_item.checksum,
+                checksum_algorithm=addon_version_item.checksum_algorithm,
+                factory=self._dist_factory,
+                sources=list(addon_version_item.sources),
+                downloader_data=downloader_data,
+                item_label=full_name,
+                logger=self.log
             )
             output.append({
                 "dist_item": dist_item,
@@ -1430,29 +1430,30 @@ class AyonDistribution:
         metadata = self.get_dependency_metadata()
         downloader_data = {
             "type": "dependency_package",
-            "name": package.name,
+            "name": package.filename,
             "platform": package.platform_name
         }
         zip_dir = package_dir = os.path.join(
-            self._dependency_dirpath, package.name
+            self._dependency_dirpath, package.filename
         )
-        self.log.debug(f"Checking {package.name} in {package_dir}")
+        self.log.debug(f"Checking {package.filename} in {package_dir}")
 
-        if not os.path.isdir(package_dir) or package.name not in metadata:
+        if not os.path.isdir(package_dir) or package.filename not in metadata:
             state = UpdateState.OUTDATED
         else:
             state = UpdateState.UPDATED
 
         return DistributionItem(
             zip_dir,
-            package_dir,
-            state,
-            package.checksum,
-            self._dist_factory,
-            package.sources,
-            downloader_data,
-            package.name,
-            self.log,
+            download_dirpath=package_dir,
+            state=state,
+            checksum=package.checksum,
+            checksum_algorithm=package.checksum_algorithm,
+            factory=self._dist_factory,
+            sources=package.sources,
+            downloader_data=downloader_data,
+            item_label=os.path.splitext(package.filename)[0],
+            logger=self.log,
         )
 
     def get_addon_dist_items(self):
@@ -1609,17 +1610,17 @@ class AyonDistribution:
             and dependency_dist_item.need_distribution
             and dependency_dist_item.state == UpdateState.UPDATED
         ):
-            package = self.dependency_package
+            package = self.dependency_package_item
             source = dependency_dist_item.used_source
             if source is not None:
                 data = {
                     "source": source,
                     "checksum": dependency_dist_item.checksum,
                     "checksum_algorithm": (
-                        dependency_dist_item.checksum_alhorithm),
+                        dependency_dist_item.checksum_algorithm),
                     "distributed_dt": stored_time
                 }
-                self.update_dependency_metadata(package.name, data)
+                self.update_dependency_metadata(package.filename, data)
 
         addons_info = {}
         for item in self.get_addon_dist_items():
@@ -1733,14 +1734,27 @@ class AyonDistribution:
         ))
 
     def get_sys_paths(self):
+        """Get all paths to python packages that should be added to path.
+
+        These packages will be added only to 'sys.path' and not into
+        'PYTHONPATH', so they won't be available in subprocesses.
+
+        Todos:
+            This is not yet implemented. The goal is that dependency
+                package will contain also 'build' python
+                dependencies (OpenTimelineIO, Pillow, etc.).
+
+        Returns:
+            List[str]: Paths that should be added to 'sys.path'.
+        """
+
+        return []
+
+    def get_python_paths(self):
         """Get all paths to python packages that should be added to python.
 
         These paths lead to addon directories and python dependencies in
         dependency package.
-
-        Todos:
-            Add dependency package directory to output. ATM is not structure of
-                dependency package 100% defined.
 
         Returns:
             List[str]: Paths that should be added to 'sys.path' and
@@ -1748,12 +1762,23 @@ class AyonDistribution:
         """
 
         output = []
-        for item in self.get_all_distribution_items():
-            if item.state != UpdateState.UPDATED:
+        for item in self.get_addon_dist_items():
+            dist_item = item["dist_item"]
+            if dist_item.state != UpdateState.UPDATED:
                 continue
-            unzip_dirpath = item.unzip_dirpath
+            unzip_dirpath = dist_item.unzip_dirpath
             if unzip_dirpath and os.path.exists(unzip_dirpath):
                 output.append(unzip_dirpath)
+
+        dependency_dist_item = self.get_dependency_dist_item()
+        if dependency_dist_item is not None:
+            dependencies_dir = None
+            unzip_dirpath = dependency_dist_item.unzip_dirpath
+            if unzip_dirpath:
+                dependencies_dir = os.path.join(unzip_dirpath, "dependencies")
+
+            if dependencies_dir and os.path.exists(dependencies_dir):
+                output.append(dependencies_dir)
         return output
 
 
