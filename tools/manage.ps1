@@ -273,7 +273,7 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    & "$($env:POETRY_HOME)\bin\poetry" run python -m pip freeze > "$($repo_root)\build\requirements.txt"
+    & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze > "$($repo_root)\build\requirements.txt"
     $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
