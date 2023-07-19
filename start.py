@@ -382,7 +382,30 @@ def boot():
 
 
 def main_cli():
+    """Main startup logic.
+
+    This is the main entry point for the AYON launcher. At this
+    moment is fully dependent on 'openpype' addon. Which means it
+    contains more logic than it should.
+    """
+
     from openpype import cli
+    from openpype import PACKAGE_DIR
+
+    python_path = os.getenv("PYTHONPATH", "")
+    split_paths = python_path.split(os.pathsep)
+
+    additional_paths = [
+        # add OpenPype tools
+        os.path.join(PACKAGE_DIR, "tools"),
+        # add common OpenPype vendor
+        # (common for multiple Python interpreter versions)
+        os.path.join(PACKAGE_DIR, "vendor", "python", "common")
+    ]
+    for path in additional_paths:
+        split_paths.insert(0, path)
+        sys.path.insert(0, path)
+    os.environ["PYTHONPATH"] = os.pathsep.join(split_paths)
 
     _print(">>> loading environments ...")
     _print("  - global AYON ...")
