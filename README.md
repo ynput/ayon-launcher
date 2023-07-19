@@ -26,11 +26,11 @@ AYON is written in Python 3 with specific elements still running in Python2 unti
 
 The main things you will need to run and build AYON are:
 
+- [**Python 3.9.6**](#python) or higher
 - **Terminal** in your OS
     - PowerShell 5.0+ (Windows)
     - Bash (Linux)
-- [**Python 3.9.6**](#python) or higher
-
+- [**Inno Setup**](https://jrsoftware.org/isdl.php) for installer (Windows)
 
 Building AYON Desktop application
 -----------------
@@ -61,6 +61,8 @@ git clone --recurse-submodules git@github.com:ynput/ayon-launcher.git
 AYON is build using [CX_Freeze](https://cx-freeze.readthedocs.io/en/latest) to freeze itself and all dependencies.
 
 ### macOS
+
+**WARNING:** macOS is not fully supported. The build process may work on some machines. MacOS is also missing implementation of automated updates.
 
 You will need [Python >= 3.9](https://www.python.org/downloads/) and [git](https://git-scm.com/downloads). You'll need also other tools to build
 some AYON dependencies like [CMake](https://cmake.org/) and **XCode Command Line Tools** (or some other build system).
@@ -208,6 +210,20 @@ pyenv local 3.9.6
 4) Run `./tools/make.sh make-installer` to create an installer file in `./build/`.
 
 
+Upload installer to server
+----------------
+
+Installer must be available on a server to be able to set it in release bundle and to be downloaded by users.
+
+### Windows
+Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
+
+### Linux & macOS
+Run `./tools/make.sh upload --server <your server> --api-key <your api key>`
+
+Upload command has more options, run `./tools/manage.ps1 upload --help` or `./tools/make.sh upload --help` to see them. For example, it is posssible to use username & password instead of api key.
+
+
 Running AYON Desktop application
 ----------------
 
@@ -223,6 +239,7 @@ poetry run python start.py &args
 
 ### From frozen code
 
-You need to build AYON first. This will produce executable - `ayon(.exe)`, and `ayon_console.exe` on Windows.
-First one is the main production executable, that will act as GUI application on Windows.
-The second `ayon_console.exe` is available only on windows. Create console with output - useful for headless application and debugging purposes.
+You need to build AYON first. This will produce executable - `ayon.exe` and `ayon_console.exe` on Windows, `ayon` on Linux and `AYON {version}.app` for macOS.
+
+#### Windows
+Executable `ayon_console.exe` creates console with output - useful for debugging, `ayon.exe` does not create console, but does not have any stdout or stderr output.
