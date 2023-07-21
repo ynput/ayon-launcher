@@ -264,9 +264,6 @@ build_ayon () {
   if [[ "$OSTYPE" == "darwin"* ]]; then
     macoscontents="$repo_root/build/AYON $ayon_version.app/Contents"
     macosdir="$macoscontents/MacOS"
-    # fix cx_Freeze libs issue
-    echo -e "${BIGreen}>>>${RST} Fixing libs ..."
-    mv "$macosdir/dependencies/cx_Freeze" "$macosdir/lib/"  || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Can't move cx_Freeze libs${RST}"; return 1; }
 
     # force hide icon from Dock
     defaults write "$macoscontents/Info" LSUIElement 1

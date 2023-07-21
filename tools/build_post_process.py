@@ -210,9 +210,33 @@ def copy_files(ayon_root, build_content_root, deps_dir, site_pkg):
     progress_bar.close()
 
 
+def _delete_path_items(path_items, progress=None):
+    for d in path_items:
+        if d.is_dir():
+            shutil.rmtree(d)
+        else:
+            try:
+                d.unlink()
+            except FileNotFoundError:
+                # skip non-existent silently
+                pass
+        if progress is not None:
+            progress.update()
+    if progress is not None:
+        progress.close()
+
 def cleanup_files(deps_dir, libs_dir):
-    to_delete = []
     # _print("Finding duplicates ...")
+    # Delete modules from 'dependencies' that don't need source code
+    #   and can be kept as compiled files
+    # - At this moment only 'cx_Freeze' is deleted from dependencies
+    deps_to_remove = []
+    for d in deps_dir.iterdir():
+        # There is 'cx_Freeze' and 'cx_Freeze.dist...'
+        if d.name.startswith("cx_Freeze"):
+            deps_to_remove.append(d)
+    _delete_path_items(deps_to_remove)
+
     deps_items = list(deps_dir.iterdir())
     item_count = len(list(libs_dir.iterdir()))
     find_progress_bar = enlighten.Counter(
@@ -221,7 +245,7 @@ def cleanup_files(deps_dir, libs_dir):
         units="%",
         color=(56, 211, 159)
     )
-
+    to_delete = []
     for d in libs_dir.iterdir():
         if (deps_dir / d.name) in deps_items:
             to_delete.append(d)
@@ -239,17 +263,7 @@ def cleanup_files(deps_dir, libs_dir):
     delete_progress_bar = enlighten.Counter(
         total=len(to_delete), desc="Deleting duplicates", units="%",
         color=(251, 192, 32))
-    for d in to_delete:
-        if d.is_dir():
-            shutil.rmtree(d)
-        else:
-            try:
-                d.unlink()
-            except FileNotFoundError:
-                # skip non-existent silently
-                pass
-        delete_progress_bar.update()
-    delete_progress_bar.close()
+    _delete_path_items(to_delete, delete_progress_bar)
 
 
 def dependency_cleanup(ayon_root, build_content_root):
