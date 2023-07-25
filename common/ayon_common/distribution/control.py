@@ -661,8 +661,51 @@ class InstallerDistributionItem(BaseDistributionItem):
             filepath (str): Path to a .dmg file.
         """
 
-        raise NotImplementedError(
-            "MacOS installer distribution is not implemented."
+        import plistlib
+
+        # Attach dmg file and read plist output (bytes)
+        stdout = subprocess.check_output([
+            "hdiutil", "attach", filepath, "-plist", "-nobrowse"
+        ])
+        try:
+            # Parse plist output and find mounted volume
+            attach_info = plistlib.loads(stdout)
+            mounted_volumes = []
+            for entity in attach_info["system-entities"]:
+                mounted_volume = entity.get("mount-point")
+                if mounted_volume:
+                    mounted_volumes.append(mounted_volume)
+
+            # We do expect there is only one .app in .dmg file
+            src_filename = None
+            for mounted_volume in mounted_volumes:
+                for filename in os.listdir(mounted_volume):
+                    if filename.endswith(".app"):
+                        src_filename = filename
+                        src_path = os.path.join(mounted_volume, src_filename)
+                        break
+
+            # Copy the .app file to /Applications
+            dst_dir = "/Applications"
+            dst_path = os.path.join(dst_dir, src_filename)
+            subprocess.run(["cp", "-rf", src_path, dst_dir])
+
+        finally:
+            # Detach mounted volume
+            subprocess.run(["hdiutil", "detach", mounted_volume])
+
+        # Find executable inside .app file and return its path
+        contents_dir = os.path.join(dst_path, "Contents")
+        # Load plist file and check for bundle executable
+        plist_filepath = os.path.join(contents_dir, "Info.plist")
+        if hasattr(plistlib, "load"):
+            with open(plist_filepath, "rb") as stream:
+                parsed_plist = plistlib.load(stream)
+        else:
+            parsed_plist = plistlib.readPlist(plist_filepath)
+        executable_filename = parsed_plist.get("CFBundleExecutable")
+        return os.path.join(
+            contents_dir, "MacOS", executable_filename
         )
 
     def _install_file(self, filepath):
