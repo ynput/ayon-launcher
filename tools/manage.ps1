@@ -302,8 +302,8 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
-function Upload-To-Server() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\upload_to_server.py"  @args
+function Installer-Post-Process() {
+    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function Make-Ayon-Installer-Raw() {
@@ -369,7 +369,10 @@ function Main {
         Build-Ayon -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
         Change-Cwd
-        Upload-To-Server "upload" @arguments
+        Installer-Post-Process "upload" @arguments
+    } elseif ($FunctionName -eq "createserverpackage") {
+        Change-Cwd
+        Installer-Post-Process "create-server-package" @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func

@@ -291,8 +291,8 @@ make_installer() {
   echo -e "${BIWhite}$repo_root/build${RST} directory."
 }
 
-upload_to_server() {
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/upload_to_server.py" "$@"
+installer_post_process() {
+  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/installer_post_process.py" "$@"
 }
 
 run_from_code() {
@@ -354,7 +354,11 @@ main() {
       exit $return_code
       ;;
     "upload")
-      upload_to_server "${@:2}" || return_code=$?
+      installer_post_process upload "${@:3}" || return_code=$?
+      exit $return_code
+      ;;
+    "createserverpackage")
+      installer_post_process create-server-package "${@:3}" || return_code=$?
       exit $return_code
       ;;
     "run")

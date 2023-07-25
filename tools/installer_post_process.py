@@ -1,10 +1,35 @@
 import os
 import json
-from dataclasses import dataclass
+import platform
+import zipfile
+from dataclasses import dataclass, asdict
 from typing import Any, Optional, Union
 
 import ayon_api
 import click
+
+
+class ZipFileLongPaths(zipfile.ZipFile):
+    """Allows longer paths in zip files.
+
+    Regular DOS paths are limited to MAX_PATH (260) characters, including
+    the string's terminating NUL character.
+    That limit can be exceeded by using an extended-length path that
+    starts with the '\\?\' prefix.
+    """
+    _is_windows = platform.system().lower() == "windows"
+
+    def _extract_member(self, member, tpath, pwd):
+        if self._is_windows:
+            tpath = os.path.abspath(tpath)
+            if tpath.startswith("\\\\"):
+                tpath = "\\\\?\\UNC\\" + tpath[2:]
+            else:
+                tpath = "\\\\?\\" + tpath
+
+        return super(ZipFileLongPaths, self)._extract_member(
+            member, tpath, pwd
+        )
 
 
 @dataclass
@@ -191,6 +216,8 @@ def cli():
     default=False,
     help="Force installer creation even if it already exists")
 def upload(server, api_key, username, password, metadata, force):
+    """Upload installer to a server."""
+
     installer_info: InstallerInfo = find_installer_info(metadata)
     api = create_connection(server, api_key, username, password)
     create_installer(api, installer_info, force)
@@ -226,6 +253,38 @@ def create_server_installer(
     installer_info = find_installer_info(metadata)
     api = create_connection(server, api_key, username, password)
     create_installer(api, installer_info, force)
+
+
+@cli.command(help="Upload installer to AYON server")
+@click.option(
+    "-o", "--output",
+    help="Output directory")
+@click.option(
+    "-f", "--filename",
+    help="Output filename (must have .zip extension)")
+def create_server_package(
+    output: Union[str, None], filename: Union[str, None]
+):
+    """Create a zip file with the installer and metadata ready for server."""
+
+    installer_info: InstallerInfo = find_installer_info()
+    if not filename:
+        filename = (
+            "ayon-server-installer"
+            f"-{installer_info.platform}-{installer_info.version}.zip"
+        )
+
+    if output is None:
+        output = os.path.dirname(installer_info.installer_path)
+
+    output_path: str = os.path.join(output, filename)
+    metadata: dict[str, Any] = asdict(installer_info)
+    metadata.pop("installer_path")
+    with ZipFileLongPaths(output_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        zip_file.writestr(
+            f"{installer_info.filename}.json", json.dumps(metadata)
+        )
+        zip_file.write(installer_info.installer_path, installer_info.filename)
 
 
 def main():
