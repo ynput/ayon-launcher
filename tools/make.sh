@@ -354,11 +354,11 @@ main() {
       exit $return_code
       ;;
     "upload")
-      installer_post_process upload "${@:3}" || return_code=$?
+      installer_post_process upload "${@:2}" || return_code=$?
       exit $return_code
       ;;
     "createserverpackage")
-      installer_post_process create-server-package "${@:3}" || return_code=$?
+      installer_post_process create-server-package "${@:2}" || return_code=$?
       exit $return_code
       ;;
     "run")
