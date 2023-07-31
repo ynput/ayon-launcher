@@ -109,12 +109,11 @@ def get_ayon_version(ayon_root):
         str: AYON version.
     """
 
-    version = {}
+    content = {}
     with open(ayon_root / "version.py") as fp:
-        exec(fp.read(), version)
+        exec(fp.read(), content)
 
-    version_match = re.search(r"(\d+\.\d+.\d+).*", version["__version__"])
-    return version_match[1]
+    return content["__version__"]
 
 
 def _get_darwin_output_path(build_root, ayon_version):
