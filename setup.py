@@ -41,8 +41,16 @@ install_requires = [
     "dns",
     # Python defaults (cx_Freeze skip them by default)
     "dbm",
-    "sqlite3",
     "dataclasses",
+    "email.mime.application",
+    "email.mime.audio",
+    "email.mime.base",
+    "email.mime.image",
+    "email.mime.message",
+    "email.mime.multipart",
+    "email.mime.nonmultipart",
+    "email.mime.text",
+    "sqlite3",
     "timeit"
 ]
 

@@ -1,5 +1,6 @@
 [virtualenvs]
 in-project = true
+create = true
 
 [repositories.ayon]
 url = "https://distribute.openpype.io/wheels/"

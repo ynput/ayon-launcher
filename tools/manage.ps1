@@ -180,6 +180,7 @@ function Default-Func {
     Write-Host "  make-installer                Make desktop application installer"
     Write-Host "  build-make-installer          Build desktop application and make installer"
     Write-Host "  upload                        Upload installer to server"
+    Write-Host "  create-server-package         Create package ready for AYON server"
     Write-Host "  run                           Run desktop application from code"
     Write-Host ""
 }
