@@ -314,6 +314,8 @@ default_help() {
   echo "  build                         Build desktop application"
   echo "  make-installer                Make desktop application installer"
   echo "  build-make-installer          Build desktop application and make installer"
+  echo "  upload                        Upload installer to server"
+  echo "  create-server-package         Create package ready for AYON server"
   echo "  run                           Run desktop application from code"
   echo ""
 }
