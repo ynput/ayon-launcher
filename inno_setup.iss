@@ -12,7 +12,7 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{EE9F8244-B9CD-4162-B28B-97B7F2F465E8}
+AppId={#MyAppName}{#AppVer}
 AppName={#MyAppName}
 AppVersion={#AppVer}
 ; 'AppVerName' What is shown in app remove section of Control Panel
