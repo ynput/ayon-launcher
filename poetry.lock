@@ -272,14 +272,14 @@ tomli = {version = "*", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "ayon-python-api"
-version = "0.3.3"
+version = "0.3.4"
 description = "AYON Python API"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "ayon-python-api-0.3.3.tar.gz", hash = "sha256:45b6f33f2d7c2517eab81670c558b740a7cc5654856a0aa1fa4df8c8b5a0ac9d"},
-    {file = "ayon_python_api-0.3.3-py3-none-any.whl", hash = "sha256:bb9d43469bccb9ddda95b635cdf687ef328560c5f8b3afd88dd7d919880afda5"},
+    {file = "ayon-python-api-0.3.4.tar.gz", hash = "sha256:01dac80cc09e2cca7660feb5e17932411d06150aeff8b192824634ddee28934d"},
+    {file = "ayon_python_api-0.3.4-py3-none-any.whl", hash = "sha256:a2f6ad78dc09099a0393eeff61dff0504540add0b442b6deb1180e85d06d3776"},
 ]
 
 [package.dependencies]
@@ -319,14 +319,14 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "certifi"
-version = "2023.5.7"
+version = "2023.7.22"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "certifi-2023.5.7-py3-none-any.whl", hash = "sha256:c6c2e98f5c7869efca1f8916fed228dd91539f9f1b444c314c06eef02980c716"},
-    {file = "certifi-2023.5.7.tar.gz", hash = "sha256:0f0d56dc5a6ad56fd4ba36484d6cc34451e1c6548c61daad8c320169f91eddc7"},
+    {file = "certifi-2023.7.22-py3-none-any.whl", hash = "sha256:92d6037539857d8206b8f6ae472e8b77db8058fec5937a1ef3f54304089edbb9"},
+    {file = "certifi-2023.7.22.tar.gz", hash = "sha256:539cc1d13202e33ca466e88b2807e29f4c13049d6d87031a3c110744495cb082"},
 ]
 
 [[package]]
@@ -1576,14 +1576,14 @@ test = ["importlib-metadata", "pytest"]
 
 [[package]]
 name = "platformdirs"
-version = "3.6.0"
+version = "3.10.0"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "platformdirs-3.6.0-py3-none-any.whl", hash = "sha256:ffa199e3fbab8365778c4a10e1fbf1b9cd50707de826eb304b50e57ec0cc8d38"},
-    {file = "platformdirs-3.6.0.tar.gz", hash = "sha256:57e28820ca8094678b807ff529196506d7a21e17156cb1cddb3e74cebce54640"},
+    {file = "platformdirs-3.10.0-py3-none-any.whl", hash = "sha256:d7c24979f292f916dc9cbf8648319032f551ea8c49a4c9bf2fb556a02070ec1d"},
+    {file = "platformdirs-3.10.0.tar.gz", hash = "sha256:b45696dab2d7cc691a3226759c0d3b00c47c8b6e293d96f6436f733303f77f6d"},
 ]
 
 [package.extras]
