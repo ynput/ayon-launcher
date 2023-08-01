@@ -255,38 +255,6 @@ def create_server_installer(
     create_installer(api, installer_info, force)
 
 
-@cli.command(help="Upload installer to AYON server")
-@click.option(
-    "-o", "--output",
-    help="Output directory")
-@click.option(
-    "-f", "--filename",
-    help="Output filename (must have .zip extension)")
-def create_server_package(
-    output: Union[str, None], filename: Union[str, None]
-):
-    """Create a zip file with the installer and metadata ready for server."""
-
-    installer_info: InstallerInfo = find_installer_info()
-    if not filename:
-        filename = (
-            "ayon-server-installer"
-            f"-{installer_info.platform}-{installer_info.version}.zip"
-        )
-
-    if output is None:
-        output = os.path.dirname(installer_info.installer_path)
-
-    output_path: str = os.path.join(output, filename)
-    metadata: dict[str, Any] = asdict(installer_info)
-    metadata.pop("installer_path")
-    with ZipFileLongPaths(output_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr(
-            f"{installer_info.filename}.json", json.dumps(metadata)
-        )
-        zip_file.write(installer_info.installer_path, installer_info.filename)
-
-
 def main():
     cli(obj={}, prog_name="AYON-uploader")
 

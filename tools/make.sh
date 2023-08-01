@@ -359,10 +359,6 @@ main() {
       installer_post_process upload "${@:2}" || return_code=$?
       exit $return_code
       ;;
-    "createserverpackage")
-      installer_post_process create-server-package "${@:2}" || return_code=$?
-      exit $return_code
-      ;;
     "run")
       run_from_code "${@:2}" || return_code=$?
       exit $return_code
