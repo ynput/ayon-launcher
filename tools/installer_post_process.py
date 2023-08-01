@@ -13,7 +13,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def get_installer_dir():
-    return Path(CURRENT_DIR).parent / "installer"
+    return Path(CURRENT_DIR).parent / "build"/ "installer"
 
 
 class ZipFileLongPaths(zipfile.ZipFile):
@@ -87,10 +87,10 @@ def find_installer_info(installer_dir: Optional[str]) -> InstallerInfo:
     filename = metadata.get("filename")
     if not filename:
         raise click.BadParameter(
-            " is not available. Run 'make-installer' first."
+            "Metadata file does not contain information about installer name."
         )
 
-    installer_path = metadata_path / filename
+    installer_path = installer_dir / filename
     if not installer_path.exists():
         raise click.BadParameter(
             "Installer is not available. Run 'make-installer' first."
@@ -232,7 +232,6 @@ def cli():
     help="Password (Only if api key is not provided)")
 @click.option(
     "--installer-dir",
-    store_key="installer_dir",
     default=None,
     help="Directory where installer with metadata is located")
 @click.option(
@@ -265,7 +264,6 @@ def upload(server, api_key, username, password, installer_dir, force):
     help="Password (Only if api key is not provided)")
 @click.option(
     "--installer-dir",
-    store_key="installer_dir",
     default=None,
     help="Directory where installer with metadata is located")
 @click.option(
