@@ -138,8 +138,13 @@ def get_build_metadata(build_root):
         return json.load(stream)
 
 
-def store_build_metadata(build_root, metadata):
-    with open(get_metadata_filepath(build_root), "w") as stream:
+def store_build_metadata(root, metadata):
+    filename = metadata.get("filename")
+    if filename:
+        filepath = root / (filename + ".json")
+    else:
+        filepath = get_metadata_filepath(root)
+    with open(filepath, "w") as stream:
         json.dump(metadata, stream)
 
 
@@ -463,7 +468,8 @@ def _find_iscc():
 
 def _create_windows_installer(
     ayon_root,
-    build_root,
+    _build_root,
+    installer_root,
     build_content_root,
     ayon_version
 ):
@@ -480,11 +486,11 @@ def _create_windows_installer(
     installer_basename = f"AYON-{ayon_version}-win-setup"
 
     env["BUILD_SRC_DIR"] = str(build_content_root.relative_to(ayon_root))
-    env["BUILD_DST_DIR"] = str(build_root.relative_to(ayon_root))
+    env["BUILD_DST_DIR"] = str(installer_root.relative_to(ayon_root))
     env["BUILD_VERSION"] = ayon_version
     env["BUILD_DST_FILENAME"] = installer_basename
     subprocess.call([iscc_executable, inno_setup_path], env=env)
-    output_file = build_root / (installer_basename + ".exe")
+    output_file = installer_root / (installer_basename + ".exe")
     if output_file.exists():
         return output_file
     raise ValueError("Installer was not created")
@@ -492,7 +498,8 @@ def _create_windows_installer(
 
 def _create_linux_installer(
     _,
-    build_root,
+    _build_root,
+    installer_root,
     build_content_root,
     ayon_version
 ):
@@ -504,7 +511,7 @@ def _create_linux_installer(
 
     basename = f"AYON-{ayon_version}-linux"
     filename = f"{basename}.tar.gz"
-    output_path = build_root / filename
+    output_path = installer_root / filename
 
     # Open file in write mode to be sure that it exists
     with open(output_path, "w"):
@@ -515,7 +522,9 @@ def _create_linux_installer(
     return output_path
 
 
-def _create_darwin_installer(_ar, build_root, _, ayon_version):
+def _create_darwin_installer(
+    _ayon_root, build_root, installer_root, _build_content_root, ayon_version
+):
     """Create MacOS installer (.dmg).
 
     Returns:
@@ -526,7 +535,7 @@ def _create_darwin_installer(_ar, build_root, _, ayon_version):
     """
 
     app_filepath = _get_darwin_output_path(build_root, ayon_version)
-    output_path = build_root / f"AYON-{ayon_version}-Installer.dmg"
+    output_path = installer_root / f"AYON-{ayon_version}-Installer.dmg"
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
@@ -572,11 +581,12 @@ def _create_installer(*args, **kwargs):
     raise ValueError(f"Unknown platform '{platform_name}'.")
 
 
-def store_installer_metadata(build_root, installer_path):
+def store_installer_metadata(build_root, installer_root, installer_path):
     """Update base build metadata with installer information.
 
     Args:
         build_root (Path): Path to build root directory.
+        installer_root (Path): Path to installer root directory.
         installer_path (str): Path to installer file.
     """
 
@@ -589,21 +599,29 @@ def store_installer_metadata(build_root, installer_path):
         "checksum": file_hash,
         "checksum_algorithm": "md5",
         "size": os.path.getsize(installer_path),
-        "installer_path": installer_path,
         "filename": os.path.basename(installer_path),
     })
-    store_build_metadata(build_root, metadata)
+    store_build_metadata(installer_root, metadata)
 
 
 def create_installer(ayon_root, build_root):
     metadata = get_build_metadata(build_root)
     ayon_version = metadata["version"]
     build_content_root = get_build_content_root(build_root, ayon_version)
+    installer_root = build_root / "installer"
+    if installer_root.exists():
+        shutil.rmtree(str(installer_root))
+    installer_root.mkdir()
 
     installer_path = _create_installer(
-        ayon_root, build_root, build_content_root, ayon_version)
+        ayon_root,
+        build_root,
+        installer_root,
+        build_content_root,
+        ayon_version
+    )
     store_installer_metadata(
-        build_root, str(installer_path.absolute())
+        build_root, installer_root, str(installer_path.absolute())
     )
 
 
