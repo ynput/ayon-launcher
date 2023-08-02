@@ -180,7 +180,6 @@ function Default-Func {
     Write-Host "  make-installer                Make desktop application installer"
     Write-Host "  build-make-installer          Build desktop application and make installer"
     Write-Host "  upload                        Upload installer to server"
-    Write-Host "  create-server-package         Create package ready for AYON server"
     Write-Host "  run                           Run desktop application from code"
     Write-Host ""
 }
@@ -371,9 +370,6 @@ function Main {
     } elseif ($FunctionName -eq "upload") {
         Change-Cwd
         Installer-Post-Process "upload" @arguments
-    } elseif ($FunctionName -eq "createserverpackage") {
-        Change-Cwd
-        Installer-Post-Process "create-server-package" @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func

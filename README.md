@@ -210,10 +210,21 @@ pyenv local 3.9.6
 4) Run `./tools/make.sh make-installer` to create an installer file in `./build/`.
 
 
+Make installer
+----------------
+Installer is expected result for AYON server. The output is located in `./build/installer/` directory. You should find there a json file and installer file. Json is minimum requirement for AYON server to be able to use installer version in release bundle. It is recommended to put installer to server too for automated updates.
+
+### Windows
+Run `./tools/manage.ps1 create-server-package`
+
+### Linux & macOS
+Run `./tools/make.sh create-server-package`
+
+
 Upload installer to server
 ----------------
 
-Installer must be available on a server to be able to set it in release bundle and to be downloaded by users.
+Create installer information from json file on server and upload the installer file to be downloaded by users.
 
 ### Windows
 Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
@@ -222,18 +233,6 @@ Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
 Run `./tools/make.sh upload --server <your server> --api-key <your api key>`
 
 Upload command has more options, run `./tools/manage.ps1 upload --help` or `./tools/make.sh upload --help` to see them. For example, it is posssible to use username & password instead of api key.
-
-
-Create package for AYON server
-----------------
-Create a package with metadata information for AYON server. This package can be re-used on multiple servers.
-NOTE: Option to upload installer using this package is not implemented on server side, yet.
-
-### Windows
-Run `./tools/manage.ps1 create-server-package`
-
-### Linux & macOS
-Run `./tools/make.sh create-server-package`
 
 
 Running AYON Desktop application

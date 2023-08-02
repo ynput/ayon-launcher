@@ -2,11 +2,18 @@ import os
 import json
 import platform
 import zipfile
-from dataclasses import dataclass, asdict
+from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import ayon_api
 import click
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def get_installer_dir():
+    return Path(CURRENT_DIR).parent / "build"/ "installer"
 
 
 class ZipFileLongPaths(zipfile.ZipFile):
@@ -46,33 +53,50 @@ class InstallerInfo:
     runtime_python_modules: dict[str, str]
 
 
-def find_installer_info(
-    metadata_path: Optional[str] = None
-) -> InstallerInfo:
-    if metadata_path is None:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        build_root = os.path.join(os.path.dirname(current_dir), "build")
-        if not os.path.exists(build_root):
-            raise click.BadParameter("Build folder doesn't exist")
+def find_installer_info(installer_dir: Optional[str]) -> InstallerInfo:
+    if installer_dir is None:
+        installer_dir = get_installer_dir()
+    installer_dir: Path = Path(installer_dir)
 
-        metadata_path = os.path.join(build_root, "metadata.json")
+    if not installer_dir.exists():
+        raise click.BadParameter("Installers folder doesn't exist")
 
-    if not os.path.exists(metadata_path):
+    json_files = []
+    for item in installer_dir.iterdir():
+        if item.name.endswith(".json"):
+            json_files.append(item)
+
+    if not json_files:
+        raise click.BadParameter(f"No metadata files found in {installer_dir}")
+
+    if len(json_files) > 1:
+        raise click.BadParameter(
+            f"Found more than one metadata in {installer_dir}"
+        )
+    metadata_path = json_files[0]
+
+    if not metadata_path.exists():
         raise click.BadParameter(
             "Metadata file doesn't exist."
             " Run 'build' and 'make-installer' first."
         )
 
-    with open(metadata_path, "r") as stream:
+    with open(str(metadata_path), "r") as stream:
         metadata = json.load(stream)
 
-    installer_path = metadata.get("installer_path")
-    if not installer_path or not os.path.exists(installer_path):
+    filename = metadata.get("filename")
+    if not filename:
+        raise click.BadParameter(
+            "Metadata file does not contain information about installer name."
+        )
+
+    installer_path = installer_dir / filename
+    if not installer_path.exists():
         raise click.BadParameter(
             "Installer is not available. Run 'make-installer' first."
         )
-    metadata["filename"] = os.path.basename(installer_path)
-    return InstallerInfo(**metadata)
+
+    return InstallerInfo(installer_path=str(installer_path), **metadata)
 
 
 def create_connection(
@@ -207,18 +231,18 @@ def cli():
     "--password",
     help="Password (Only if api key is not provided)")
 @click.option(
-    "--metadata",
+    "--installer-dir",
     default=None,
-    help="Path to metadata.json file")
+    help="Directory where installer with metadata is located")
 @click.option(
     "--force",
     is_flag=True,
     default=False,
     help="Force installer creation even if it already exists")
-def upload(server, api_key, username, password, metadata, force):
+def upload(server, api_key, username, password, installer_dir, force):
     """Upload installer to a server."""
 
-    installer_info: InstallerInfo = find_installer_info(metadata)
+    installer_info: InstallerInfo = find_installer_info(installer_dir)
     api = create_connection(server, api_key, username, password)
     create_installer(api, installer_info, force)
     upload_installer(api, installer_info)
@@ -239,52 +263,20 @@ def upload(server, api_key, username, password, metadata, force):
     "--password",
     help="Password (Only if api key is not provided)")
 @click.option(
-    "--metadata",
+    "--installer-dir",
     default=None,
-    help="Path to metadata.json file")
+    help="Directory where installer with metadata is located")
 @click.option(
     "--force",
     is_flag=True,
     default=False,
     help="Force installer creation even if it already exists")
 def create_server_installer(
-    server, api_key, username, password, metadata, force
+    server, api_key, username, password, installer_dir, force
 ):
-    installer_info = find_installer_info(metadata)
+    installer_info = find_installer_info(installer_dir)
     api = create_connection(server, api_key, username, password)
     create_installer(api, installer_info, force)
-
-
-@cli.command(help="Upload installer to AYON server")
-@click.option(
-    "-o", "--output",
-    help="Output directory")
-@click.option(
-    "-f", "--filename",
-    help="Output filename (must have .zip extension)")
-def create_server_package(
-    output: Union[str, None], filename: Union[str, None]
-):
-    """Create a zip file with the installer and metadata ready for server."""
-
-    installer_info: InstallerInfo = find_installer_info()
-    if not filename:
-        filename = (
-            "ayon-server-installer"
-            f"-{installer_info.platform}-{installer_info.version}.zip"
-        )
-
-    if output is None:
-        output = os.path.dirname(installer_info.installer_path)
-
-    output_path: str = os.path.join(output, filename)
-    metadata: dict[str, Any] = asdict(installer_info)
-    metadata.pop("installer_path")
-    with ZipFileLongPaths(output_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr(
-            f"{installer_info.filename}.json", json.dumps(metadata)
-        )
-        zip_file.write(installer_info.installer_path, installer_info.filename)
 
 
 def main():
