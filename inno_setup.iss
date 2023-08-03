@@ -118,15 +118,19 @@ begin
   if Length(NewInstallFolder) = 0 then
   begin
     NewInstallRoot := GetParameter('INSTALLROOT');
-    if Length(NewInstallFolder) = 0 then
-      NewInstallRoot := NewInstallRoot + '\{#MyAppName} {#AppVer}'
+    if Length(NewInstallRoot) > 0 then
+    begin
+      NewInstallFolder := NewInstallRoot + '\{#MyAppName} {#AppVer}'
+    end
     else
+    begin
       CurrentDefaultDir := ExpandConstant('{autopf64}');
       ProgramFilesDir := ExpandConstant('{commonpf64}');
       if CompareStr(CurrentDefaultDir, ProgramFilesDir) = 0 then
         NewInstallFolder := ExpandConstant('{commonpf64}') + '\Ynput\{#MyAppName} {#AppVer}'
       else
         NewInstallFolder := ExpandConstant('{localappdata}') + '\Ynput\AYON\app\{#MyAppName} {#AppVer}';
+    end;
   end;
   WizardForm.DirEdit.Text := NewInstallFolder;
 end;
