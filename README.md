@@ -44,7 +44,7 @@ Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
 ### Linux & macOS
 Run `./tools/make.sh upload --server <your server> --api-key <your api key>`
 
-Upload command has more options, run `./tools/manage.ps1 upload --help` or `./tools/make.sh upload --help` to see them. For example, it is posssible to use username & password instead of api key.
+Upload command has more options, use `--help` to investigate them. For example, it is possible to use username & password instead of api key.
 
 
 Running AYON Desktop application
