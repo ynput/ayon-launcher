@@ -1,6 +1,6 @@
-# Build AYON launcher on macOS
+# Build AYON launcher on Linux
 
-**WARNING:** macOS is not fully supported. The build process may not work on some machines.
+**WARNING:** Linux needs distribution specific steps.
 
 ## Requirements
 ---
