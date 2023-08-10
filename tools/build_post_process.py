@@ -593,11 +593,11 @@ def store_installer_metadata(build_root, installer_root, installer_path):
     metadata = get_build_metadata(build_root)
 
     with open(installer_path, "rb") as stream:
-        file_hash = hashlib.md5(stream.read()).hexdigest()
+        file_hash = hashlib.sha256(stream.read()).hexdigest()
 
     metadata.update({
         "checksum": file_hash,
-        "checksum_algorithm": "md5",
+        "checksum_algorithm": "sha256",
         "size": os.path.getsize(installer_path),
         "filename": os.path.basename(installer_path),
     })
