@@ -10,13 +10,12 @@ from cx_Freeze import setup, Executable
 ayon_root = Path(os.path.dirname(__file__))
 resources_dir = ayon_root / "common" /  "ayon_common" / "resources"
 
-version = {}
+version_content = {}
 
 with open(ayon_root / "version.py") as fp:
-    exec(fp.read(), version)
+    exec(fp.read(), version_content)
 
-version_match = re.search(r"(\d+\.\d+.\d+).*", version["__version__"])
-__version__ = version_match.group(1)
+__version__ = version_content["__version__"]
 
 low_platform_name = platform.system().lower()
 IS_WINDOWS = low_platform_name == "windows"

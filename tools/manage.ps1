@@ -95,9 +95,7 @@ function Show-PSWarning() {
 }
 
 function Get-Ayon-Version() {
-    $version_file = Get-Content -Path "$($repo_root)\version.py"
-    $result = [regex]::Matches($version_file, '__version__ = "(?<version>\d+\.\d+.\d+.*)"')
-    $ayon_version = $result[0].Groups['version'].Value
+    $ayon_version = Invoke-Expression -Command "python -c ""import os;import sys;content={};f=open(r'$($repo_root)\version.py');exec(f.read(),content);f.close();print(content['__version__'])"""
     if (-not $ayon_version) {
       Write-Color -Text "!!! ", "Cannot determine AYON version." -Color Yellow, Gray
       return $null
@@ -167,8 +165,10 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
 }
 
 function Default-Func {
+    $ayon_version = Get-Ayon-Version
     Write-Host ""
     Write-Host "Ayon desktop application tool"
+    Write-Host "    version $($ayon_version)"
     Write-Host ""
     Write-Host "Usage: ./manage.ps1 [target]"
     Write-Host ""
@@ -252,7 +252,7 @@ function Build-Ayon($MakeInstaller = $false) {
     } else {
         Write-Color -Text "*** ", "Not updating submodules ..." -Color Green, Gray
     }
-
+    $ayon_version = Get-Ayon-Version
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline

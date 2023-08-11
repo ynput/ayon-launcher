@@ -227,7 +227,7 @@ build_ayon () {
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
 
-  version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(re.search(r'(\d+\.\d+.\d+).*', version['__version__'])[1]);"
+  version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(version['__version__']);"
   ayon_version="$(python <<< ${version_command})"
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
