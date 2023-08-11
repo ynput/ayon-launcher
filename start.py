@@ -5,6 +5,7 @@ Bootstrapping process of AYON.
 """
 import os
 import sys
+import copy
 import site
 import traceback
 import contextlib
@@ -437,18 +438,63 @@ def main_cli():
         sys.exit(1)
 
 
-def script_cli():
+class StartArgScript:
+    def __init__(self, argument, script_path):
+        self.argument = argument
+        self.script_path = script_path
+
+    @property
+    def is_valid(self):
+        return self.script_path is not None
+
+    @property
+    def is_dir(self):
+        if self.argument:
+            return os.path.isdir(self.argument)
+        return False
+
+    @classmethod
+    def from_args(cls, args):
+        """Get path argument from args and check if can be started.
+
+        Args:
+            args (Iterable[str]): Arguments passed to AYON.
+
+        Returns:
+            StartArgScript: Object containing argument and script path.
+        """
+
+        if len(args) < 2:
+            return cls(None, None)
+        path = args[1]
+        if os.path.exists(path):
+            if os.path.isdir(path):
+                new_path = os.path.join(path, "__main__.py")
+                if os.path.exists(new_path):
+                    return cls(path, new_path)
+            else:
+                path_ext = os.path.splitext(path)[1].lower()
+                if path_ext in (".py", ".pyd", ".pyw", ".pyc"):
+                    return cls(path, path)
+        return cls(path, None)
+
+
+def script_cli(start_arg=None):
     """Run and execute script."""
 
-    filepath = os.path.abspath(sys.argv[1])
+    if start_arg is None:
+        start_arg = StartArgScript.from_args(sys.argv)
 
     # Find '__main__.py' in directory
-    if os.path.isdir(filepath):
-        new_filepath = os.path.join(filepath, "__main__.py")
-        if not os.path.exists(new_filepath):
+    if not start_arg.is_valid:
+        if not start_arg.argument:
+            raise RuntimeError("No script to run")
+
+        if start_arg.is_dir:
             raise RuntimeError(
-                f"can't find '__main__' module in '{filepath}'")
-        filepath = new_filepath
+                f"Can't find '__main__' module in '{start_arg.argument}'")
+        raise RuntimeError(f"Can't find script to run '{start_arg.argument}'")
+    filepath = start_arg.script_path
 
     # Add parent dir to sys path
     sys.path.insert(0, os.path.dirname(filepath))
@@ -483,13 +529,14 @@ def get_info(use_staging=None) -> list:
 
 
 def main():
-    if not SKIP_BOOTSTRAP:
-        boot()
+    if SKIP_BOOTSTRAP:
+        return script_cli()
 
-    args = list(sys.argv)
-    args.pop(0)
-    if args and os.path.exists(args[0]):
-        script_cli()
+    boot()
+
+    start_arg = StartArgScript.from_args(sys.argv)
+    if start_arg.is_valid:
+        script_cli(start_arg)
     else:
         main_cli()
 
