@@ -470,7 +470,7 @@ def get_info(use_staging=None) -> list:
         inf.append(("AYON variant", "staging"))
     else:
         inf.append(("AYON variant", "production"))
-    inf.append(("AYON bundle", os.getenv("AYON_BUNDLE")))
+    inf.append(("AYON bundle", os.getenv("AYON_BUNDLE_NAME")))
 
     # NOTE add addons information
 
