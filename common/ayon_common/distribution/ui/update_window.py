@@ -179,10 +179,11 @@ class UpdateMessageWidget(QtWidgets.QWidget):
         fm = self.fontMetrics()
         rect = fm.boundingRect(self._message)
         size = rect.size()
-        padding = fm.height() * 0.2
+        w_padding = fm.height() * 0.4
+        h_padding = fm.height() * 0.2
         return QtCore.QSize(
-            size.width() + (padding * 2),
-            size.height() + (padding * 2)
+            size.width() + (w_padding * 2),
+            size.height() + (h_padding * 2)
         )
 
     def showEvent(self, event):
@@ -200,16 +201,17 @@ class UpdateMessageWidget(QtWidgets.QWidget):
 
         event_rect = event.rect()
         fm = self.fontMetrics()
-        padding = fm.height() * 0.2
+        w_padding = fm.height() * 0.4
+        h_padding = fm.height() * 0.2
         b_rect = fm.boundingRect(self._message)
         bg_pos_x = (
             (event_rect.width() * 0.5)
-            - ((b_rect.width() * 0.5) + padding)
+            - ((b_rect.width() * 0.5) + w_padding)
         )
 
         text_rect = QtCore.QRect(
-            bg_pos_x + padding,
-            event_rect.y() + padding,
+            bg_pos_x + w_padding,
+            event_rect.y() + h_padding,
             b_rect.width(),
             b_rect.height()
         )
@@ -219,8 +221,8 @@ class UpdateMessageWidget(QtWidgets.QWidget):
         bg_rect = QtCore.QRect(
             bg_pos_x + pen_width,
             event_rect.y() + pen_width,
-            b_rect.width() + (padding * 2) - (pen_width * 2),
-            (b_rect.height() + (padding * 2)) - (pen_width * 2)
+            b_rect.width() + (w_padding * 2) - (pen_width * 2),
+            (b_rect.height() + (h_padding * 2)) - (pen_width * 2)
         )
         radius = bg_rect.height() * 0.3
 
