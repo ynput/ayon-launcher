@@ -12,6 +12,8 @@ class AnimationWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+
+
         legs_start_anim = QtCore.QVariantAnimation()
         legs_start_anim.setStartValue(0.0)
         legs_start_anim.setEndValue(1.0)
@@ -168,76 +170,6 @@ class AnimationWidget(QtWidgets.QWidget):
         painter.end()
 
 
-class UpdateMessageWidget(QtWidgets.QWidget):
-    def __init__(self, message, parent):
-        super().__init__(parent)
-
-        self._message = message
-        self.setStyleSheet("font-size: 36pt;")
-
-    def sizeHint(self):
-        fm = self.fontMetrics()
-        rect = fm.boundingRect(self._message)
-        size = rect.size()
-        w_padding = fm.height() * 0.4
-        h_padding = fm.height() * 0.2
-        return QtCore.QSize(
-            size.width() + (w_padding * 2),
-            size.height() + (h_padding * 2)
-        )
-
-    def showEvent(self, event):
-        super().showEvent(event)
-
-    def paintEvent(self, event):
-        painter = QtGui.QPainter()
-        painter.begin(self)
-        render_hints = (
-            QtGui.QPainter.Antialiasing
-            | QtGui.QPainter.SmoothPixmapTransform
-        )
-        if hasattr(QtGui.QPainter, "HighQualityAntialiasing"):
-            render_hints |= QtGui.QPainter.HighQualityAntialiasing
-
-        event_rect = event.rect()
-        fm = self.fontMetrics()
-        w_padding = fm.height() * 0.4
-        h_padding = fm.height() * 0.2
-        b_rect = fm.boundingRect(self._message)
-        bg_pos_x = (
-            (event_rect.width() * 0.5)
-            - ((b_rect.width() * 0.5) + w_padding)
-        )
-
-        text_rect = QtCore.QRect(
-            bg_pos_x + w_padding,
-            event_rect.y() + h_padding,
-            b_rect.width(),
-            b_rect.height()
-        )
-        pen_width = text_rect.height() * 0.05
-        if pen_width < 1:
-            pen_width = 1
-        bg_rect = QtCore.QRect(
-            bg_pos_x + pen_width,
-            event_rect.y() + pen_width,
-            b_rect.width() + (w_padding * 2) - (pen_width * 2),
-            (b_rect.height() + (h_padding * 2)) - (pen_width * 2)
-        )
-        radius = bg_rect.height() * 0.3
-
-        painter.setRenderHints(render_hints)
-        pen = QtGui.QPen()
-        pen.setColor(QtGui.QColor("#D3D8DE"))
-        pen.setWidth(pen_width)
-        painter.setPen(pen)
-        painter.setBrush(QtGui.QColor("#2C313A"))
-        painter.drawRoundedRect(bg_rect, radius, radius)
-        painter.drawText(text_rect, self._message)
-
-        painter.end()
-
-
 class UpdateWindow(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -254,18 +186,55 @@ class UpdateWindow(QtWidgets.QWidget):
 
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
-        message_label = UpdateMessageWidget("Updating...", self)
-
         anim_widget = AnimationWidget(self)
 
+        message_label = QtWidgets.QLabel("Updating...", self)
+        message_label.setStyleSheet("font-size: 36pt;")
+        message_label.setAlignment(QtCore.Qt.AlignCenter)
+
         main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.addWidget(anim_widget, 1)
         main_layout.addWidget(message_label, 0)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter()
+        painter.begin(self)
+        render_hints = (
+            QtGui.QPainter.Antialiasing
+            | QtGui.QPainter.SmoothPixmapTransform
+        )
+        if hasattr(QtGui.QPainter, "HighQualityAntialiasing"):
+            render_hints |= QtGui.QPainter.HighQualityAntialiasing
+
+        painter.setRenderHints(render_hints)
+
+        event_rect = event.rect()
+
+        painter.setClipRect(event_rect)
+        bg_rect = self.rect()
+
+        size = min(bg_rect.width(), bg_rect.height())
+        radius = size * 0.1
+        pen_width = 6
+        half_pen_size = pen_width * 0.5
+
+        bg_rect.adjust(
+            half_pen_size, half_pen_size, -half_pen_size, -half_pen_size
+        )
+        pen = QtGui.QPen()
+        pen.setColor(QtGui.QColor("#D3D8DE"))
+        pen.setWidth(pen_width)
+        painter.setPen(pen)
+        painter.setBrush(QtGui.QColor("#2C313A"))
+        painter.drawRoundedRect(bg_rect, radius, radius)
+
+        painter.end()
 
     def showEvent(self, event):
         super().showEvent(event)
         self.setStyleSheet(load_stylesheet())
-        self.resize(500, 500)
+        self.resize(400, 400)
 
 
 if __name__ == "__main__":
