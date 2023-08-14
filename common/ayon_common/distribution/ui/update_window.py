@@ -235,6 +235,11 @@ class UpdateWindow(QtWidgets.QWidget):
         super().showEvent(event)
         self.setStyleSheet(load_stylesheet())
         self.resize(400, 400)
+        screen_geo = self.screen().geometry()
+        new_geo = self.geometry()
+        offset = new_geo.center() - screen_geo.center()
+        new_geo.translate(-offset)
+        self.move(new_geo.topLeft())
 
 
 if __name__ == "__main__":
