@@ -204,6 +204,7 @@ from ayon_common.distribution import (
     BundleNotFoundError,
     show_missing_bundle_information,
     show_installer_issue_information,
+    UpdateWindowManager,
 )
 
 from ayon_common.utils import store_current_executable_info
@@ -329,7 +330,15 @@ def _check_and_update_from_ayon_server():
             )
         sys.exit(1)
 
-    distribution.distribute()
+    update_window_manager = UpdateWindowManager()
+    if not HEADLESS_MODE_ENABLED:
+        update_window_manager.start()
+
+    try:
+        distribution.distribute()
+    finally:
+        update_window_manager.stop()
+
     if distribution.need_installer_change:
         # Check if any error happened
         error = distribution.installer_dist_error
