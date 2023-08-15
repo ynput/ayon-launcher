@@ -216,7 +216,7 @@ class UpdateWindow(QtWidgets.QWidget):
         bg_rect = self.rect()
 
         size = min(bg_rect.width(), bg_rect.height())
-        radius = size * 0.1
+        radius = size * 0.05
 
         painter.setPen(QtCore.Qt.NoPen)
         painter.setBrush(QtGui.QColor("#2C313A"))
