@@ -206,7 +206,7 @@ from ayon_common.distribution import (
 )
 
 from ayon_common.utils import store_current_executable_info
-from ayon_common.startup import shot_startup_error
+from ayon_common.startup import show_startup_error
 
 
 def set_global_environments() -> None:
@@ -385,7 +385,7 @@ def boot():
 def _on_main_addon_missing():
     if HEADLESS_MODE_ENABLED:
         raise RuntimeError("Failed to import required OpenPype addon.")
-    shot_startup_error(
+    show_startup_error(
         "Missing OpenPype addon",
         (
             "AYON-launcher requires OpenPype addon to be able to start."
@@ -402,7 +402,7 @@ def _on_main_addon_import_error():
             "Failed to import OpenPype addon. Probably because"
             " of missing or incompatible dependency package"
         )
-    shot_startup_error(
+    show_startup_error(
         "Incompatible Dependency package",
         (
             "Dependency package is missing or incompatible with available"

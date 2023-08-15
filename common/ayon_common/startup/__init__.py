@@ -7,7 +7,7 @@ import tempfile
 from ayon_common.utils import get_ayon_launch_args
 
 
-def shot_startup_error(title, message):
+def show_startup_error(title, message):
     """Show startup error message.
 
     This will trigger a subprocess with UI message dialog.
