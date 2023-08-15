@@ -10,6 +10,7 @@ from uuid import UUID
 
 import appdirs
 
+DATE_FMT = "%Y-%m-%d %H:%M:%S"
 CLEANUP_INTERVAL = 2  # days
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
@@ -221,15 +222,23 @@ def load_executable_version(executable):
     return load_version_from_root(os.path.dirname(executable))
 
 
-def store_executables(executables):
+def store_executables(executables, cleaned_up=False):
     """Store information about executables.
 
     Args:
         executables (Iterable[str]): Paths to executables.
+        cleaned_up (Optional[bool]): If True, executables are considered
+            as cleaned up.
     """
 
-    info = get_executables_info()
+    info = get_executables_info(check_cleanup=False)
     info.setdefault("available_versions", [])
+    if cleaned_up:
+        info["last_cleanup"] = {
+            "value": datetime.datetime.now().strftime(DATE_FMT),
+            "fmt": DATE_FMT,
+        }
+
     for executable in executables:
         if not executable or not os.path.exists(executable):
             continue
@@ -360,7 +369,7 @@ def cleanup_executables_info():
         new_executables_info.append(item)
 
     if changed:
-        store_executables(new_executables_info)
+        store_executables(new_executables_info, cleaned_up=True)
 
 
 class _Cache:
