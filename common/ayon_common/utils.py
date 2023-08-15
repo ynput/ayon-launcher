@@ -289,22 +289,36 @@ def store_current_executable_info():
     store_executables([sys.executable])
 
 
-def get_executables_info_by_version(version):
+def get_executables_info_by_version(version, validate=True):
     """Get available executable info by version.
 
     Args:
         version (str): Version of executable.
+        validate (bool): Validate if 'version.py' contains same version.
 
     Returns:
         list[dict[str, Any]]: Executable info matching version.
     """
 
     executables_info = get_executables_info()
-    return [
-        item
-        for item in executables_info.get("available_versions", [])
-        if item.get("version") == version
-    ]
+    available_versions = executables_info.get("available_versions", [])
+    if not validate or not available_versions:
+        return [
+            item
+            for item in available_versions
+            if item.get("version") == version
+        ]
+
+    output = []
+    for item in available_versions:
+        executable = item.get("executable")
+        if not executable or not os.path.exists(executable):
+            continue
+
+        executable_version = load_executable_version(executable)
+        if executable_version == version:
+            output.append(item)
+    return output
 
 
 def get_executable_paths_by_version(version, only_available=True):
