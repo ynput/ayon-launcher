@@ -192,8 +192,7 @@ class UpdateWindow(QtWidgets.QWidget):
 
         anim_widget = AnimationWidget(self)
 
-        message_label = QtWidgets.QLabel("Updating...", self)
-        message_label.setStyleSheet("font-size: 20pt;")
+        message_label = QtWidgets.QLabel("<b>AYON is updating...</b>", self)
         message_label.setAlignment(QtCore.Qt.AlignCenter)
 
         margin = 30
