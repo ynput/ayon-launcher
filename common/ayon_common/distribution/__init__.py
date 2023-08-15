@@ -6,6 +6,7 @@ from .control import AyonDistribution
 from .utils import (
     show_missing_bundle_information,
     show_installer_issue_information,
+    UpdateWindowManager,
 )
 
 
@@ -17,4 +18,5 @@ __all__ = (
 
     "show_missing_bundle_information",
     "show_installer_issue_information",
+    "UpdateWindowManager",
 )

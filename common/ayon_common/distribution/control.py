@@ -1712,6 +1712,24 @@ class AyonDistribution:
 
         return output
 
+    @property
+    def need_distribution(self):
+        """Distribution is needed.
+
+        Returns:
+            bool: True if any distribution is needed.
+        """
+
+        if self.need_installer_change:
+            if self.need_installer_distribution:
+                return True
+            return False
+
+        for item in self.get_all_distribution_items():
+            if item.need_distribution:
+                return True
+        return False
+
     def distribute(self, threaded=False):
         """Distribute all missing items.
 

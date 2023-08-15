@@ -120,3 +120,29 @@ def show_installer_issue_information(message, installer_path=None):
     subprocess.call(args)
     if os.path.exists(filepath):
         os.remove(filepath)
+
+
+class UpdateWindowManager:
+    def __init__(self):
+        self._process = None
+
+    def __enter__(self):
+        self.start()
+        try:
+            yield
+        finally:
+            self.stop()
+
+    def start(self):
+        ui_dir = os.path.join(os.path.dirname(__file__), "ui")
+        script_path = os.path.join(ui_dir, "update_window.py")
+
+        args = get_ayon_launch_args(script_path, "--skip-bootstrap")
+        self._process = subprocess.Popen(args)
+
+    def stop(self):
+        if self._process is None:
+            return
+        if self._process.poll() is None:
+            self._process.kill()
+        self._process = None
