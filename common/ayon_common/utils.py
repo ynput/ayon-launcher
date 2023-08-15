@@ -10,6 +10,7 @@ from uuid import UUID
 
 import appdirs
 
+CLEANUP_INTERVAL = 2  # days
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 # UUID of the default Windows download folder
@@ -115,19 +116,44 @@ def get_executables_info_filepath():
     return get_ayon_appdirs("executables.json")
 
 
-def get_executables_info():
-    filepath = get_executables_info_filepath()
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, "r") as stream:
-                return json.load(stream)
-        except Exception:
-            pass
-
+def _get_default_executable_info():
     return {
-        "file_version": "1.0.0",
+        "file_version": "1.0.1",
         "available_versions": []
     }
+
+
+def get_executables_info(check_cleanup=True):
+    filepath = get_executables_info_filepath()
+    if not os.path.exists(filepath):
+        return _get_default_executable_info()
+    try:
+        with open(filepath, "r") as stream:
+            data = json.load(stream)
+
+    except Exception:
+        return _get_default_executable_info()
+
+    if not check_cleanup:
+        return data
+
+    last_cleanup = None
+    last_cleanup_info = data.get("last_cleanup")
+    if last_cleanup_info:
+        try:
+            last_cleanup_value = last_cleanup_info["value"]
+            last_cleanup_fmt = last_cleanup_info["fmt"]
+            last_cleanup = datetime.datetime.strptime(
+                last_cleanup_value, last_cleanup_fmt)
+        except Exception:
+            print("Failed to parse last cleanup timestamp")
+
+    now = datetime.datetime.now()
+    if last_cleanup and (now - last_cleanup).days < CLEANUP_INTERVAL:
+        return data
+
+    cleanup_executables_info()
+    return get_executables_info(check_cleanup=False)
 
 
 def store_executables_info(info):
