@@ -12,86 +12,64 @@ class AnimationWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        legs_start_anim = QtCore.QVariantAnimation()
-        legs_start_anim.setStartValue(0.0)
-        legs_start_anim.setEndValue(1.0)
-        legs_start_anim.setDuration(1000)
-        legs_start_anim.setEasingCurve(QtCore.QEasingCurve.InQuart)
-
-        legs_mid_anim = QtCore.QVariantAnimation()
-        legs_mid_anim.setStartValue(0.0)
-        legs_mid_anim.setEndValue(4.0)
-        legs_mid_anim.setDuration(1000)
-
-        legs_end_anim = QtCore.QVariantAnimation()
-        legs_end_anim.setStartValue(1.0)
-        legs_end_anim.setEndValue(0.0)
-        legs_end_anim.setDuration(2000)
-        legs_end_anim.setEasingCurve(QtCore.QEasingCurve.OutElastic)
-
-        legs_anim_group = QtCore.QSequentialAnimationGroup()
-        legs_anim_group.addPause(300)
-        legs_anim_group.addAnimation(legs_start_anim)
-        legs_anim_group.addAnimation(legs_mid_anim)
-        legs_anim_group.addAnimation(legs_end_anim)
+        duration = 1200
 
         # Ball animation
-        ball_start_anim = QtCore.QVariantAnimation()
-        ball_start_anim.setStartValue(1.0)
-        ball_start_anim.setEndValue(0.0)
-        ball_start_anim.setDuration(300)
-        ball_start_anim.setEasingCurve(QtCore.QEasingCurve.InBack)
+        ball_translate_anim = QtCore.QVariantAnimation()
+        ball_translate_anim.setKeyValueAt(0.0, 0.65)
+        ball_translate_anim.setKeyValueAt(0.25, 1.0)
+        ball_translate_anim.setKeyValueAt(0.5, 0.6)
+        ball_translate_anim.setKeyValueAt(0.75, 1.0)
+        ball_translate_anim.setKeyValueAt(1.0, 0.65)
+        ball_translate_anim.setDuration(duration)
 
-        ball_end_anim = QtCore.QVariantAnimation()
-        ball_end_anim.setStartValue(ball_start_anim.endValue())
-        ball_end_anim.setEndValue(ball_start_anim.startValue())
-        ball_end_anim.setDuration(300)
-        ball_end_anim.setEasingCurve(QtCore.QEasingCurve.OutBack)
+        # Legs animation
+        angle_anim = QtCore.QVariantAnimation()
+        angle_anim.setKeyValueAt(0.0, 0.0)
+        angle_anim.setKeyValueAt(0.4, 0.0)
+        angle_anim.setKeyValueAt(0.75, 1.0)
+        angle_anim.setKeyValueAt(1.0, 1.0)
+        angle_anim.setDuration(duration)
 
-        ball_anim_group = QtCore.QSequentialAnimationGroup()
-        ball_anim_group.addPause(300)
-        ball_anim_group.addAnimation(ball_start_anim)
-        ball_anim_group.addPause(
-            (
-                legs_start_anim.duration()
-                + legs_mid_anim.duration()
-                + (legs_end_anim.duration() * 0.5)
-            )
-            - ball_anim_group.duration()
-        )
-        ball_anim_group.addAnimation(ball_end_anim)
-        ball_anim_group.addPause(
-            legs_anim_group.duration() - ball_anim_group.duration()
-        )
+        legs_scale_anim = QtCore.QVariantAnimation()
+        legs_scale_anim.setKeyValueAt(0.0, 0.9)
+        legs_scale_anim.setKeyValueAt(0.25, 1.0)
+        legs_scale_anim.setKeyValueAt(0.5, 0.7)
+        legs_scale_anim.setKeyValueAt(0.75, 1.0)
+        legs_scale_anim.setKeyValueAt(1.0, 0.9)
+        legs_scale_anim.setDuration(duration)
 
         anim_group = QtCore.QParallelAnimationGroup()
-        anim_group.addAnimation(legs_anim_group)
-        anim_group.addAnimation(ball_anim_group)
+        anim_group.addAnimation(angle_anim)
+        anim_group.addAnimation(legs_scale_anim)
+        anim_group.addAnimation(ball_translate_anim)
 
         repaint_timer = QtCore.QTimer()
         repaint_timer.setInterval(10)
 
-        legs_start_anim.valueChanged.connect(self._on_legs_anim_value_change)
-        legs_end_anim.valueChanged.connect(self._on_legs_anim_value_change)
-        legs_mid_anim.valueChanged.connect(self._on_legs_mid_valud_change)
-        ball_start_anim.valueChanged.connect(self._on_ball_anim_value_change)
-        ball_end_anim.valueChanged.connect(self._on_ball_anim_value_change)
+        angle_anim.valueChanged.connect(
+            self._on_angle_anim)
+        legs_scale_anim.valueChanged.connect(
+            self._on_legs_scale_anim)
+        ball_translate_anim.valueChanged.connect(
+            self._on_ball_translate_anim)
         repaint_timer.timeout.connect(self.repaint)
 
         anim_group.finished.connect(self._on_anim_group_finish)
 
-        self._ball_offset_ratio = ball_start_anim.startValue()
-        self._legs_angle = 0
+        self._ball_offset_ratio = ball_translate_anim.startValue()
+        self._angle = 0
+        self._legs_scale = 1.0
         self._anim_group = anim_group
         self._repaint_timer = repaint_timer
 
-    def _on_legs_anim_value_change(self, value):
-        self._legs_angle = int(value * 360)
+    def _on_angle_anim(self, value):
+        self._angle = int(value * 360)
 
-    def _on_legs_mid_valud_change(self, value):
-        self._legs_angle = int(360 * value) % 360
+    def _on_legs_scale_anim(self, value):
+        self._legs_scale = value
 
-    def _on_ball_anim_value_change(self, value):
+    def _on_ball_translate_anim(self, value):
         self._ball_offset_ratio = value
 
     def _on_anim_group_finish(self):
@@ -136,13 +114,12 @@ class AnimationWidget(QtWidgets.QWidget):
 
         ball_size = ball_offset + leg_border_offset
 
-        ball_top_offset = (
-            ((leg_border_offset * 2) + ball_offset)
-            * self._ball_offset_ratio
-        )
+        top_to_center = top_offset + half_base_size + (ball_size * 0.5)
+
+        y_offset = (top_to_center  * self._ball_offset_ratio) - ball_size
         ball_rect = QtCore.QRect(
-            (left_offset + half_base_size) - (ball_size * 0.5),
-            top_offset + ball_top_offset,
+            -ball_size * 0.5,
+            y_offset,
             ball_size,
             ball_size
         )
@@ -156,17 +133,20 @@ class AnimationWidget(QtWidgets.QWidget):
         painter.setPen(QtCore.Qt.NoPen)
         painter.setBrush(QtGui.QColor(0, 215, 160))
 
-        painter.drawEllipse(ball_rect)
         painter.translate(
             left_offset + half_base_size,
-            top_offset + half_base_size + (ball_size * 0.5)
+            top_to_center
         )
-        painter.rotate(self._legs_angle + 90)
+        painter.scale(self._legs_scale, self._legs_scale)
+        painter.rotate(90 + self._angle)
         painter.drawRect(leg_rect)
         painter.rotate(120)
         painter.drawRect(leg_rect)
         painter.rotate(120)
         painter.drawRect(leg_rect)
+        painter.rotate(210)
+        painter.scale(1.0, 1.0)
+        painter.drawEllipse(ball_rect)
 
         painter.end()
 
