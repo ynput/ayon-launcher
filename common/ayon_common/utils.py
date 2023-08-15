@@ -320,7 +320,7 @@ def cleanup_executables_info():
         new_executables_info.append(item)
 
     if changed:
-        store_executables_info(new_executables_info)
+        store_executables(new_executables_info)
 
 
 class _Cache:
