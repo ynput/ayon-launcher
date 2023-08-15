@@ -196,10 +196,11 @@ class UpdateWindow(QtWidgets.QWidget):
         message_label.setStyleSheet("font-size: 20pt;")
         message_label.setAlignment(QtCore.Qt.AlignCenter)
 
-        maring = 10
+        margin = 30
         main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(maring, maring, maring, maring)
+        main_layout.setContentsMargins(margin, margin, margin, margin)
         main_layout.addWidget(anim_widget, 1)
+        main_layout.addSpacing(10)
         main_layout.addWidget(message_label, 0)
 
     def paintEvent(self, event):
