@@ -347,7 +347,7 @@ def cleanup_executables_info():
 
     new_executables_info = []
     changed = False
-    for item in get_executables_info():
+    for item in get_executables_info(check_cleanup=False):
         executable = item.get("executable")
         if not executable or not os.path.exists(executable):
             changed = True
