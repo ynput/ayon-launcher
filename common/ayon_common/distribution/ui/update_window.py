@@ -217,16 +217,8 @@ class UpdateWindow(QtWidgets.QWidget):
 
         size = min(bg_rect.width(), bg_rect.height())
         radius = size * 0.1
-        pen_width = 6
-        half_pen_size = pen_width * 0.5
 
-        bg_rect.adjust(
-            half_pen_size, half_pen_size, -half_pen_size, -half_pen_size
-        )
-        pen = QtGui.QPen()
-        pen.setColor(QtGui.QColor("#D3D8DE"))
-        pen.setWidth(pen_width)
-        painter.setPen(pen)
+        painter.setPen(QtCore.Qt.NoPen)
         painter.setBrush(QtGui.QColor("#2C313A"))
         painter.drawRoundedRect(bg_rect, radius, radius)
 
