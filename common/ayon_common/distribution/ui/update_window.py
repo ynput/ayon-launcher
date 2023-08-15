@@ -172,6 +172,9 @@ class AnimationWidget(QtWidgets.QWidget):
 
 
 class UpdateWindow(QtWidgets.QWidget):
+    aspect = 9.0 / 16.0
+    default_width = 300
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
@@ -190,11 +193,12 @@ class UpdateWindow(QtWidgets.QWidget):
         anim_widget = AnimationWidget(self)
 
         message_label = QtWidgets.QLabel("Updating...", self)
-        message_label.setStyleSheet("font-size: 36pt;")
+        message_label.setStyleSheet("font-size: 20pt;")
         message_label.setAlignment(QtCore.Qt.AlignCenter)
 
+        maring = 10
         main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(maring, maring, maring, maring)
         main_layout.addWidget(anim_widget, 1)
         main_layout.addWidget(message_label, 0)
 
@@ -227,7 +231,7 @@ class UpdateWindow(QtWidgets.QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self.setStyleSheet(load_stylesheet())
-        self.resize(400, 400)
+        self.resize(self.default_width, self.default_width * self.aspect)
         screen_geo = self.screen().geometry()
         new_geo = self.geometry()
         offset = new_geo.center() - screen_geo.center()
