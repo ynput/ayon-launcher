@@ -172,7 +172,7 @@ class AnimationWidget(QtWidgets.QWidget):
 
 
 class UpdateWindow(QtWidgets.QWidget):
-    aspect = 9.0 / 16.0
+    aspect = 10.0 / 16.0
     default_width = 300
 
     def __init__(self, parent=None):
