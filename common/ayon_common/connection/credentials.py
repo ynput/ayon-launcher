@@ -1,11 +1,11 @@
-"""Handle credentials and connection to server for client application.
+"""Handle credentials and connection to server for AYON launcher.
 
 Cache and store used server urls. Store/load API keys to/from keyring if
 needed. Store metadata about used urls, usernames for the urls and when was
 the connection with the username established.
 
 On bootstrap is created global connection with information about site and
-client version. The connection object lives in 'ayon_api'.
+AYON launcher version. The connection object lives in 'ayon_api'.
 """
 
 import os
@@ -449,10 +449,10 @@ def set_environments(url: str, token: str):
 
 
 def create_global_connection():
-    """Create global connection with site id and client version.
+    """Create global connection with site id and AYON launcher version.
 
     Make sure the global connection in 'ayon_api' have entered site id and
-    client version.
+    AYON launcher version.
 
     Set default settings variant to use based on 'is_staging_enabled'.
     """

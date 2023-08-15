@@ -20,7 +20,7 @@ IMPLEMENTED_ARCHIVE_FORMATS = {
 
 
 def get_ayon_appdirs(*args):
-    """Local app data directory of AYON client.
+    """Local app data directory of AYON launcher.
 
     Args:
         *args (Iterable[str]): Subdirectories/files in local app data dir.
