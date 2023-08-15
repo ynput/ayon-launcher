@@ -12,8 +12,6 @@ class AnimationWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-
-
         legs_start_anim = QtCore.QVariantAnimation()
         legs_start_anim.setStartValue(0.0)
         legs_start_anim.setEndValue(1.0)
@@ -121,6 +119,9 @@ class AnimationWidget(QtWidgets.QWidget):
         event_width = event_rect.width()
         event_height = event_rect.height()
         base_size = min(event_width, event_height)
+        left_offset = (event_width - base_size) * 0.5
+        top_offset = (event_height - base_size) * 0.5
+        half_base_size = base_size * 0.5
 
         ball_offset = base_size * 0.1
         legs_content_size = base_size - ball_offset
@@ -140,8 +141,8 @@ class AnimationWidget(QtWidgets.QWidget):
             * self._ball_offset_ratio
         )
         ball_rect = QtCore.QRect(
-            (event_width * 0.5) - (ball_size * 0.5),
-            (event_height - base_size) + ball_top_offset,
+            (left_offset + half_base_size) - (ball_size * 0.5),
+            top_offset + ball_top_offset,
             ball_size,
             ball_size
         )
@@ -157,8 +158,8 @@ class AnimationWidget(QtWidgets.QWidget):
 
         painter.drawEllipse(ball_rect)
         painter.translate(
-            event_width * 0.5,
-            (event_height * 0.5) + (ball_size * 0.5)
+            left_offset + half_base_size,
+            top_offset + half_base_size + (ball_size * 0.5)
         )
         painter.rotate(self._legs_angle + 90)
         painter.drawRect(leg_rect)
