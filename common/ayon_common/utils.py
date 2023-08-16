@@ -10,6 +10,8 @@ from uuid import UUID
 
 import appdirs
 
+DATE_FMT = "%Y-%m-%d %H:%M:%S"
+CLEANUP_INTERVAL = 2  # days
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 # UUID of the default Windows download folder
@@ -115,19 +117,44 @@ def get_executables_info_filepath():
     return get_ayon_appdirs("executables.json")
 
 
-def get_executables_info():
-    filepath = get_executables_info_filepath()
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, "r") as stream:
-                return json.load(stream)
-        except Exception:
-            pass
-
+def _get_default_executable_info():
     return {
-        "file_version": "1.0.0",
+        "file_version": "1.0.1",
         "available_versions": []
     }
+
+
+def get_executables_info(check_cleanup=True):
+    filepath = get_executables_info_filepath()
+    if not os.path.exists(filepath):
+        return _get_default_executable_info()
+    try:
+        with open(filepath, "r") as stream:
+            data = json.load(stream)
+
+    except Exception:
+        return _get_default_executable_info()
+
+    if not check_cleanup:
+        return data
+
+    last_cleanup = None
+    last_cleanup_info = data.get("last_cleanup")
+    if last_cleanup_info:
+        try:
+            last_cleanup_value = last_cleanup_info["value"]
+            last_cleanup_fmt = last_cleanup_info["fmt"]
+            last_cleanup = datetime.datetime.strptime(
+                last_cleanup_value, last_cleanup_fmt)
+        except Exception:
+            print("Failed to parse last cleanup timestamp")
+
+    now = datetime.datetime.now()
+    if last_cleanup and (now - last_cleanup).days < CLEANUP_INTERVAL:
+        return data
+
+    cleanup_executables_info()
+    return get_executables_info(check_cleanup=False)
 
 
 def store_executables_info(info):
@@ -195,15 +222,18 @@ def load_executable_version(executable):
     return load_version_from_root(os.path.dirname(executable))
 
 
-def store_executables(executables):
+def store_executables(executables, cleaned_up=False):
     """Store information about executables.
 
     Args:
         executables (Iterable[str]): Paths to executables.
+        cleaned_up (Optional[bool]): If True, executables are considered
+            as cleaned up.
     """
 
-    info = get_executables_info()
+    info = get_executables_info(check_cleanup=False)
     info.setdefault("available_versions", [])
+
     for executable in executables:
         if not executable or not os.path.exists(executable):
             continue
@@ -263,64 +293,73 @@ def store_current_executable_info():
     store_executables([sys.executable])
 
 
-def get_executables_info_by_version(version):
+def get_executables_info_by_version(version, validate=True):
     """Get available executable info by version.
 
     Args:
         version (str): Version of executable.
+        validate (bool): Validate if 'version.py' contains same version.
 
     Returns:
         list[dict[str, Any]]: Executable info matching version.
     """
 
-    executables_info = get_executables_info()
+    info = get_executables_info()
+    available_versions = info.setdefault("available_versions", [])
+    if validate:
+        _available_versions = []
+        for item in available_versions:
+            executable = item.get("executable")
+            if not executable or not os.path.exists(executable):
+                continue
+
+            executable_version = load_executable_version(executable)
+            if executable_version == version:
+                _available_versions.append(item)
+        available_versions = _available_versions
     return [
         item
-        for item in executables_info.get("available_versions", [])
+        for item in available_versions
         if item.get("version") == version
     ]
 
 
-def get_executable_paths_by_version(version, only_available=True):
+def get_executable_paths_by_version(version):
     """Get executable paths by version.
 
     Returns:
         list[str]: Paths to executables.
     """
 
-    output = []
-    for item in get_executables_info_by_version(version):
-        executable = item.get("executable")
-        if not executable:
-            continue
-
-        # Skip if executable was not found
-        if only_available and not os.path.exists(executable):
-            continue
-
-        output.append(executable)
-    return output
+    return [
+        item["executable"]
+        for item in get_executables_info_by_version(version, validate=True)
+    ]
 
 
 def cleanup_executables_info():
     """Remove executables that do not exist anymore."""
 
-    new_executables_info = []
-    changed = False
-    for item in get_executables_info():
+    info = get_executables_info(check_cleanup=False)
+    available_versions = info.setdefault("available_versions", [])
+
+    new_executables = []
+    for item in available_versions:
         executable = item.get("executable")
         if not executable or not os.path.exists(executable):
-            changed = True
             continue
 
         version = load_executable_version(executable)
         if version and item.get("version") != version:
-            changed = True
             item["version"] = version
-        new_executables_info.append(item)
+        new_executables.append(item)
 
-    if changed:
-        store_executables_info(new_executables_info)
+    info["available_versions"] = new_executables
+    info["last_cleanup"] = {
+        "value": datetime.datetime.now().strftime(DATE_FMT),
+        "fmt": DATE_FMT,
+    }
+    store_executables_info(info)
 
 
 class _Cache:
