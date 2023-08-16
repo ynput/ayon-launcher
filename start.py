@@ -208,6 +208,7 @@ from ayon_common.distribution import (
 )
 
 from ayon_common.utils import store_current_executable_info
+from ayon_common.startup import show_startup_error
 
 
 def set_global_environments() -> None:
@@ -391,6 +392,38 @@ def boot():
     store_current_executable_info()
 
 
+def _on_main_addon_missing():
+    if HEADLESS_MODE_ENABLED:
+        raise RuntimeError("Failed to import required OpenPype addon.")
+    show_startup_error(
+        "Missing OpenPype addon",
+        (
+            "AYON-launcher requires OpenPype addon to be able to start."
+            "<br/><br/>Please contact your administrator"
+            " to resolve the issue."
+        )
+    )
+    sys.exit(1)
+
+
+def _on_main_addon_import_error():
+    if HEADLESS_MODE_ENABLED:
+        raise RuntimeError(
+            "Failed to import OpenPype addon. Probably because"
+            " of missing or incompatible dependency package"
+        )
+    show_startup_error(
+        "Incompatible Dependency package",
+        (
+            "Dependency package is missing or incompatible with available"
+            " addons."
+            "<br/><br/>Please contact your administrator"
+            " to resolve the issue."
+        )
+    )
+    sys.exit(1)
+
+
 def main_cli():
     """Main startup logic.
 
@@ -399,8 +432,15 @@ def main_cli():
     contains more logic than it should.
     """
 
-    from openpype import cli
-    from openpype import PACKAGE_DIR
+    try:
+        from openpype import PACKAGE_DIR
+    except ImportError:
+        _on_main_addon_missing()
+
+    try:
+        from openpype import cli
+    except ImportError:
+        _on_main_addon_import_error()
 
     python_path = os.getenv("PYTHONPATH", "")
     split_paths = python_path.split(os.pathsep)
