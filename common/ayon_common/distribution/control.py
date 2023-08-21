@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import uuid
+import ctypes
 import tempfile
 import traceback
 import collections
@@ -576,6 +578,34 @@ class InstallerDistributionItem(BaseDistributionItem):
             if os.path.exists(executable_path):
                 return executable_path
 
+    def _windows_root_require_permissions(self, dirpath):
+        while not os.path.exists(dirpath):
+            _dirpath = os.path.dirname(dirpath)
+            if _dirpath == dirpath:
+                print((
+                    "Failed to determine if root requires permissions."
+                    " The disk is probably not mounted."
+                ))
+                return False
+            dirpath = _dirpath
+        try:
+            # Attempt to create a temporary file in the folder
+            temp_file_path = os.path.join(dirpath, uuid.uuid4().hex)
+            with open(temp_file_path, "w"):
+                pass
+            os.remove(temp_file_path)  # Clean up temporary file
+            return False
+
+        except PermissionError:
+            return True
+
+        except BaseException as exc:
+            print((
+                "Failed to determine if root requires permissions."
+                "Unexpected error: {}"
+            ).format(exc))
+            return False
+
     def _install_windows(self, filepath):
         """Install windows AYON launcher.
 
@@ -589,9 +619,21 @@ class InstallerDistributionItem(BaseDistributionItem):
         log_file = create_tmp_file(suffix="ayon_install")
         # A file where installer may store output directory
         install_exe_tmp = create_tmp_file(suffix="ayon_install_dir")
+        user_arg = "/CURRENTUSER"
+        # Ask for admin permissions if user is not admin and
+        if (
+            not ctypes.windll.shell32.IsUserAnAdmin()
+            and self._windows_root_require_permissions(install_root)
+        ):
+            if HEADLESS_MODE_ENABLED:
+                raise InstallerDistributionError((
+                    "Installation requires administration permissions, which"
+                    " cannot be granted in headless mode."
+                ))
+            user_arg = "/ALLUSERS"
         args = [
             filepath,
-            "/CURRENTUSER",
+            user_arg,
             "/NOCANCEL",
             f"/LOG={log_file}",
             f"/INSTALLROOT={install_root}"
