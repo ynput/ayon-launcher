@@ -375,7 +375,7 @@ def get_packages_info(build_root):
             "Failed to get packages info -> couldn't find 'requirements.txt'."
         )
 
-    with open(str(requirements_path), "r") as stream:
+    with open(str(requirements_path), "r", encoding="utf-8") as stream:
         content = stream.read()
 
     packages = {}
