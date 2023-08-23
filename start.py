@@ -15,6 +15,17 @@ from version import __version__
 
 ORIGINAL_ARGS = list(sys.argv)
 
+
+# Define which bundle is used
+if "--bundle" in sys.argv:
+    idx = sys.argv.index("--bundle")
+    sys.argv.pop(idx)
+    if idx >= len(sys.argv):
+        raise RuntimeError((
+            "Expect value after \"--bundle\" argument."
+        ))
+    os.environ["AYON_BUNDLE_NAME"] = sys.argv.pop(idx)
+
 # Enabled logging debug mode when "--debug" is passed
 if "--verbose" in sys.argv:
     expected_values = (
