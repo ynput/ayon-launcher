@@ -5,7 +5,6 @@ Bootstrapping process of AYON.
 """
 import os
 import sys
-import copy
 import site
 import traceback
 import contextlib
@@ -15,6 +14,7 @@ from version import __version__
 
 ORIGINAL_ARGS = list(sys.argv)
 
+os.environ["AYON_VERSION"] = __version__
 
 # Define which bundle is used
 if "--bundle" in sys.argv:
@@ -34,15 +34,14 @@ if "--verbose" in sys.argv:
     )
     idx = sys.argv.index("--verbose")
     sys.argv.pop(idx)
-    if idx < len(sys.argv):
-        value = sys.argv.pop(idx)
-    else:
+    if idx >= len(sys.argv):
         raise RuntimeError((
             f"Expect value after \"--verbose\" argument. {expected_values}"
         ))
 
-    log_level = None
+    value = sys.argv.pop(idx)
     low_value = value.lower()
+    log_level = None
     if low_value.isdigit():
         log_level = int(low_value)
     elif low_value == "notset":
@@ -66,8 +65,6 @@ if "--verbose" in sys.argv:
 
     os.environ["OPENPYPE_LOG_LEVEL"] = str(log_level)
     os.environ["AYON_LOG_LEVEL"] = str(log_level)
-
-os.environ["AYON_VERSION"] = __version__
 
 # Enable debug mode, may affect log level if log level is not defined
 if "--debug" in sys.argv:
