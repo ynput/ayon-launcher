@@ -26,7 +26,6 @@ RUN dnf -y install \
         git \
         make \
         cmake \
-        curl \
         wget \
         gcc \
         zlib-devel \
@@ -37,7 +36,6 @@ RUN dnf -y install \
         openssl-devel \
         openssl-libs \
         tk-devel libffi-devel \
-        patchelf \
         automake \
         autoconf \
         patch \
@@ -63,7 +61,7 @@ COPY . /opt/ayon-launcher/
 RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
 # USER root
 # RUN chown -R pype /opt/ayon-launcher
-RUN chmod +x /opt/ayon-launcher/tools/create_env.sh && chmod +x /opt/ayon-launcher/tools/build.sh
+RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
 # USER pype
 
@@ -80,13 +78,10 @@ RUN source $HOME/.bashrc \
     && ./tools/make.sh install-runtime
 
 RUN source $HOME/.bashrc \
-    && bash ./tools/make.h build
+    && bash ./tools/make.sh build
 
-# RUN cp /usr/lib64/libffi* ./build/exe.linux-x86_64-3.9/lib \
-#    && cp /usr/lib64/libssl* ./build/exe.linux-x86_64-3.9/lib \
-#    && cp /usr/lib64/libcrypto* ./build/exe.linux-x86_64-3.9/lib \
-#    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/exe.linux-x86_64-3.9/lib \
-#    && cp /usr/lib64/libxcb* ./build/exe.linux-x86_64-3.9/vendor/python/PySide2/Qt/lib
-
-RUN cd /opt/ayon-launcher \
-    rm -rf ./vendor/bin
+RUN cp /usr/lib64/libffi* ./build/output/lib \
+    && cp /usr/lib64/libssl* ./build/output/lib \
+    && cp /usr/lib64/libcrypto* ./build/output/lib \
+    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
+    && cp /usr/lib64/libxcb* ./build/output/lib
