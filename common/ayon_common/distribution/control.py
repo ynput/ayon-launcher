@@ -682,7 +682,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             os.makedirs(install_root)
 
         try:
-            extract_archive_file(filepath, destination_path=install_root)
+            extract_archive_file(filepath, install_root)
         except Exception as e:
             self.log.error(e)
             raise InstallerDistributionError(
