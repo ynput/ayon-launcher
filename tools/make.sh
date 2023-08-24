@@ -137,7 +137,6 @@ detect_python () {
 install_poetry () {
   echo -e "${BIGreen}>>>${RST} Installing Poetry ..."
   export POETRY_HOME="$repo_root/.poetry"
-  export POETRY_VERSION="1.3.2"
   command -v curl >/dev/null 2>&1 || { echo -e "${BIRed}!!!${RST}${BIYellow} Missing ${RST}${BIBlue}curl${BIYellow} command.${RST}"; return 1; }
   curl -sSL https://install.python-poetry.org/ | python -
 }
@@ -188,8 +187,11 @@ create_env () {
   clean_pyc
 
   "$POETRY_HOME/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
-  echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
-  "$POETRY_HOME/bin/poetry" run pre-commit install
+
+  if [ -d "$repo_root/.git" ]; then
+    echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
+    "$POETRY_HOME/bin/poetry" run pre-commit install
+  fi
 }
 
 install_runtime_dependencies () {

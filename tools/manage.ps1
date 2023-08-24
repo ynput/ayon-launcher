@@ -273,12 +273,13 @@ function Create-Env {
         Restore-Cwd
         Exit-WithCode 1
     }
-    Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-    & "$env:POETRY_HOME\bin\poetry" run pre-commit install
-    if ($LASTEXITCODE -ne 0) {
-        Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
-        Restore-Cwd
-        Exit-WithCode 1
+    if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
+        Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
+        & "$env:POETRY_HOME\bin\poetry" run pre-commit install
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
+        }
     }
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
