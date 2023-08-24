@@ -39,6 +39,7 @@ retrieve_build_log () {
   echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$launcher_root/build/build.log${RST}"
   docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build"
   docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$launcher_root/build"
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$launcher_root/build"
 }
 
 launcher_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))

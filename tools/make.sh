@@ -89,19 +89,16 @@ print_art() {
   echo -e "${BGreen}"
   cat <<-EOF
 
-             . .   ..     .    ..
-        _oOOP3OPP3Op_. .
-     .PPpo~·   ··   ~2p.  ··  ····  ·  ·
-    ·Ppo · .pPO3Op.· · O:· · · ·
-   .3Pp · oP3'· 'P33· · 4 ··   ·  ·   · ·· ·  ·  ·
-  ·~OP    3PO·  .Op3    : · ··  _____  _____  _____
-  ·P3O  · oP3oP3O3P' · · ·   · /    /·/    /·/    /
-   O3:·   O3p~ ·       ·:· · ·/____/·/____/ /____/
-   'P ·   3p3·  oP3~· ·.P:· ·  · ··  ·   · ·· ·  ·  ·
-  · ':  · Po'  ·Opo'· .3O· .  o[ by Pype Club ]]]==- - - ·  ·
-    · '_ ..  ·    . _OP3··  ·  ·https://openpype.io·· ·
-         ~P3·OPPPO3OP~ · ··  ·
-           ·  ' '· ·  ·· · · · ··  ·
+   ▄████████ ▄██   ▄    ▄██████▄  ███▄▄▄▄
+  ███    ███ ███   ██▄ ███    ███ ███▀▀▀██▄
+  ███    ███ ███▄▄▄███ ███    ███ ███   ███
+  ███    ███ ▀▀▀▀▀▀███ ███    ███ ███   ███
+▀███████████ ▄██   ███ ███    ███ ███   ███
+  ███    ███ ███   ███ ███    ███ ███   ███
+  ███    ███ ███   ███ ███    ███ ███   ███
+  ███    █▀   ▀█████▀   ▀██████▀   ▀█   █▀
+
+  ·=[ by YNPUT ]:[ http://ayon.ynput.io ]=·
 
 EOF
   echo -e "${RST}"
@@ -192,12 +189,6 @@ create_env () {
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
   clean_pyc
 
-  # reinstall these because of bug in poetry? or cx_freeze?
-  # cx_freeze will crash on missing __pychache__ on these but
-  # reinstalling them solves the problem.
-  echo -e "${BIGreen}>>>${RST} Post-venv creation fixes ..."
-  local openpype_index=$("$POETRY_HOME/bin/poetry" run python "$repo_root/tools/parse_pyproject.py" tool.poetry.source.0.url)
-  echo -e "${BIGreen}-   ${RST} Using index: ${BIWhite}$openpype_index${RST}"
   "$POETRY_HOME/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
   echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
   "$POETRY_HOME/bin/poetry" run pre-commit install

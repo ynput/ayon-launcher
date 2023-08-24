@@ -78,7 +78,7 @@ RUN source $HOME/.bashrc \
     && ./tools/make.sh install-runtime
 
 RUN source $HOME/.bashrc \
-    && bash ./tools/make.sh build
+    && bash ./tools/make.sh build-make-installer
 
 RUN cp /usr/lib64/libffi* ./build/output/lib \
     && cp /usr/lib64/libssl* ./build/output/lib \
