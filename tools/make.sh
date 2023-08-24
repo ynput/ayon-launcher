@@ -311,10 +311,11 @@ retrieve_build_log () {
 }
 
 docker_build() {
-  if [ -z "$2" ]; then
+  if [ -z "$1" ]; then
     dockerfile="Dockerfile"
+    echo -e "${BIGreen}>>>${RST} Using default Dockerfile ..."
   else
-    dockerfile="Dockerfile.$2"
+    dockerfile="Dockerfile.$1"
     if [ ! -f "$launcher_root/$dockerfile" ]; then
       echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
       exit 1
