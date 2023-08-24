@@ -293,11 +293,11 @@ run_from_code() {
 }
 
 create_container () {
-  if [ ! -f "$launcher_root/build/docker-image.id" ]; then
+  if [ ! -f "$repo_root/build/docker-image.id" ]; then
     echo -e "${BIRed}!!!${RST} Docker command failed, cannot find image id."
     exit 1
   fi
-  local id=$(<"$launcher_root/build/docker-image.id")
+  local id=$(<"$repo_root/build/docker-image.id")
   echo -e "${BIYellow}---${RST} Creating container from $id ..."
   cid="$(docker create $id bash)"
   if [ $? -ne 0 ] ; then
@@ -308,18 +308,17 @@ create_container () {
 
 retrieve_build_log () {
   create_container
-  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$launcher_root/build/build.log${RST}"
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build"
+  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$repo_root/build/build.log${RST}"
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build"
 }
 
 docker_build() {
-  launcher_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
   if [ -z "$1" ]; then
     dockerfile="Dockerfile"
     echo -e "${BIGreen}>>>${RST} Using default Dockerfile ..."
   else
     dockerfile="Dockerfile.$1"
-    if [ ! -f "$launcher_root/$dockerfile" ]; then
+    if [ ! -f "$repo_root/$dockerfile" ]; then
       echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
       exit 1
     else
@@ -327,16 +326,16 @@ docker_build() {
     fi
   fi
 
-  pushd "$launcher_root" > /dev/null || return > /dev/null
+  pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
-  rm -rf "$launcher_root/build" && mkdir "$launcher_root/build" > /dev/null
+  rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
 
-  local version_command="import os;exec(open(os.path.join('$launcher_root', 'version.py')).read());print(__version__);"
+  local version_command="import os;exec(open(os.path.join('$repo_root', 'version.py')).read());print(__version__);"
   local launcher_version="$(python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  docker build --pull --iidfile $launcher_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
@@ -347,10 +346,10 @@ docker_build() {
   echo -e "${BIGreen}>>>${RST} Copying build from container ..."
   create_container
   echo -e "${BIYellow}---${RST} Copying ..."
-  docker cp "$cid:/opt/ayon-launcher/build/output" "$launcher_root/build" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$launcher_root/build" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/installer" "$launcher_root/build" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/output" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
 
   echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
   local username="$(logname)"
