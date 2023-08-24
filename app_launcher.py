@@ -46,4 +46,13 @@ def main(input_json_path):
 
 if __name__ == "__main__":
     # Expect that last argument is path to a json with launch args information
-    main(sys.argv[-1])
+    json_path = sys.argv[-1]
+    if os.path.splitext(json_path)[1].lower() != ".json":
+        print((
+            "App launcher expects json file as last argument."
+            "\nNote: 'app_launcher' is not an executable of AYON launcher."
+            " Use 'ayon' instead."
+        ))
+        sys.exit(1)
+
+    main(json_path)

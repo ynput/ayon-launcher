@@ -337,7 +337,7 @@ function Install-Runtime-Dependencies() {
 }
 
 function Run-From-Code() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py"
+    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py" @arguments
 }
 
 function Main {
