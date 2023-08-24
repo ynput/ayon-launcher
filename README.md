@@ -66,3 +66,47 @@ You need to build AYON first. This will produce executable - `ayon.exe` and `ayo
 
 #### Windows
 Executable `ayon_console.exe` creates console with output - useful for debugging, `ayon.exe` does not create console, but does not have any stdout or stderr output.
+
+
+Startup
+-------------
+Once AYON launcher is installed and launched there are few ways how to affect what will happen. Default behavior will ask for login to server, if user did not log in yet, then starts distribution of updates, and last step is to start the main logic.
+
+Main logic is now using command line handling from `openpype` addon. If path to python script is passed it will start the python script as main logic instead.
+
+### Arguments
+There are reserver global arguments that cannot be used in any cli handling:
+- `--bundle <BUNDLE NAME>` - Force AYON to use specific bundle instead of the one that is set in the config file. This is useful for testing new bundles before they are released.
+- `--verbose <LOG LEVEL>` - Change logging level to one of the following: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+- `--debug` - Simplified way how to change verbose to DEBUG. Also sets `AYON_DEBUG` environment variable to `1`.
+- `--skip-headers` - Skip headers in the console output.
+- `--use-staging` - Use staging settings, and use staging bundle, if bundle is not explicitly defined.
+- `--headless` - Tell AYON to run in headless mode. No UIs are shown during bootstrap. Affects `AYON_HEADLESS_MODE` environment variable. Custom logic must handle headless mode on own.
+- `--skip-bootstrap` - Skip bootstrap process. Used for inner logic of distribution.
+
+### Environment variables
+Environment variables that are set during startup:
+- **AYON_VERSION** - Version of AYON launcher.
+- **AYON_BUNDLE_NAME** - Name of bundle that is used.
+- **AYON_LOG_LEVEL** - Log level that is used.
+- **AYON_DEBUG** - Debug flag enabled when set to '1'.
+- **AYON_USE_STAGING** - Use staging settings when set to '1'.
+- **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.
+- **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
+- **AYON_ROOT** - Root to AYON launcher content.
+
+- **AYON_MENU_LABEL** - Label for AYON menu -> TODO move to openpype addon.
+- **PYBLISH_GUI** - Default pyblish UI that should be used in pyblish -> TODO move to openpype addon.
+- **USE_AYON_SERVER** - Flag for openpype addon.
+
+- **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
+
+Environment variables that are set for backwards compatibility with openpype addon:
+- **OPENPYPE_LOG_LEVEL** - Alias to **AYON_LOG_LEVEL**.
+- **OPENPYPE_DEBUG** - Alias to **AYON_DEBUG**.
+- **OPENPYPE_USE_STAGING** - Alias to **AYON_USE_STAGING**.
+- **OPENPYPE_HEADLESS_MODE** - Alias to **AYON_HEADLESS_MODE**.
+- **OPENPYPE_EXECUTABLE** - Alias to **AYON_EXECUTABLE**.
+- **OPENPYPE_ROOT** - Alias to **AYON_ROOT**.
+- **OPENPYPE_REPOS_ROOT** - Alias to **AYON_ROOT**.
+- **AVALON_LABEL** - Alias to **AYON_MENU_LABEL**.
