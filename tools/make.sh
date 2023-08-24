@@ -89,19 +89,14 @@ print_art() {
   echo -e "${BGreen}"
   cat <<-EOF
 
-             . .   ..     .    ..
-        _oOOP3OPP3Op_. .
-     .PPpo~·   ··   ~2p.  ··  ····  ·  ·
-    ·Ppo · .pPO3Op.· · O:· · · ·
-   .3Pp · oP3'· 'P33· · 4 ··   ·  ·   · ·· ·  ·  ·
-  ·~OP    3PO·  .Op3    : · ··  _____  _____  _____
-  ·P3O  · oP3oP3O3P' · · ·   · /    /·/    /·/    /
-   O3:·   O3p~ ·       ·:· · ·/____/·/____/ /____/
-   'P ·   3p3·  oP3~· ·.P:· ·  · ··  ·   · ·· ·  ·  ·
-  · ':  · Po'  ·Opo'· .3O· .  o[ by Pype Club ]]]==- - - ·  ·
-    · '_ ..  ·    . _OP3··  ·  ·https://openpype.io·· ·
-         ~P3·OPPPO3OP~ · ··  ·
-           ·  ' '· ·  ·· · · · ··  ·
+                    ▄██▄
+         ▄███▄ ▀██▄ ▀██▀ ▄██▀ ▄██▀▀▀██▄    ▀███▄      █▄
+        ▄▄ ▀██▄  ▀██▄  ▄██▀ ██▀      ▀██▄  ▄  ▀██▄    ███
+       ▄██▀  ██▄   ▀ ▄▄ ▀  ██         ▄██  ███  ▀██▄  ███
+      ▄██▀    ▀██▄   ██    ▀██▄      ▄██▀  ███    ▀██ ▀█▀
+     ▄██▀      ▀██▄  ▀█      ▀██▄▄▄▄██▀    █▀      ▀██▄
+
+     ·  · - =[ by YNPUT ]:[ http://ayon.ynput.io ]= - ·  ·
 
 EOF
   echo -e "${RST}"
@@ -142,7 +137,6 @@ detect_python () {
 install_poetry () {
   echo -e "${BIGreen}>>>${RST} Installing Poetry ..."
   export POETRY_HOME="$repo_root/.poetry"
-  export POETRY_VERSION="1.3.2"
   command -v curl >/dev/null 2>&1 || { echo -e "${BIRed}!!!${RST}${BIYellow} Missing ${RST}${BIBlue}curl${BIYellow} command.${RST}"; return 1; }
   curl -sSL https://install.python-poetry.org/ | python -
 }
@@ -192,15 +186,12 @@ create_env () {
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
   clean_pyc
 
-  # reinstall these because of bug in poetry? or cx_freeze?
-  # cx_freeze will crash on missing __pychache__ on these but
-  # reinstalling them solves the problem.
-  echo -e "${BIGreen}>>>${RST} Post-venv creation fixes ..."
-  local openpype_index=$("$POETRY_HOME/bin/poetry" run python "$repo_root/tools/parse_pyproject.py" tool.poetry.source.0.url)
-  echo -e "${BIGreen}-   ${RST} Using index: ${BIWhite}$openpype_index${RST}"
   "$POETRY_HOME/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
-  echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
-  "$POETRY_HOME/bin/poetry" run pre-commit install
+
+  if [ -d "$repo_root/.git" ]; then
+    echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
+    "$POETRY_HOME/bin/poetry" run pre-commit install
+  fi
 }
 
 install_runtime_dependencies () {
@@ -301,8 +292,75 @@ run_from_code() {
   "$POETRY_HOME/bin/poetry" run python "$repo_root/start.py" "$@"
 }
 
+create_container () {
+  if [ ! -f "$repo_root/build/docker-image.id" ]; then
+    echo -e "${BIRed}!!!${RST} Docker command failed, cannot find image id."
+    exit 1
+  fi
+  local id=$(<"$repo_root/build/docker-image.id")
+  echo -e "${BIYellow}---${RST} Creating container from $id ..."
+  cid="$(docker create $id bash)"
+  if [ $? -ne 0 ] ; then
+    echo -e "${BIRed}!!!${RST} Cannot create container."
+    exit 1
+  fi
+}
+
+retrieve_build_log () {
+  create_container
+  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$repo_root/build/build.log${RST}"
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build"
+}
+
+docker_build() {
+  if [ -z "$1" ]; then
+    dockerfile="Dockerfile"
+    echo -e "${BIGreen}>>>${RST} Using default Dockerfile ..."
+  else
+    dockerfile="Dockerfile.$1"
+    if [ ! -f "$repo_root/$dockerfile" ]; then
+      echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
+      exit 1
+    else
+      echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
+    fi
+  fi
+
+  pushd "$repo_root" > /dev/null || return > /dev/null
+
+  echo -e "${BIYellow}---${RST} Cleaning build directory ..."
+  rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
+
+  local version_command="import os;exec(open(os.path.join('$repo_root', 'version.py')).read());print(__version__);"
+  local launcher_version="$(python <<< ${version_command})"
+
+  echo -e "${BIGreen}>>>${RST} Running docker build ..."
+  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
+  if [ $? -ne 0 ] ; then
+    echo $?
+    echo -e "${BIRed}!!!${RST} Docker build failed."
+    retrieve_build_log
+    return 1
+  fi
+
+  echo -e "${BIGreen}>>>${RST} Copying build from container ..."
+  create_container
+  echo -e "${BIYellow}---${RST} Copying ..."
+  docker cp "$cid:/opt/ayon-launcher/build/output" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
+
+  echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
+  local username="$(logname)"
+  chown -R $username ./build
+
+  echo -e "${BIGreen}>>>${RST} All done, you can delete container:"
+  echo -e "${BIYellow}$cid${RST}"
+}
+
 default_help() {
-  echo ""
+  print_art
   echo "Ayon desktop application tool"
   echo ""
   echo "Usage: ./make.sh [target]"
@@ -317,6 +375,7 @@ default_help() {
   echo "  upload                        Upload installer to server"
   echo "  create-server-package         Create package ready for AYON server"
   echo "  run                           Run desktop application from code"
+  echo "  docker-build [variant]        Build AYON using Docker. Variant can be 'centos7', 'debian' or 'rocky9'"
   echo ""
 }
 
@@ -324,7 +383,7 @@ main() {
   return_code=0
   detect_python || return_code=$?
   if [ $return_code != 0 ]; then
-    exit return_code
+    exit $return_code
   fi
 
   if [[ -z $POETRY_HOME ]]; then
@@ -363,6 +422,10 @@ main() {
       run_from_code "${@:2}" || return_code=$?
       exit $return_code
       ;;
+    "dockerbuild")
+      docker_build "${@:2}" || return_code=$?
+      exit $return_code
+      ;;
   esac
 
   if [ "$function_name" != "" ]; then
@@ -373,4 +436,4 @@ main() {
   exit $return_code
 }
 
-main $@
+main "$@"

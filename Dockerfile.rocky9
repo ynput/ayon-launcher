@@ -1,8 +1,8 @@
 # Build AYON launcher docker image
-FROM centos:7 AS builder
-ARG PYTHON_VERSION=3.9.12
+FROM rockylinux:9 AS builder
+ARG PYTHON_VERSION=3.9.16
 
-LABEL description="Docker Image to build and run AYON Launcher under Centos 7"
+LABEL description="Docker Image to build and run AYON Launcher under RockyLinux 9"
 LABEL org.opencontainers.image.name="ynput/ayon-launcher"
 LABEL org.opencontainers.image.title="AYON Launcher Docker Image"
 LABEL org.opencontainers.image.url="https://ayon.ynput.io/"
@@ -15,21 +15,17 @@ LABEL org.opencontainers.image.version=$VERSION
 USER root
 
 # update base
-RUN yum -y install deltarpm \
-    && yum -y update \
-    && yum clean all
+RUN dnf install -y dnf-plugins-core \
+    && dnf -y update \
+    && dnf clean all
 
 # add tools we need
-RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
-    && yum -y install centos-release-scl \
-    && yum -y install \
+RUN dnf -y install \
         bash \
         which \
         git \
         make \
-        devtoolset-7 \
         cmake \
-        curl \
         wget \
         gcc \
         zlib-devel \
@@ -40,25 +36,15 @@ RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.n
         openssl-devel \
         openssl-libs \
         tk-devel libffi-devel \
-        patchelf \
         automake \
         autoconf \
         patch \
         ncurses \
-	    ncurses-devel \
+	ncurses-devel \
         qt5-qtbase-devel \
         xcb-util-wm \
         xcb-util-renderutil \
-    && yum clean all
-
-# we need to build our own patchelf
-WORKDIR /temp-patchelf
-RUN git clone -b 0.17.0 --single-branch https://github.com/NixOS/patchelf.git . \
-    && source scl_source enable devtoolset-7 \
-    && ./bootstrap.sh \
-    && ./configure \
-    && make \
-    && make install
+    && dnf clean all
 
 RUN mkdir /opt/ayon-launcher
 
@@ -75,20 +61,22 @@ COPY . /opt/ayon-launcher/
 RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
 RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
-# USER pype
-
 WORKDIR /opt/ayon-launcher
 
 RUN source $HOME/.bashrc \
     && pyenv local ${PYTHON_VERSION}
 
 RUN source $HOME/.bashrc \
-    && ./tools/make.sh create-env \
-    && ./tools/make.sh install-runtime \
-    && ./tools/make.sh build-make-installer
+    && ./tools/make.sh create-env
 
-RUN cp /usr/lib64/libffi* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libssl* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libcrypto* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libxcb* ./build/exe.linux-x86_64-3.9/vendor/python/PySide2/Qt/lib
+RUN source $HOME/.bashrc \
+    && ./tools/make.sh install-runtime
+
+RUN source $HOME/.bashrc \
+    && bash ./tools/make.sh build-make-installer
+
+RUN cp /usr/lib64/libffi* ./build/output/lib \
+    && cp /usr/lib64/libssl* ./build/output/lib \
+    && cp /usr/lib64/libcrypto* ./build/output/lib \
+    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
+    && cp /usr/lib64/libxcb* ./build/output/lib

@@ -43,21 +43,14 @@ $env:PSModulePath = $env:PSModulePath + ";$($repo_root)\tools\modules\powershell
 
 $art = @"
 
+                    ▄██▄
+         ▄███▄ ▀██▄ ▀██▀ ▄██▀ ▄██▀▀▀██▄    ▀███▄      █▄
+        ▄▄ ▀██▄  ▀██▄  ▄██▀ ██▀      ▀██▄  ▄  ▀██▄    ███
+       ▄██▀  ██▄   ▀ ▄▄ ▀  ██         ▄██  ███  ▀██▄  ███
+      ▄██▀    ▀██▄   ██    ▀██▄      ▄██▀  ███    ▀██ ▀█▀
+     ▄██▀      ▀██▄  ▀█      ▀██▄▄▄▄██▀    █▀      ▀██▄
 
-             . .   ..     .    ..
-        _oOOP3OPP3Op_. .
-     .PPpo~.   ..   ~2p.  ..  ....  .  .
-    .Ppo . .pPO3Op.. . O:. . . .
-   .3Pp . oP3'. 'P33. . 4 ..   .  .   . .. .  .  .
-  .~OP    3PO.  .Op3    : . ..  _____  _____  _____
-  .P3O  . oP3oP3O3P' . . .   . /    /./    /./    /
-   O3:.   O3p~ .       .:. . ./____/./____/ /____/
-   'P .   3p3.  oP3~. ..P:. .  . ..  .   . .. .  .  .
-  . ':  . Po'  .Opo'. .3O. .  o[ by Pype Club ]]]==- - - .  .
-    . '_ ..  .    . _OP3..  .  .https://openpype.io.. .
-         ~P3.OPPPO3OP~ . ..  .
-           .  ' '. .  .. . . . ..  .
-
+     ·  · - =[ by YNPUT ]:[ http://ayon.ynput.io ]= - ·  ·
 
 "@
 
@@ -153,34 +146,106 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
     }
     # We are supporting python 3.9 only
     if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
-      Write-Color -Text "FAILED ", "Version ", "[", $p ,"]",  "is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
+      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  "is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
       Restore-Cwd
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
-        Write-Color -Text "WARNING Version ", "[",  $p, "]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
+        Write-Color -Text "WARNING Version ", "[ ",  $p, " ]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
         Write-Color -Text "*** ", "OpenPype supports only Python 3.9" -Color Yellow, White
     } else {
-        Write-Color "OK ", "[",  $p, "]" -Color Green, Cyan, White, Cyan
+        Write-Color "OK ", "[ ",  $p, " ]" -Color Green, Cyan, White, Cyan
     }
+}
+
+function Get-Container {
+    if (-not (Test-Path -PathType Leaf -Path "$($repo_root)\build\docker-image.id")) {
+        Write-Color -Text "!!! ", "Docker command failed, cannot find image id." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+    $id = Get-Content "$($repo_root)\build\docker-image.id"
+    Write-Color -Text ">>> ", "Creating container from image id ", "[", $id, "]" -Color Green, Gray, White, Cyan, White
+    $cid = docker create $id bash
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Cannot create container." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+    return $cid
+}
+
+function Get-BuildLog {
+    $cid = Get-Container
+    Write-Color -Text ">>> ", "Copying build log to", "$($repo_root)\build\build.log" -Color Green, Gray, White
+    docker cp "$($cid):/opt/ayon-launcher/build/build.log" "$($repo_root)\build\build.log"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Cannot copy log from container." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+}
+
+function New-DockerBuild {
+    $startTime = [int][double]::Parse((Get-Date -UFormat %s))
+    Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
+    $variant = $args[0]
+    $dockerfile = "$($repo_root)\Dockerfile.$variant"
+    if (-not (Test-Path -PathType Leaf -Path $dockerfile)) {
+        Write-Color -Text "!!! ", "Dockerfile for specifed platform ", "[", $variant, "]", "doesn't exist." -Color Red, Yellow, Cyan, White, Cyan, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+    Write-Color -Text ">>> ", "Using Dockerfile for ", "[ ", $variant, " ]" -Color Green, Gray, White, Cyan, White
+    Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
+    try {
+        Remove-Item -Recurse -Force "$($repo_root)\build\*"
+    }
+    catch {
+        Write-Color -Text "!!! ", "Cannot clean build directory, possibly because process is using it." -Color Red, Gray
+        Write-Color -Text $_.Exception.Message -Color Red
+        Exit-WithCode 1
+    }
+    Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
+
+    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Docker command failed.", $LASTEXITCODE -Color Red, Yellow, Red
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+    Write-Color -Text ">>> ", "Copying build from container ..." -Color Green, Gray, White
+    $cid = Get-Container
+
+    docker cp "$($cid):/opt/ayon-launcher/build/output" "$($repo_root)/build"
+    docker cp "$($cid):/opt/ayon-launcher/build/build.log" "$($repo_root)/build"
+    docker cp "$($cid):/opt/ayon-launcher/build/metadata.json" "$($repo_root)/build"
+    docker cp "$($cid):/opt/ayon-launcher/build/installer" "$($repo_root)/build"
+
+    $endTime = [int][double]::Parse((Get-Date -UFormat %s))
+    try {
+        New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON build complete!", "All done in $( $endTime - $startTime ) secs. You will find AYON and build log in build directory."
+    } catch {}
+    Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
 function Default-Func {
     $ayon_version = Get-Ayon-Version
     Write-Host ""
     Write-Host "Ayon desktop application tool"
-    Write-Host "    version $($ayon_version)"
+    Write-Color -Text "    version ", "$($ayon_version)" -Color White, Cyan
     Write-Host ""
-    Write-Host "Usage: ./manage.ps1 [target]"
+    Write-Color -Text "Usage: ", "./manage.ps1 ", "[target]" -Color Gray, White, Cyan
     Write-Host ""
     Write-Host "Runtime targets:"
-    Write-Host "  create-env                    Install Poetry and update venv by lock file"
-    Write-Host "  install-runtime-dependencies  Install runtime dependencies (Qt binding)"
-    Write-Host "  install-runtime               Alias for 'install-runtime-dependencies'"
-    Write-Host "  build                         Build desktop application"
-    Write-Host "  make-installer                Make desktop application installer"
-    Write-Host "  build-make-installer          Build desktop application and make installer"
-    Write-Host "  upload                        Upload installer to server"
-    Write-Host "  run                           Run desktop application from code"
+    Write-Color -text "  create-env                    ", "Install Poetry and update venv by lock file" -Color White, Cyan
+    Write-Color -text "  install-runtime-dependencies  ", "Install runtime dependencies (Qt binding)" -Color White, Cyan
+    Write-Color -text "  install-runtime               ", "Alias for '", "install-runtime-dependencies", "'" -Color White, Cyan, White, Cyan
+    Write-Color -text "  build                         ", "Build desktop application" -Color White, Cyan
+    Write-Color -text "  make-installer                ", "Make desktop application installer" -Color White, Cyan
+    Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
+    Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
+    Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
+    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
     Write-Host ""
 }
 
@@ -208,12 +273,13 @@ function Create-Env {
         Restore-Cwd
         Exit-WithCode 1
     }
-    Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-    & "$env:POETRY_HOME\bin\poetry" run pre-commit install
-    if ($LASTEXITCODE -ne 0) {
-        Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
-        Restore-Cwd
-        Exit-WithCode 1
+    if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
+        Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
+        & "$env:POETRY_HOME\bin\poetry" run pre-commit install
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
+        }
     }
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
@@ -370,6 +436,9 @@ function Main {
     } elseif ($FunctionName -eq "upload") {
         Change-Cwd
         Installer-Post-Process "upload" @arguments
+    } elseif ($FunctionName -eq "dockerbuild") {
+        Change-Cwd
+        New-DockerBuild @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func

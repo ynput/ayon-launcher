@@ -4,12 +4,11 @@ ARG PYTHON_VERSION=3.9.12
 ARG BUILD_DATE
 ARG VERSION
 
-LABEL maintainer="info@openpype.io"
-LABEL description="Docker Image to build and run AYON under Ubuntu 20.04"
-LABEL org.opencontainers.image.name="ynput/desktop"
-LABEL org.opencontainers.image.title="AYON Desktop Docker Image"
+LABEL description="Docker Image to build and run AYON Launcher under Ubuntu"
+LABEL org.opencontainers.image.name="ynput/ayon-launcher"
+LABEL org.opencontainers.image.title="AYON Launcher Docker Image"
 LABEL org.opencontainers.image.url="https://ayon.ynput.io/"
-LABEL org.opencontainers.image.source="https://github.com/ynput/OpenPype"
+LABEL org.opencontainers.image.source="https://github.com/ynput/ayon-launcher"
 LABEL org.opencontainers.image.documentation="https://ayon.ynput.io"
 LABEL org.opencontainers.image.created=$BUILD_DATE
 LABEL org.opencontainers.image.version=$VERSION
@@ -48,7 +47,7 @@ RUN apt-get update \
 SHELL ["/bin/bash", "-c"]
 
 
-RUN mkdir /opt/ayon
+RUN mkdir /opt/ayon-launcher
 
 # download and install pyenv
 RUN curl https://pyenv.run | bash \
@@ -61,22 +60,18 @@ RUN curl https://pyenv.run | bash \
 RUN source $HOME/init_pyenv.sh \
     && pyenv install ${PYTHON_VERSION}
 
-COPY . /opt/ayon/
+COPY . /opt/ayon-launcher/
 
-RUN chmod +x /opt/ayon/tools/create_env.sh && chmod +x /opt/ayon/tools/build.sh
+RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
-WORKDIR /opt/ayon
+WORKDIR /opt/ayon-launcher
 
 # set local python version
-RUN cd /opt/ayon \
-    && source $HOME/init_pyenv.sh \
+RUN source $HOME/init_pyenv.sh \
     && pyenv local ${PYTHON_VERSION}
 
-# fetch third party tools/libraries
+# build launcher and installer
 RUN source $HOME/init_pyenv.sh \
-    && ./tools/create_env.sh \
-    && ./tools/fetch_thirdparty_libs.sh
-
-# build ayon desktop
-RUN source $HOME/init_pyenv.sh \
-    && bash ./tools/build.sh
+    && ./tools/make.sh create-env \
+    && ./tools/make.sh install-runtime \
+    && ./tools/make.sh build-make-installer
