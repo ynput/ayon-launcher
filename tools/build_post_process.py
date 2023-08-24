@@ -535,7 +535,7 @@ def _create_darwin_installer(
     """
 
     app_filepath = _get_darwin_output_path(build_root, ayon_version)
-    output_path = installer_root / f"AYON-{ayon_version}-Installer.dmg"
+    output_path = installer_root / f"AYON-{ayon_version}-macos.dmg"
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
