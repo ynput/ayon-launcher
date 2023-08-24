@@ -311,6 +311,7 @@ retrieve_build_log () {
 }
 
 docker_build() {
+  launcher_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
   if [ -z "$1" ]; then
     dockerfile="Dockerfile"
     echo -e "${BIGreen}>>>${RST} Using default Dockerfile ..."
@@ -324,7 +325,6 @@ docker_build() {
     fi
   fi
 
-  launcher_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
   pushd "$launcher_root" > /dev/null || return > /dev/null
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
