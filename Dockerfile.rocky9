@@ -59,16 +59,11 @@ RUN source $HOME/.bashrc && pyenv install ${PYTHON_VERSION}
 
 COPY . /opt/ayon-launcher/
 RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
-# USER root
-# RUN chown -R pype /opt/ayon-launcher
 RUN chmod +x /opt/ayon-launcher/tools/make.sh
-
-# USER pype
 
 WORKDIR /opt/ayon-launcher
 
-RUN cd /opt/ayon-launcher \
-    && source $HOME/.bashrc \
+RUN source $HOME/.bashrc \
     && pyenv local ${PYTHON_VERSION}
 
 RUN source $HOME/.bashrc \

@@ -73,16 +73,13 @@ RUN source $HOME/.bashrc && pyenv install ${PYTHON_VERSION}
 
 COPY . /opt/ayon-launcher/
 RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
-# USER root
-# RUN chown -R pype /opt/ayon-launcher
 RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
 # USER pype
 
 WORKDIR /opt/ayon-launcher
 
-RUN cd /opt/ayon-launcher \
-    && source $HOME/.bashrc \
+RUN source $HOME/.bashrc \
     && pyenv local ${PYTHON_VERSION}
 
 RUN source $HOME/.bashrc \
@@ -99,6 +96,3 @@ RUN cp /usr/lib64/libffi* ./build/exe.linux-x86_64-3.9/lib \
     && cp /usr/lib64/libcrypto* ./build/exe.linux-x86_64-3.9/lib \
     && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/exe.linux-x86_64-3.9/lib \
     && cp /usr/lib64/libxcb* ./build/exe.linux-x86_64-3.9/vendor/python/PySide2/Qt/lib
-
-RUN cd /opt/ayon-launcher \
-    rm -rf ./vendor/bin

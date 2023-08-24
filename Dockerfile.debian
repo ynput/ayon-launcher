@@ -66,8 +66,7 @@ RUN chmod +x /opt/ayon-launcher/tools/make.sh
 WORKDIR /opt/ayon-launcher
 
 # set local python version
-RUN cd /opt/ayon \
-    && source $HOME/init_pyenv.sh \
+RUN source $HOME/init_pyenv.sh \
     && pyenv local ${PYTHON_VERSION}
 
 # build launcher and installer
