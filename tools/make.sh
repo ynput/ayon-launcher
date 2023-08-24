@@ -293,7 +293,7 @@ run_from_code() {
 }
 
 default_help() {
-  echo ""
+  print_art
   echo "Ayon desktop application tool"
   echo ""
   echo "Usage: ./make.sh [target]"
