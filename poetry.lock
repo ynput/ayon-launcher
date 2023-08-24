@@ -3,10 +3,10 @@
 [[package]]
 name = "acre"
 version = "1.0.0"
-description = ""
+description = "Lightweight cross-platform environment management Python package that makes it trivial to launch applications in their own configurable working environment."
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=2.7"
 files = []
 develop = false
 
@@ -272,14 +272,14 @@ tomli = {version = "*", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "ayon-python-api"
-version = "0.3.5"
+version = "0.4.0"
 description = "AYON Python API"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "ayon-python-api-0.3.5.tar.gz", hash = "sha256:00304724f1203de4b13404ecb521c9cbbb7c374e8176059af3f51443cfc1e916"},
-    {file = "ayon_python_api-0.3.5-py3-none-any.whl", hash = "sha256:217ac8c90ba6e8e43239147ccbbc8c60e27a73cb84301d5180c7000bf52255f1"},
+    {file = "ayon-python-api-0.4.0.tar.gz", hash = "sha256:ac7ffbbabf54d819ad71f038d3e390c349027d06bb6304bf5460bc48a9200888"},
+    {file = "ayon_python_api-0.4.0-py3-none-any.whl", hash = "sha256:96356c9ed3e3cce92e78492921c1b44969d06443c150902da48a50853f8c236a"},
 ]
 
 [package.dependencies]
