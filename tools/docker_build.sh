@@ -38,8 +38,6 @@ retrieve_build_log () {
   create_container
   echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$launcher_root/build/build.log${RST}"
   docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build"
-  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$launcher_root/build"
-  docker cp "$cid:/opt/ayon-launcher/build/installer" "$launcher_root/build"
 }
 
 launcher_root=$(realpath $(dirname $(dirname "${BASH_SOURCE[0]}")))
@@ -69,8 +67,7 @@ main () {
   local launcher_version="$(python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  # docker build --pull --no-cache -t pypeclub/openpype:$launcher_version .
-  docker build --pull --iidfile $launcher_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon_launcher:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile $launcher_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
@@ -81,12 +78,10 @@ main () {
   echo -e "${BIGreen}>>>${RST} Copying build from container ..."
   create_container
   echo -e "${BIYellow}---${RST} Copying ..."
-  docker cp "$cid:/opt/ayon-launcher/build/output" "$launcher_root/build"
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build"
-  if [ $? -ne 0 ] ; then
-    echo -e "${BIRed}!!!${RST} Copying failed."
-    return 1
-  fi
+  docker cp "$cid:/opt/ayon-launcher/build/output" "$launcher_root/build" || echo -e "${BIRed}!!!${RST} Copying build failed." && return $?
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$launcher_root/build" || echo -e "${BIRed}!!!${RST} Copying log failed." && return $?
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$launcher_root/build" || echo -e "${BIRed}!!!${RST} Copying json failed." && return $?
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$launcher_root/build" || echo -e "${BIRed}!!!${RST} Copying installer failed." && return $?
 
   echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
   local username="$(logname)"

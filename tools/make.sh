@@ -315,7 +315,7 @@ main() {
   return_code=0
   detect_python || return_code=$?
   if [ $return_code != 0 ]; then
-    exit return_code
+    exit $return_code
   fi
 
   if [[ -z $POETRY_HOME ]]; then
@@ -364,4 +364,4 @@ main() {
   exit $return_code
 }
 
-main $@
+main "$@"
