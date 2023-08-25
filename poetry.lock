@@ -14,7 +14,7 @@ develop = false
 type = "git"
 url = "https://github.com/pypeclub/acre.git"
 reference = "HEAD"
-resolved_reference = "126f7a188cfe36718f707f42ebbc597e86aa86c3"
+resolved_reference = "5f55105deafd79165a4b59780475de82c06184e9"
 
 [[package]]
 name = "aiohttp"
