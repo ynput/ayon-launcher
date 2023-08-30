@@ -87,8 +87,8 @@ RUN source $HOME/.bashrc \
     && ./tools/make.sh install-runtime \
     && ./tools/make.sh build-make-installer
 
-RUN cp /usr/lib64/libffi* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libssl* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libcrypto* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/exe.linux-x86_64-3.9/lib \
-    && cp /usr/lib64/libxcb* ./build/exe.linux-x86_64-3.9/vendor/python/PySide2/Qt/lib
+RUN cp /usr/lib64/libffi* ./build/output/lib \
+    && cp /usr/lib64/libssl* ./build/output/lib \
+    && cp /usr/lib64/libcrypto* ./build/output/lib \
+    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
+    && cp /usr/lib64/libxcb* ./build/output/vendor/python/PySide2/Qt/lib
