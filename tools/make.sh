@@ -139,6 +139,16 @@ install_poetry () {
   export POETRY_HOME="$repo_root/.poetry"
   command -v curl >/dev/null 2>&1 || { echo -e "${BIRed}!!!${RST}${BIYellow} Missing ${RST}${BIBlue}curl${BIYellow} command.${RST}"; return 1; }
   curl -sSL https://install.python-poetry.org/ | python -
+
+  # Force poetry to use older urllib3 if OpenSSL has version < 1.1.1
+  local ssl_command
+  ssl_command="import ssl;print(1 if ssl.OPENSSL_VERSION_INFO < (1, 1, 1) else 0)"
+  local downgrade_urllib
+  downgrade_urllib="$("$POETRY_HOME/venv/bin/python" <<< ${ssl_command})"
+  if [ $downgrade_urllib -eq "1" ]; then
+    echo -e "${BIGreen}>>>${RST} Installing older urllib3 ..."
+    "$POETRY_HOME/venv/bin/python" -m pip install urllib3==1.26.16
+  fi
 }
 
 ##############################################################################
@@ -169,16 +179,6 @@ create_env () {
   else
     echo -e "${BIYellow}NOT FOUND${RST}"
     install_poetry || { echo -e "${BIRed}!!!${RST} Poetry installation failed"; return 1; }
-  fi
-
-  # Force poetry to use older urllib3 if OpenSSL has version < 1.1.1
-  local ssl_command
-  ssl_command="import ssl;print(1 if ssl.OPENSSL_VERSION_INFO < (1, 1, 1) else 0)"
-  local downgrade_urllib
-  downgrade_urllib="$("$POETRY_HOME/venv/bin/python" <<< ${ssl_command})"
-  if [ $downgrade_urllib -eq "1" ]; then
-    echo -e "${BIGreen}>>>${RST} Installing older urllib3 ..."
-    "$POETRY_HOME/venv/bin/python" -m pip install urllib3==1.26.16
   fi
 
   if [ -f "$repo_root/poetry.lock" ]; then
