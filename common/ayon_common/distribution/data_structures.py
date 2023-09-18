@@ -78,7 +78,7 @@ def convert_source(source):
         )
 
 
-def prepare_sources(src_sources):
+def prepare_sources(src_sources, title):
     sources = []
     unknown_sources = []
     for source in (src_sources or []):
@@ -86,7 +86,7 @@ def prepare_sources(src_sources):
         if dependency_source is not None:
             sources.append(dependency_source)
         else:
-            print(f"Unknown source {source.get('type')}")
+            print(f"Unknown source '{source.get('type')}' in {title}")
             unknown_sources.append(source)
     return sources, unknown_sources
 
@@ -129,7 +129,8 @@ class AddonVersionInfo(object):
 
         source_info = version_data.get("clientSourceInfo")
         require_distribution = source_info is not None
-        sources, unknown_sources = prepare_sources(source_info)
+        sources, unknown_sources = prepare_sources(
+            source_info, f"Addon: '{title}'")
         checksum = version_data.get("checksum")
         if checksum is None:
             checksum = version_data.get("hash")
@@ -209,7 +210,8 @@ class DependencyItem(object):
             if source.get("type") == "server" and not source.get("filename"):
                 source["filename"] = filename
 
-        sources, unknown_sources = prepare_sources(src_sources)
+        sources, unknown_sources = prepare_sources(
+            src_sources, f"Dependency package '{filename}'")
 
         return cls(
             filename=filename,
@@ -244,7 +246,9 @@ class Installer:
             if source.get("type") == "server" and not source.get("filename"):
                 source["filename"] = installer_info["filename"]
 
-        sources, unknown_sources = prepare_sources(src_sources)
+        filename = installer_info["filename"]
+        sources, unknown_sources = prepare_sources(
+            src_sources, f"Installer '{filename}'")
 
         return cls(
             version=installer_info["version"],
