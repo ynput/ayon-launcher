@@ -23,7 +23,6 @@ from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
 from ayon_api.exceptions import UrlError
 from ayon_api.utils import (
     validate_url,
-    is_token_valid,
     logout_from_server,
 )
 
@@ -463,6 +462,28 @@ def create_global_connection():
     ayon_api.set_default_settings_variant(
         "staging" if is_staging_enabled() else "production"
     )
+
+
+def is_token_valid(url, token):
+    """Check if token is valid.
+
+    Note:
+        This function is available in 'ayon_api', but does not support to
+            validate service api key, only user's token. The support will be
+            added in future PRs of 'ayon_api'.
+        The function also did not support timeout which could cause
+            'ayon_api.is_token_valid' to hang.
+
+    Args:
+        url (str): Server url.
+        token (str): User's token.
+
+    Returns:
+        bool: True if token is valid.
+    """
+
+    api = ayon_api.ServerAPI(url, token)
+    return api.has_valid_token
 
 
 def need_server_or_login() -> bool:
