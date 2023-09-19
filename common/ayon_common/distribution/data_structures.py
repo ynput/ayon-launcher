@@ -1,4 +1,4 @@
-import os
+
 import attr
 from enum import Enum
 
@@ -62,10 +62,9 @@ def convert_source(source):
         )
 
     if source_type == UrlType.HTTP.value:
-        url = source["path"]
         return WebSourceInfo(
             type=source_type,
-            url=url,
+            url=source["url"],
             headers=source.get("headers"),
             filename=source.get("filename")
         )
