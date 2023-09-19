@@ -1,3 +1,5 @@
+import sys
+import traceback
 
 import attr
 from enum import Enum
@@ -81,7 +83,14 @@ def prepare_sources(src_sources, title):
     sources = []
     unknown_sources = []
     for source in (src_sources or []):
-        dependency_source = convert_source(source)
+        try:
+            dependency_source = convert_source(source)
+        except Exception:
+            tb = "".join(traceback.format_exception(*sys.exc_info()))
+            print(f"Failed to convert source: {source}\n{tb}")
+            unknown_sources.append(source)
+            continue
+
         if dependency_source is not None:
             sources.append(dependency_source)
         else:
