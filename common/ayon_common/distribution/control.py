@@ -21,6 +21,7 @@ from ayon_common.utils import (
     HEADLESS_MODE_ENABLED,
     extract_archive_file,
     is_staging_enabled,
+    is_dev_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
 )
@@ -895,7 +896,8 @@ class AyonDistribution:
             value.
         use_staging (Optional[bool]): Use staging versions of an addon.
             If not passed, 'is_staging_enabled' is used as default value.
-            checked for value '1'.
+        use_dev (Optional[bool]): Use develop versions of an addon.
+            If not passed, 'is_dev_enabled' is used as default value.
         skip_installer_dist (Optional[bool]): Skip installer distribution. This
             is for testing purposes and for running from code.
     """
@@ -911,6 +913,8 @@ class AyonDistribution:
         bundles_info=NOT_SET,
         bundle_name=NOT_SET,
         use_staging=None,
+        use_dev=None,
+        active_user=None,
         skip_installer_dist=False,
     ):
         self._log = None
@@ -962,13 +966,24 @@ class AyonDistribution:
         self._production_bundle = NOT_SET
         # Bundle that should be used in staging
         self._staging_bundle = NOT_SET
+        # Bundle that should be used in dev
+        self._dev_bundle = NOT_SET
         # Boolean that defines if staging bundle should be used
         self._use_staging = use_staging
+        self._use_dev = use_dev
+        self._active_user = active_user
 
         # Specific bundle name should be used
         self._bundle_name = bundle_name
         # Final bundle that will be used
         self._bundle = NOT_SET
+
+    @property
+    def active_user(self):
+        if self._active_user is None:
+            user = ayon_api.get_user()
+            self._active_user = user["name"]
+        return self._active_user
 
     @property
     def use_staging(self):
@@ -984,6 +999,21 @@ class AyonDistribution:
         if self._use_staging is None:
             self._use_staging = is_staging_enabled()
         return self._use_staging
+
+    @property
+    def use_dev(self):
+        """Develop version of a bundle should be used.
+
+        This value is completely ignored if specific bundle name should
+            be used.
+
+        Returns:
+            bool: True if staging version should be used.
+        """
+
+        if self._use_dev is None:
+            self._use_dev = is_dev_enabled()
+        return self._use_dev
 
     @property
     def log(self):
@@ -1023,38 +1053,41 @@ class AyonDistribution:
             ]
         return self._bundle_items
 
-    def _prepare_production_staging_bundles(self):
-        production_bundle = None
-        staging_bundle = None
-        for bundle in self.bundle_items:
-            if bundle.is_production:
-                production_bundle = bundle
-            if bundle.is_staging:
-                staging_bundle = bundle
-        self._production_bundle = production_bundle
-        self._staging_bundle = staging_bundle
-
     @property
     def production_bundle(self):
         """
+
         Returns:
             Union[Bundle, None]: Bundle that should be used in production.
         """
 
         if self._production_bundle is NOT_SET:
-            self._prepare_production_staging_bundles()
+            self._prepare_bundles()
         return self._production_bundle
 
     @property
     def staging_bundle(self):
         """
+
         Returns:
             Union[Bundle, None]: Bundle that should be used in staging.
         """
 
         if self._staging_bundle is NOT_SET:
-            self._prepare_production_staging_bundles()
+            self._prepare_bundles()
         return self._staging_bundle
+
+    @property
+    def dev_bundle(self):
+        """
+
+        Returns:
+            Union[Bundle, None]: Bundle that should be used in dev.
+        """
+
+        if self._dev_bundle is NOT_SET:
+            self._prepare_bundles()
+        return self._dev_bundle
 
     @property
     def bundle_to_use(self):
@@ -1072,24 +1105,32 @@ class AyonDistribution:
                 but is not available on server.
         """
 
-        if self._bundle is NOT_SET:
-            if self._bundle_name is not NOT_SET:
-                bundle = next(
-                    (
-                        bundle
-                        for bundle in self.bundle_items
-                        if bundle.name == self._bundle_name
-                    ),
-                    None
-                )
-                if bundle is None:
-                    raise BundleNotFoundError(self._bundle_name)
+        if self._bundle is not NOT_SET:
+            return self._bundle
 
-                self._bundle = bundle
-            elif self.use_staging:
+        if self._bundle_name is NOT_SET:
+            if self.use_staging:
                 self._bundle = self.staging_bundle
+            elif self.use_dev:
+                self._bundle = self.dev_bundle
             else:
                 self._bundle = self.production_bundle
+            return self._bundle
+
+        bundle = next(
+            (
+                bundle
+                for bundle in self.bundle_items
+                if bundle.name == self._bundle_name
+            ),
+            None
+        )
+        if bundle is None:
+            raise BundleNotFoundError(self._bundle_name)
+
+        if bundle.is_dev:
+            self._use_dev = bundle.is_dev
+        self._bundle = bundle
         return self._bundle
 
     @property
@@ -1439,14 +1480,37 @@ class AyonDistribution:
             self._dependency_package_item = dependency_package_item
         return self._dependency_package_item
 
+    def _prepare_bundles(self):
+        production_bundle = None
+        staging_bundle = None
+        dev_bundle = None
+        for bundle in self.bundle_items:
+            if bundle.is_production:
+                production_bundle = bundle
+            if bundle.is_staging:
+                staging_bundle = bundle
+            if bundle.is_dev and bundle.active_dev_user == self.active_user:
+                dev_bundle = bundle
+        self._production_bundle = production_bundle
+        self._staging_bundle = staging_bundle
+        self._dev_bundle = dev_bundle
+
     def _prepare_current_addon_dist_items(self):
         addons_metadata = self.get_addons_metadata()
         output = []
         addon_versions = {}
+        dev_addons = {}
         bundle = self.bundle_to_use
         if bundle is not None:
+            dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
         for addon_name, addon_item in self.addon_items.items():
+            # Dev mode can redirect addon directory elsewhere
+            if self.use_dev:
+                dev_addon_info = dev_addons.get(addon_name) or {}
+                if dev_addon_info.get("enabled") is True:
+                    continue
+
             addon_version = addon_versions.get(addon_name)
             # Addon is not in bundle -> Skip
             if addon_version is None:
@@ -1873,6 +1937,8 @@ class AyonDistribution:
             if unzip_dirpath and os.path.exists(unzip_dirpath):
                 output.append(unzip_dirpath)
 
+        output.extend(self._get_dev_sys_paths())
+
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
             dependencies_dir = None
@@ -1882,6 +1948,21 @@ class AyonDistribution:
 
             if dependencies_dir and os.path.exists(dependencies_dir):
                 output.append(dependencies_dir)
+        return output
+
+    def _get_dev_sys_paths(self):
+        output = []
+        if not self.use_dev:
+            return output
+        dev_addons = {}
+        bundle = self.bundle_to_use
+        if bundle is not None:
+            dev_addons = bundle.addons_dev_info
+        for addon_name, addon_item in self.addon_items.items():
+            dev_addon_info = dev_addons.get(addon_name) or {}
+            if dev_addon_info.get("enabled") is not True:
+                continue
+            output.append(dev_addon_info["path"])
         return output
 
 
