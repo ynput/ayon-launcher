@@ -56,7 +56,7 @@ def is_dev_mode_enabled():
         bool: Dev is enabled.
     """
 
-    return os.getenv("AYON_DEV_MODE") == "1"
+    return os.getenv("AYON_USE_DEV") == "1"
 
 
 def _create_local_site_id():
