@@ -2,7 +2,7 @@ import sys
 
 from qtpy import QtWidgets, QtGui
 
-from ayon_common import is_staging_enabled, is_dev_enabled
+from ayon_common import is_staging_enabled, is_dev_mode_enabled
 from ayon_common.resources import (
     get_icon_path,
     load_stylesheet,
@@ -152,7 +152,7 @@ def main():
             bundle_name = sys.argv[bundle_index]
 
     use_staging = is_staging_enabled()
-    use_dev = is_dev_enabled()
+    use_dev = is_dev_mode_enabled()
     app = get_qt_app()
     window = MissingBundleWindow(url, bundle_name, use_staging, use_dev)
     window.show()

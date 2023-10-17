@@ -21,7 +21,7 @@ from ayon_common.utils import (
     HEADLESS_MODE_ENABLED,
     extract_archive_file,
     is_staging_enabled,
-    is_dev_enabled,
+    is_dev_mode_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
 )
@@ -897,7 +897,7 @@ class AyonDistribution:
         use_staging (Optional[bool]): Use staging versions of an addon.
             If not passed, 'is_staging_enabled' is used as default value.
         use_dev (Optional[bool]): Use develop versions of an addon.
-            If not passed, 'is_dev_enabled' is used as default value.
+            If not passed, 'is_dev_mode_enabled' is used as default value.
         skip_installer_dist (Optional[bool]): Skip installer distribution. This
             is for testing purposes and for running from code.
     """
@@ -1012,7 +1012,7 @@ class AyonDistribution:
         """
 
         if self._use_dev is None:
-            self._use_dev = is_dev_enabled()
+            self._use_dev = is_dev_mode_enabled()
         return self._use_dev
 
     @property
@@ -1504,6 +1504,7 @@ class AyonDistribution:
         if bundle is not None:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
+
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
             if self.use_dev:

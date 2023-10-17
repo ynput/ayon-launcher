@@ -88,7 +88,7 @@ if "--use-staging" in sys.argv:
     os.environ["OPENPYPE_USE_STAGING"] = "1"
 
 if "--use-dev" in sys.argv:
-    sys.argv.remove("--dev")
+    sys.argv.remove("--use-dev")
     os.environ["AYON_DEV_MODE"] = "1"
     # Make sure staging is not set when dev should be used
     os.environ.pop("AYON_USE_STAGING", None)
