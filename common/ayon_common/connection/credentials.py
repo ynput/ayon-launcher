@@ -31,6 +31,7 @@ from ayon_common.utils import (
     get_local_site_id,
     get_ayon_launch_args,
     is_staging_enabled,
+    is_dev_mode_enabled,
 )
 
 
@@ -459,12 +460,46 @@ def create_global_connection():
     ayon_api.create_connection(
         get_local_site_id(), os.environ.get("AYON_VERSION")
     )
-    ayon_api.set_default_settings_variant(
-        "staging" if is_staging_enabled() else "production"
-    )
+    variant = "production"
+    if is_dev_mode_enabled():
+        variant = get_dev_mode_settings_variant()
+    elif is_staging_enabled():
+        variant = "staging"
+    ayon_api.set_default_settings_variant(variant)
 
 
-def is_token_valid(url, token):
+def get_dev_mode_settings_variant(
+    bundles: Optional[list[dict[str, Any]]]=None,
+    username: Optional[str]=None
+) -> str:
+    """Develop mode settings variant.
+
+    Args:
+        bundles (Optional[list[dict[str, Any]]]): Bundles from server.
+        username (Optional[str]): Active username.
+
+    Returns:
+        str: Name of settings variant.
+    """
+
+    if bundles is None:
+        bundles = ayon_api.get_bundles()["bundles"]
+
+    if username is None:
+        user = ayon_api.get_user()
+        username = user["name"]
+    for bundle in bundles:
+        if (
+            bundle.get("isDev")
+            and bundle.get("activeUser") == username
+        ):
+            return bundle["name"]
+    # Return fake variant - distribution logic will tell user that he does not
+    #   have set any dev bundle
+    return "dev"
+
+
+def is_token_valid(url, token) -> bool:
     """Check if token is valid.
 
     Note:
