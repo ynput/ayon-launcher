@@ -998,6 +998,9 @@ class AyonDistribution:
 
         if self._use_staging is None:
             self._use_staging = is_staging_enabled()
+
+        if self._use_staging and self.use_dev:
+            self._use_staging = False
         return self._use_staging
 
     @property
@@ -1012,7 +1015,21 @@ class AyonDistribution:
         """
 
         if self._use_dev is None:
-            self._use_dev = is_dev_mode_enabled()
+            if self._bundle_name is NOT_SET:
+                self._use_dev = is_dev_mode_enabled()
+            else:
+                bundle = next(
+                    (
+                        bundle
+                        for bundle in self.bundle_items
+                        if bundle.name == self._bundle_name
+                    ),
+                    None
+                )
+                if bundle is not None:
+                    self._use_dev = bundle.is_dev
+                else:
+                    self._use_dev = False
         return self._use_dev
 
     @property
