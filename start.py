@@ -90,9 +90,6 @@ if "--use-staging" in sys.argv:
 if "--use-dev" in sys.argv:
     sys.argv.remove("--use-dev")
     os.environ["AYON_USE_DEV"] = "1"
-    # Make sure staging is not set when dev should be used
-    os.environ.pop("AYON_USE_STAGING", None)
-    os.environ.pop("OPENPYPE_USE_STAGING", None)
 
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
@@ -202,9 +199,9 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import get_base_url
+from ayon_api import get_base_url, set_default_settings_variant
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
-from ayon_common import is_staging_enabled
+from ayon_common import is_staging_enabled, is_dev_mode_enabled
 from ayon_common.connection.credentials import (
     ask_to_login_ui,
     add_server,
@@ -277,11 +274,10 @@ def set_addons_environments():
 def _connect_to_ayon_server():
     load_environments()
     if not need_server_or_login():
-        create_global_connection()
         return
 
     if HEADLESS_MODE_ENABLED:
-        _print("!!! Cannot open v4 Login dialog in headless mode.")
+        _print("!!! Cannot open Login dialog in headless mode.")
         _print((
             "!!! Please use `{}` to specify server address"
             " and '{}' to specify user's token."
@@ -301,18 +297,52 @@ def _connect_to_ayon_server():
     sys.exit(0)
 
 
-def _check_and_update_from_ayon_server():
-    """Gets addon info from v4, compares with local folder and updates it.
+def _set_default_settings_variant(use_dev, use_staging, bundle_name):
+    """Based on states set default settings variant.
+
+    Tell global connection which settings variant should be used.
+
+    Args:
+        use_dev (bool): Is dev mode enabled.
+        use_staging (bool): Is staging mode enabled.
+        bundle_name (str): Name of bundle to use.
+    """
+
+    if use_dev:
+        variant = bundle_name
+    elif use_staging:
+        variant = "staging"
+    else:
+        variant = "production"
+
+    # Make sure dev env variable is set/unset for cases when dev mode is not
+    #   enabled by '--use-dev' but by bundle name
+    if use_dev:
+        os.environ["AYON_USE_DEV"] = "1"
+    else:
+        os.environ.pop("AYON_USE_DEV", None)
+
+    # Make sure staging is unset when 'dev' should be used
+    if not use_staging:
+        os.environ.pop("AYON_USE_STAGING", None)
+        os.environ.pop("OPENPYPE_USE_STAGING", None)
+    set_default_settings_variant(variant)
+
+
+def _start_distribution():
+    """Gets info from AYON server and updates possible missing pieces.
 
     Raises:
         RuntimeError
     """
 
+    # Create distribution object
     distribution = AyonDistribution(
         skip_installer_dist=not IS_BUILT_APPLICATION
     )
     bundle = None
     bundle_name = None
+    # Try to find required bundle and handle missing one
     try:
         bundle = distribution.bundle_to_use
         if bundle is not None:
@@ -336,7 +366,12 @@ def _check_and_update_from_ayon_server():
             )
 
         else:
-            mode = "staging" if is_staging_enabled() else "production"
+            mode = "production"
+            if distribution.use_dev:
+                mode = "dev"
+            elif distribution.use_staging:
+                mode = "staging"
+
             _print(
                 f"!!! No release bundle is set as {mode} on the AYON server."
             )
@@ -346,6 +381,15 @@ def _check_and_update_from_ayon_server():
             )
         sys.exit(1)
 
+    # With known bundle and states we can define default settings variant
+    #   in global connection
+    _set_default_settings_variant(
+        distribution.use_dev,
+        distribution.use_staging,
+        bundle_name
+    )
+
+    # Start distribution
     update_window_manager = UpdateWindowManager()
     if not HEADLESS_MODE_ENABLED:
         update_window_manager.start()
@@ -403,7 +447,8 @@ def boot():
     """Bootstrap AYON."""
 
     _connect_to_ayon_server()
-    _check_and_update_from_ayon_server()
+    create_global_connection()
+    _start_distribution()
     store_current_executable_info()
 
 

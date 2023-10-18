@@ -137,6 +137,9 @@ def main():
 
     It is possible to pass url as argument to show it in the message. To use
         this feature, pass `--url <url>` as argument to this script.
+
+    The function expects that 'is_dev_mode_enabled' will return value
+        for the bundle name passed in.
     """
 
     url = None

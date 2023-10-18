@@ -451,52 +451,15 @@ def set_environments(url: str, token: str):
 def create_global_connection():
     """Create global connection with site id and AYON launcher version.
 
-    Make sure the global connection in 'ayon_api' have entered site id and
-    AYON launcher version.
+    Make sure this function is called once during process runtime.
 
-    Set default settings variant to use based on 'is_staging_enabled'.
+    The global connection in 'ayon_api' have entered site id and
+        AYON launcher version.
     """
 
     ayon_api.create_connection(
         get_local_site_id(), os.environ.get("AYON_VERSION")
     )
-    variant = "production"
-    if is_dev_mode_enabled():
-        variant = get_dev_mode_settings_variant()
-    elif is_staging_enabled():
-        variant = "staging"
-    ayon_api.set_default_settings_variant(variant)
-
-
-def get_dev_mode_settings_variant(
-    bundles: Optional[list[dict[str, Any]]]=None,
-    username: Optional[str]=None
-) -> str:
-    """Develop mode settings variant.
-
-    Args:
-        bundles (Optional[list[dict[str, Any]]]): Bundles from server.
-        username (Optional[str]): Active username.
-
-    Returns:
-        str: Name of settings variant.
-    """
-
-    if bundles is None:
-        bundles = ayon_api.get_bundles()["bundles"]
-
-    if username is None:
-        user = ayon_api.get_user()
-        username = user["name"]
-    for bundle in bundles:
-        if (
-            bundle.get("isDev")
-            and bundle.get("activeUser") == username
-        ):
-            return bundle["name"]
-    # Return fake variant - distribution logic will tell user that he does not
-    #   have set any dev bundle
-    return "dev"
 
 
 def is_token_valid(url, token) -> bool:
@@ -564,4 +527,3 @@ def confirm_server_login(url, token, username):
     add_server(url, username)
     store_token(url, token)
     set_environments(url, token)
-    create_global_connection()
