@@ -2,7 +2,86 @@
 """Main entry point for AYON command.
 
 Bootstrapping process of AYON.
+
+This script is responsible for setting up the environment and
+bootstraping AYON. It is also responsible for updating AYON
+from AYON server.
+
+Arguments that are always handled by AYON launcher:
+    --verbose <level> - set log level
+    --debug - enable debug mode
+    --skip-headers - skip printing headers
+    --skip-bootstrap - skip bootstrap process - use only for bootstrap logic
+    --use-staging - use staging server
+    --use-dev - use dev server
+    --bundle <bundle_name> - specify bundle name to use
+    --headless - enable headless mode - bootstrap won't show any UI
+
+AYON launcher can be running in multiple different states. The top layer of
+states is 'production', 'staging' and 'dev'.
+
+To start in dev mode use one of following options:
+    - by passing '--use-dev' argument
+    - by setting 'AYON_USE_DEV' environment variable to '1'
+    - by passing '--bundle <dev bundle name>'
+    - by setting 'AYON_BUNDLE_NAME' environment variable to dev bundle name
+
+NOTE: By using bundle name you can start any dev bundle, even if is not
+    assigned to current user.
+
+To start in staging mode make sure none of develop options are used and then
+use one of following options:
+    - by passing '--use-staging' argument
+    - by setting 'AYON_USE_STAGING' environment variable to '1'
+
+Staging mode must be defined explicitly cannot be determined by bundle name.
+In all other cases AYON launcher will start in 'production' mode.
+
+Headless mode is not guaranteed after bootstrap process. It is possible that
+some addon won't handle headless mode and will try to use UIs.
+
+After bootstrap process AYON launcher will start 'openpype' addon. This addon
+is responsible for handling all other addons and their logic.
+
+Environment variables set during bootstrap:
+    - AYON_VERSION - version of AYON launcher
+    - AYON_BUNDLE_NAME - name of bundle to use
+    - AYON_USE_STAGING - set to '1' if staging mode is enabled
+    - AYON_USE_DEV - set to '1' if dev mode is enabled
+    - AYON_DEBUG - set to '1' if debug mode is enabled
+    - AYON_HEADLESS_MODE - set to '1' if headless mode is enabled
+    - AYON_SERVER_URL - URL of AYON server
+    - AYON_API_KEY - API key for AYON server
+    - AYON_SERVER_TIMEOUT - timeout for AYON server
+    - AYON_SERVER_RETRIES - number of retries for AYON server
+    - AYON_EXECUTABLE - path to AYON executable
+    - AYON_ROOT - path to AYON root directory
+    - AYON_MENU_LABEL - label for AYON integrations menu
+    - AYON_ADDONS_DIR - path to AYON addons directory
+    - AYON_DEPENDENCIES_DIR - path to AYON dependencies directory
+
+OpenPype environment variables set during bootstrap
+for backward compatibility:
+    - PYBLISH_GUI - default pyblish UI tool - will be removed in future
+    - USE_AYON_SERVER - tells openpype addon to run in AYON mode
+    - AVALON_LABEL - label for AYON menu
+    - OPENPYPE_VERSION - version of OpenPype addon
+    - OPENPYPE_USE_STAGING - set to '1' if staging mode is enabled
+    - OPENPYPE_DEBUG - set to '1' if debug mode is enabled
+    - OPENPYPE_HEADLESS_MODE - set to '1' if headless mode is enabled
+    - OPENPYPE_EXECUTABLE - path to OpenPype executable
+    - OPENPYPE_ROOT - path to OpenPype root directory
+    - OPENPYPE_REPOS_ROOT - path to OpenPype repos root directory
+    - OPENPYPE_LOG_LEVEL - log level for OpenPype
+
+Some of the environment variables are not in this script but in 'ayon_common'
+module.
+- Function 'create_global_connection' can change 'AYON_USE_DEV' and
+    'AYON_USE_STAGING'.
+- Distribution logic can set 'AYON_ADDONS_DIR' and 'AYON_DEPENDENCIES_DIR'
+    if are not set yet.
 """
+
 import os
 import sys
 import site
