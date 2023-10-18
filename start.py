@@ -83,6 +83,7 @@ module.
 """
 
 import os
+import platform
 import sys
 import site
 import traceback
@@ -278,7 +279,11 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import get_base_url, set_default_settings_variant
+from ayon_api import (
+    get_base_url,
+    set_default_settings_variant,
+    get_addons_studio_settings,
+)
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
 from ayon_common import is_staging_enabled, is_dev_mode_enabled
 from ayon_common.connection.credentials import (
@@ -408,6 +413,85 @@ def _set_default_settings_variant(use_dev, use_staging, bundle_name):
     set_default_settings_variant(variant)
 
 
+def _prepare_disk_mapping_args(src_path, dst_path):
+    """Prepare disk mapping arguments to run.
+
+    Args:
+        src_path (str): Source path.
+        dst_path (str): Destination path.
+
+    Returns:
+        list[str]: Arguments to run in subprocess.
+    """
+
+    low_platform = platform.system().lower()
+    if low_platform == "windows":
+        dst_path = dst_path.replace("/", "\\").rstrip("\\")
+        src_path = src_path.replace("/", "\\").rstrip("\\")
+        # Add slash after ':' ('G:' -> 'G:\') only for source
+        if src_path.endswith(":"):
+            src_path += "\\"
+        return ["subst", dst_path, src_path]
+
+    dst_path = dst_path.rstrip("/")
+    src_path = src_path.rstrip("/")
+
+    if low_platform == "linux":
+        return ["sudo", "ln", "-s", src_path, dst_path]
+
+    if low_platform == "darwin":
+        scr = (
+            f'do shell script "ln -s {src_path} {dst_path}"'
+            ' with administrator privileges'
+        )
+
+        return ["osascript", "-e", scr]
+    return []
+
+
+
+def _run_disk_mapping(bundle_name):
+    """Run disk mapping logic.
+
+    Mapping of disks is taken from core addon settings. To run this logic
+        '_set_default_settings_variant' must be called first, so correct
+        settings are received from server.
+    """
+
+    low_platform = platform.system().lower()
+    settings = get_addons_studio_settings(bundle_name)
+    core_settings = settings.get("core") or {}
+    disk_mapping = core_settings.get("disk_mapping") or {}
+    platform_disk_mapping = disk_mapping.get(low_platform)
+    if not platform_disk_mapping:
+        return
+
+    for item in platform_disk_mapping:
+        src_path = item.get("source")
+        dst_path = item.get("destination")
+        if not src_path or not dst_path:
+            continue
+
+        if os.path.exists(dst_path):
+            continue
+
+        args = _prepare_disk_mapping_args(src_path, dst_path)
+        if not args:
+            continue
+
+        _print(f"*** disk mapping arguments: {args}")
+        try:
+            output = subprocess.Popen(args)
+            if output.returncode and output.returncode != 0:
+                exc_msg = f'Executing was not successful: "{args}"'
+
+                raise RuntimeError(exc_msg)
+        except TypeError as exc:
+            _print(
+                f"Error {str(exc)} in mapping drive {src_path}, {dst_path}")
+            raise
+
+
 def _start_distribution():
     """Gets info from AYON server and updates possible missing pieces.
 
@@ -467,6 +551,7 @@ def _start_distribution():
         distribution.use_staging,
         bundle_name
     )
+    _run_disk_mapping(bundle_name)
 
     # Start distribution
     update_window_manager = UpdateWindowManager()
