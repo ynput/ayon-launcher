@@ -31,6 +31,7 @@ from ayon_common.utils import (
     get_local_site_id,
     get_ayon_launch_args,
     is_staging_enabled,
+    is_dev_mode_enabled,
 )
 
 
@@ -450,21 +451,18 @@ def set_environments(url: str, token: str):
 def create_global_connection():
     """Create global connection with site id and AYON launcher version.
 
-    Make sure the global connection in 'ayon_api' have entered site id and
-    AYON launcher version.
+    Make sure this function is called once during process runtime.
 
-    Set default settings variant to use based on 'is_staging_enabled'.
+    The global connection in 'ayon_api' have entered site id and
+        AYON launcher version.
     """
 
     ayon_api.create_connection(
         get_local_site_id(), os.environ.get("AYON_VERSION")
     )
-    ayon_api.set_default_settings_variant(
-        "staging" if is_staging_enabled() else "production"
-    )
 
 
-def is_token_valid(url, token):
+def is_token_valid(url, token) -> bool:
     """Check if token is valid.
 
     Note:
@@ -529,4 +527,3 @@ def confirm_server_login(url, token, username):
     add_server(url, username)
     store_token(url, token)
     set_environments(url, token)
-    create_global_connection()

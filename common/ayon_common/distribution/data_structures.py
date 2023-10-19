@@ -282,6 +282,9 @@ class Bundle:
     dependency_packages = attr.ib(default=attr.Factory(dict))
     is_production = attr.ib(default=False)
     is_staging = attr.ib(default=False)
+    is_dev = attr.ib(default=False)
+    active_dev_user = attr.ib(default=None)
+    addons_dev_info = attr.ib(default=attr.Factory(dict))
 
     @classmethod
     def from_dict(cls, data):
@@ -292,4 +295,7 @@ class Bundle:
             dependency_packages=data.get("dependencyPackages", {}),
             is_production=data["isProduction"],
             is_staging=data["isStaging"],
+            is_dev=data.get("isDev", False),
+            active_dev_user=data.get("activeUser"),
+            addons_dev_info=data.get("addonDevelopment", {}),
         )

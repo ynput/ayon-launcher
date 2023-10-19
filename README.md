@@ -11,9 +11,9 @@ AYON Launcher - Desktop application
 Introduction
 ------------
 
-Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. it acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone destkop application, it doesn't do anything until it's connected to an AYON server instance.
+Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. It acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone desktop application, it doesn't do anything until it's connected to an AYON server instance.
 
-The documentation is not up-to-date as development is still in progress and code is changing every day.
+The main purpose of application is to distribute updates based on current server state and to start main logic of core addon. At this moment core addon is `openpype` (this will change in near future).
 
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
 
@@ -80,7 +80,8 @@ There are reserver global arguments that cannot be used in any cli handling:
 - `--verbose <LOG LEVEL>` - Change logging level to one of the following: DEBUG, INFO, WARNING, ERROR, CRITICAL.
 - `--debug` - Simplified way how to change verbose to DEBUG. Also sets `AYON_DEBUG` environment variable to `1`.
 - `--skip-headers` - Skip headers in the console output.
-- `--use-staging` - Use staging settings, and use staging bundle, if bundle is not explicitly defined.
+- `--use-dev` - Use dev bundle and settings, if bundle is not explicitly defined.
+- `--use-staging` - Use staging settings, and use staging bundle, if bundle is not explicitly defined. Cannot be combined with staging.
 - `--headless` - Tell AYON to run in headless mode. No UIs are shown during bootstrap. Affects `AYON_HEADLESS_MODE` environment variable. Custom logic must handle headless mode on own.
 - `--skip-bootstrap` - Skip bootstrap process. Used for inner logic of distribution.
 
@@ -91,6 +92,7 @@ Environment variables that are set during startup:
 - **AYON_LOG_LEVEL** - Log level that is used.
 - **AYON_DEBUG** - Debug flag enabled when set to '1'.
 - **AYON_USE_STAGING** - Use staging settings when set to '1'.
+- **AYON_USE_DEV** - Use dev mode settings when set to '1'.
 - **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.
 - **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
 - **AYON_ROOT** - Root to AYON launcher content.
@@ -110,3 +112,7 @@ Environment variables that are set for backwards compatibility with openpype add
 - **OPENPYPE_ROOT** - Alias to **AYON_ROOT**.
 - **OPENPYPE_REPOS_ROOT** - Alias to **AYON_ROOT**.
 - **AVALON_LABEL** - Alias to **AYON_MENU_LABEL**.
+
+
+## Developer mode
+Developer mode enables to skip standard distribution process and use local sources of addon code. This is useful for development of addon. Developer mode must be enabled and configured on AYON server. To use it in AYON launcher create dev bundle and use `--use-dev` argument, or define bundle name `--bundle <dev bundle name>` in cli arguments.

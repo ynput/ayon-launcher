@@ -47,6 +47,18 @@ def is_staging_enabled():
     return os.getenv("AYON_USE_STAGING") == "1"
 
 
+def is_dev_mode_enabled():
+    """Check if dev is enabled.
+
+    A dev bundle is used when dev is enabled.
+
+    Returns:
+        bool: Dev is enabled.
+    """
+
+    return os.getenv("AYON_USE_DEV") == "1"
+
+
 def _create_local_site_id():
     """Create a local site identifier.
 
