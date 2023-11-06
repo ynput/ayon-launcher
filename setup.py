@@ -38,7 +38,8 @@ install_requires = [
     "qtpy",
     "filecmp",
     "dns",
-    # Python defaults (cx_Freeze skip them by default)
+    # Python defaults (cx_Freeze skip some of them because are unused)
+    "colorsys",
     "dbm",
     "dataclasses",
     "email.mime.application",
