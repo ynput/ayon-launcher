@@ -197,14 +197,20 @@ function New-DockerBuild {
     }
     Write-Color -Text ">>> ", "Using Dockerfile for ", "[ ", $variant, " ]" -Color Green, Gray, White, Cyan, White
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
-    try {
-        Remove-Item -Recurse -Force "$($repo_root)\build\*"
+    $build_dir = "$($repo_root)\build"
+    if (Test-Path $build_dir) {
+        try {
+            Remove-Item -Recurse -Force "$($repo_root)\build\*"
+        }
+        catch {
+            Write-Color -Text "!!! ", "Cannot clean build directory, possibly because process is using it." -Color Red, Gray
+            Write-Color -Text $_.Exception.Message -Color Red
+            Exit-WithCode 1
+        }
+    } else {
+        New-Item -ItemType Directory -Path $build_dir
     }
-    catch {
-        Write-Color -Text "!!! ", "Cannot clean build directory, possibly because process is using it." -Color Red, Gray
-        Write-Color -Text $_.Exception.Message -Color Red
-        Exit-WithCode 1
-    }
+
     Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
 
     docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
