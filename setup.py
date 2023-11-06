@@ -8,7 +8,7 @@ from pathlib import Path
 from cx_Freeze import setup, Executable
 
 ayon_root = Path(os.path.dirname(__file__))
-resources_dir = ayon_root / "common" /  "ayon_common" / "resources"
+resources_dir = ayon_root / "common" / "ayon_common" / "resources"
 
 version_content = {}
 
