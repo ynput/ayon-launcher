@@ -689,7 +689,7 @@ def main_cli():
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
-        info = get_info(is_staging_enabled())
+        info = get_info(is_staging_enabled(), is_dev_mode_enabled())
         info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
 
         t_width = 20
@@ -781,15 +781,19 @@ def script_cli(start_arg=None):
     exec(compile(content, filepath, "exec"), script_globals)
 
 
-def get_info(use_staging=None) -> list:
+def get_info(use_staging=None, use_dev=None) -> list:
     """Print additional information to console."""
 
     inf = []
-    if use_staging:
-        inf.append(("AYON variant", "staging"))
-    else:
-        inf.append(("AYON variant", "production"))
-    inf.append(("AYON bundle", os.getenv("AYON_BUNDLE_NAME")))
+    bundle_name = os.getenv("AYON_BUNDLE_NAME")
+
+    variant = "production"
+    if use_dev:
+        variant = "dev ({})".format(bundle_name)
+    elif use_staging:
+        variant = "staging"
+    inf.append(("AYON variant", variant))
+    inf.append(("AYON bundle", bundle_name))
 
     # NOTE add addons information
 
