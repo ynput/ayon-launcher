@@ -171,6 +171,11 @@ if "--use-dev" in sys.argv:
     sys.argv.remove("--use-dev")
     os.environ["AYON_USE_DEV"] = "1"
 
+SHOW_LOGIN_UI = False
+if "--ayon-login" in sys.argv:
+    sys.argv.remove("--ayon-login")
+    SHOW_LOGIN_UI = True
+
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
     os.environ["OPENPYPE_HEADLESS_MODE"] = "1"
@@ -355,9 +360,27 @@ def set_addons_environments():
         os.environ.update(env)
 
 
-def _connect_to_ayon_server():
+def _connect_to_ayon_server(force=False):
+    """Connect to AYON server.
+
+    Load existing credentials to AYON server, and show login dialog if are not
+        valid. When 'force' is set to 'True' then login dialog is always
+        shown.
+
+    Login dialog cannot be shown in headless mode. In that case program
+        is terminated with.
+    If user closed dialog, program is terminated with exit code 0.
+
+    Args:
+        force (Optional[bool]): Force login to server.
+    """
+
     load_environments()
-    if not need_server_or_login():
+    need_login = True
+    if not force:
+        need_login = need_server_or_login()
+
+    if not need_login:
         return
 
     if HEADLESS_MODE_ENABLED:
@@ -806,6 +829,9 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 
 def main():
+    if SHOW_LOGIN_UI:
+        _connect_to_ayon_server(True)
+
     if SKIP_BOOTSTRAP:
         return script_cli()
 

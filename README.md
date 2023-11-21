@@ -83,6 +83,7 @@ There are reserver global arguments that cannot be used in any cli handling:
 - `--use-dev` - Use dev bundle and settings, if bundle is not explicitly defined.
 - `--use-staging` - Use staging settings, and use staging bundle, if bundle is not explicitly defined. Cannot be combined with staging.
 - `--headless` - Tell AYON to run in headless mode. No UIs are shown during bootstrap. Affects `AYON_HEADLESS_MODE` environment variable. Custom logic must handle headless mode on own.
+- `--ayon-login` - Show login dialog on startup.
 - `--skip-bootstrap` - Skip bootstrap process. Used for inner logic of distribution.
 
 ### Environment variables

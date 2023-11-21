@@ -423,6 +423,7 @@ function Main {
     }
     $FunctionName = $FunctionName.ToLower() -replace "\W"
     if ($FunctionName -eq "run") {
+        Change-Cwd
         Run-From-Code
     } elseif ($FunctionName -eq "createenv") {
         Change-Cwd
