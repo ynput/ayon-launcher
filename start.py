@@ -290,6 +290,13 @@ from ayon_api import (
     get_addons_studio_settings,
 )
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
+# Kept for backwards compatibility of older ayon-python-api in case older
+#     is used.
+try:
+    from ayon_api.constants import DEFAULT_VARIANT_ENV_KEY
+except ImportError:
+    DEFAULT_VARIANT_ENV_KEY = "AYON_DEFAULT_SETTINGS_VARIANT"
+
 from ayon_common import is_staging_enabled, is_dev_mode_enabled
 from ayon_common.connection.credentials import (
     ask_to_login_ui,
@@ -422,6 +429,7 @@ def _set_default_settings_variant(use_dev, use_staging, bundle_name):
     else:
         variant = "production"
 
+    os.environ[DEFAULT_VARIANT_ENV_KEY] = variant
     # Make sure dev env variable is set/unset for cases when dev mode is not
     #   enabled by '--use-dev' but by bundle name
     if use_dev:
