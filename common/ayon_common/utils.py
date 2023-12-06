@@ -95,6 +95,8 @@ def get_local_site_id():
             site_id = stream.read()
 
     if not site_id:
+        folder_path = os.path.dirname(site_id_path)
+        os.makedirs(folder_path, exist_ok=True)
         site_id = _create_local_site_id()
         with open(site_id_path, "w") as stream:
             stream.write(site_id)
