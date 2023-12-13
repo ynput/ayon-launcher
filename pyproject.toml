@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AYON"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 description = "Open VFX and Animation pipeline with support."
 authors = ["Ynput s.r.o. <info@openpype.io>"]
 license = "MIT License"
