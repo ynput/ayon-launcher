@@ -2,7 +2,7 @@
 name = "AYON"
 version = "1.0.0-rc.3"
 description = "Open VFX and Animation pipeline with support."
-authors = ["Ynput s.r.o. <info@openpype.io>"]
+authors = ["Ynput s.r.o. <info@ynput.io>"]
 license = "MIT License"
 homepage = "https://ynput.io"
 documentation = "https://ayon.ynput.io"
