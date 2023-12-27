@@ -113,7 +113,12 @@ def install_qtbinding(pyproject, runtime_dep_root, platform_name):
 
 
 def install_runtime_dependencies(pyproject, runtime_dep_root):
-    runtime_deps = pyproject["ayon"]["runtime"]["deps"]
+    runtime_deps = (
+        pyproject
+        .get("ayon", {})
+        .get("runtime", {})
+        .get("deps", {})
+    )
     for package, version in runtime_deps.items():
         _pip_install(runtime_dep_root, package, version)
 

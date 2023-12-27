@@ -90,12 +90,6 @@ version = "6.4.3"
 package = "PySide2"
 version = "5.15.2"
 
-[ayon.runtime.deps]
-# TODO move to ayon_core
-OpenTimelineIO = "0.14.1"
-opencolorio = "2.2.1"
-Pillow = "9.5.0"
-
 [tool.pyright]
 include = [
     "vendor"
