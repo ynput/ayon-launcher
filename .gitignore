@@ -38,8 +38,7 @@ Temporary Items
 /build
 /dist/
 
-/vendor/bin/*
-/vendor/python/*
+/vendor/*
 /.venv
 /venv/
 
@@ -98,4 +97,3 @@ tools/run_eventserver.*
 tools/dev_*
 
 .github_changelog_generator
-
