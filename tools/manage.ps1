@@ -345,8 +345,11 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    # Make sure output is utf-8
-    & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze | Out-File -Encoding UTF8 "$($repo_root)\build\requirements.txt"
+    $FreezeContent = & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze
+    # Make sure output is UTF-8 without BOM
+    $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
+    [System.IO.File]::WriteAllLines("$($repo_root)\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
+
     $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
