@@ -166,7 +166,6 @@ class AyonServerDownloader(SourceDownloader):
                 data["name"],
                 destination_dir,
                 filename,
-                platform_name=data["platform"],
                 chunk_size=cls.CHUNK_SIZE,
                 progress=transfer_progress
             )
