@@ -141,7 +141,6 @@ cython_debug/
 
 .poetry/
 .github/
-vendor/bin/
-vendor/python/
+vendor/
 docs/
 website/

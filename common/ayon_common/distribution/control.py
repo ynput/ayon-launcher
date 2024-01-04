@@ -1933,7 +1933,17 @@ class AyonDistribution:
             List[str]: Paths that should be added to 'sys.path'.
         """
 
-        return []
+        output = []
+        dependency_dist_item = self.get_dependency_dist_item()
+        if dependency_dist_item is not None:
+            runtime_dir = None
+            unzip_dirpath = dependency_dist_item.unzip_dirpath
+            if unzip_dirpath:
+                runtime_dir = os.path.join(unzip_dirpath, "runtime")
+
+            if runtime_dir and os.path.exists(runtime_dir):
+                output.append(runtime_dir)
+        return output
 
     def get_python_paths(self):
         """Get all paths to python packages that should be added to python.
