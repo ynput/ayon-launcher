@@ -348,7 +348,7 @@ function Build-Ayon($MakeInstaller = $false) {
     $FreezeContent = & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze
     # Make sure output is UTF-8 without BOM
     $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
-    [System.IO.File]::WriteAllLines("$($repo_root)\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
+    [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
 
     $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
