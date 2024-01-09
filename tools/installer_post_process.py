@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import json
 import platform
 import zipfile
@@ -7,13 +9,19 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import ayon_api
-import click
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+class ArgValueError(Exception):
+    def __init__(self, message, param_hint=None):
+        super().__init__(message)
+        self.message = message
+        self.param_hint = param_hint
+
+
 def get_installer_dir():
-    return Path(CURRENT_DIR).parent / "build"/ "installer"
+    return Path(CURRENT_DIR).parent / "build" / "installer"
 
 
 class ZipFileLongPaths(zipfile.ZipFile):
@@ -59,7 +67,7 @@ def find_installer_info(installer_dir: Optional[str]) -> InstallerInfo:
     installer_dir: Path = Path(installer_dir)
 
     if not installer_dir.exists():
-        raise click.BadParameter("Installers folder doesn't exist")
+        raise ArgValueError("Installers folder doesn't exist")
 
     json_files = []
     for item in installer_dir.iterdir():
@@ -67,16 +75,16 @@ def find_installer_info(installer_dir: Optional[str]) -> InstallerInfo:
             json_files.append(item)
 
     if not json_files:
-        raise click.BadParameter(f"No metadata files found in {installer_dir}")
+        raise ArgValueError(f"No metadata files found in {installer_dir}")
 
     if len(json_files) > 1:
-        raise click.BadParameter(
+        raise ArgValueError(
             f"Found more than one metadata in {installer_dir}"
         )
     metadata_path = json_files[0]
 
     if not metadata_path.exists():
-        raise click.BadParameter(
+        raise ArgValueError(
             "Metadata file doesn't exist."
             " Run 'build' and 'make-installer' first."
         )
@@ -86,13 +94,13 @@ def find_installer_info(installer_dir: Optional[str]) -> InstallerInfo:
 
     filename = metadata.get("filename")
     if not filename:
-        raise click.BadParameter(
+        raise ArgValueError(
             "Metadata file does not contain information about installer name."
         )
 
     installer_path = installer_dir / filename
     if not installer_path.exists():
-        raise click.BadParameter(
+        raise ArgValueError(
             "Installer is not available. Run 'make-installer' first."
         )
 
@@ -104,12 +112,12 @@ def create_connection(
 ) -> ayon_api.ServerAPI:
     api = ayon_api.ServerAPI(server)
     if not api.is_server_available:
-        raise click.BadParameter("Server is not available")
+        raise ArgValueError("Server is not available")
 
     if not api_key and not (username and password):
-        raise click.BadParameter(
+        raise ArgValueError(
             "You must provide API key, or username and password",
-            param_hint="api-key, username & password"
+            "api-key, username & password",
         )
 
     if api_key:
@@ -118,19 +126,23 @@ def create_connection(
             return api
 
         if not username or not password:
-            raise click.BadParameter(
-                "API key is not valid."
-                " Provide valid API key, or username and password.",
-                param_hint="api-key"
+            raise ArgValueError(
+                (
+                    "API key is not valid."
+                    " Provide valid API key, or username and password."
+                ),
+                "api-key",
             )
 
     api.login(username, password)
     if api.has_valid_token:
         return api
-    raise click.BadParameter(
-        "Invalid credentials."
-        " Provide valid API key, or username and password.",
-        param_hint="username & password"
+    raise ArgValueError(
+        (
+            "Invalid credentials."
+            " Provide valid API key, or username and password."
+        ),
+        "username & password",
     )
 
 
@@ -211,35 +223,15 @@ def upload_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
     print("Upload finished")
 
 
-@click.group()
-def cli():
-    pass
+def cli_create_server_installer(
+    server, api_key, username, password, installer_dir, force
+):
+    installer_info = find_installer_info(installer_dir)
+    api = create_connection(server, api_key, username, password)
+    create_installer(api, installer_info, force)
 
 
-@cli.command(help="Upload installer to AYON server")
-@click.option(
-    "--server",
-    help="AYON server url",
-    required=True)
-@click.option(
-    "--api-key",
-    help="Api key (Only if username and password are not provided)")
-@click.option(
-    "--username",
-    help="Username (Only if api key is not provided)")
-@click.option(
-    "--password",
-    help="Password (Only if api key is not provided)")
-@click.option(
-    "--installer-dir",
-    default=None,
-    help="Directory where installer with metadata is located")
-@click.option(
-    "--force",
-    is_flag=True,
-    default=False,
-    help="Force installer creation even if it already exists")
-def upload(server, api_key, username, password, installer_dir, force):
+def cli_upload(server, api_key, username, password, installer_dir, force):
     """Upload installer to a server."""
 
     installer_info: InstallerInfo = find_installer_info(installer_dir)
@@ -248,39 +240,119 @@ def upload(server, api_key, username, password, installer_dir, force):
     upload_installer(api, installer_info)
 
 
-@cli.command(help="Upload installer to AYON server")
-@click.option(
-    "--server",
-    help="AYON server url",
-    required=True)
-@click.option(
-    "--api-key",
-    help="Api key (Only if username and password are not provided)")
-@click.option(
-    "--username",
-    help="Username (Only if api key is not provided)")
-@click.option(
-    "--password",
-    help="Password (Only if api key is not provided)")
-@click.option(
-    "--installer-dir",
-    default=None,
-    help="Directory where installer with metadata is located")
-@click.option(
-    "--force",
-    is_flag=True,
-    default=False,
-    help="Force installer creation even if it already exists")
-def create_server_installer(
-    server, api_key, username, password, installer_dir, force
-):
-    installer_info = find_installer_info(installer_dir)
-    api = create_connection(server, api_key, username, password)
-    create_installer(api, installer_info, force)
+class CustomHelpOrder(argparse.HelpFormatter):
+    def __init__(
+        self,
+        prog,
+        indent_increment=2,
+        max_help_position=42,
+        width=None
+    ):
+        super(CustomHelpOrder, self).__init__(
+            prog, indent_increment, max_help_position, width
+        )
 
 
 def main():
-    cli(obj={}, prog_name="AYON-uploader")
+    main_parser = argparse.ArgumentParser(
+        prog="AYON-uploader",
+        description="AYON installer post process",
+        formatter_class=CustomHelpOrder,
+    )
+    subparsers = main_parser.add_subparsers(
+        title="Commands",
+        description="Valid commands",
+        help="Command to run",
+        required=True,
+    )
+    csi_group = subparsers.add_parser(
+        "create-server-installer",
+        help="Create installer metadata on AYON server",
+    )
+    csi_group.set_defaults(func=cli_create_server_installer)
+    csi_group.set_defaults(func_name="create-server-installer")
+    csi_group.add_argument(
+        "--server",
+        help="AYON server url",
+        required=True,
+    )
+    csi_group.add_argument(
+        "--api-key",
+        help="Api key (Only if username and password are not provided)"
+    )
+    csi_group.add_argument(
+        "--username",
+        help="Username (Only if api key is not provided)"
+    )
+    csi_group.add_argument(
+        "--password",
+        help="Password (Only if api key is not provided)"
+    )
+    csi_group.add_argument(
+        "--installer-dir",
+        default=None,
+        help="Directory where installer with metadata is located"
+    )
+    csi_group.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force installer creation even if it already exists"
+    )
+
+    upload_group = subparsers.add_parser(
+        "upload",
+        help="Upload installer to AYON server",
+    )
+    upload_group.set_defaults(func=cli_upload)
+    upload_group.set_defaults(func_name="upload")
+    upload_group.add_argument(
+        "--server",
+        help="AYON server url",
+        required=True,
+    )
+    upload_group.add_argument(
+        "--api-key",
+        help="Api key (Only if username and password are not provided)"
+    )
+    upload_group.add_argument(
+        "--username",
+        help="Username (Only if api key is not provided)"
+    )
+    upload_group.add_argument(
+        "--password",
+        help="Password (Only if api key is not provided)"
+    )
+    upload_group.add_argument(
+        "--installer-dir",
+        default=None,
+        help="Directory where installer with metadata is located"
+    )
+    upload_group.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force installer creation even if it already exists"
+    )
+
+    result = main_parser.parse_args(sys.argv[1:])
+    result_dict = vars(result)
+    func = result_dict.pop("func")
+    func_name = result_dict.pop("func_name")
+    try:
+        func(**result_dict)
+    except ArgValueError as exc:
+        param_hint_str = ""
+        if exc.param_hint:
+            param_hint_str = f" for {exc.param_hint}"
+        error_msg = f"Error: Invalid value{param_hint_str}: {exc.message}"
+        print("\n".join([
+            f"Usage: AYON-uploader {func_name} [OPTIONS]",
+            f"Try 'AYON-uploader {func_name} --help' for help.",
+            "",
+            error_msg
+        ]))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
