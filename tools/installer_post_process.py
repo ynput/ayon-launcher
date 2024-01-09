@@ -224,7 +224,7 @@ def upload_installer(api: ayon_api.ServerAPI, installer_info: InstallerInfo):
 
 
 def cli_create_server_installer(
-        server, api_key, username, password, installer_dir, force
+    server, api_key, username, password, installer_dir, force
 ):
     installer_info = find_installer_info(installer_dir)
     api = create_connection(server, api_key, username, password)
@@ -242,11 +242,11 @@ def cli_upload(server, api_key, username, password, installer_dir, force):
 
 class CustomHelpOrder(argparse.HelpFormatter):
     def __init__(
-            self,
-            prog,
-            indent_increment=2,
-            max_help_position=42,
-            width=None
+        self,
+        prog,
+        indent_increment=2,
+        max_help_position=42,
+        width=None
     ):
         super(CustomHelpOrder, self).__init__(
             prog, indent_increment, max_help_position, width
