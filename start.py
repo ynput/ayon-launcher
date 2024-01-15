@@ -546,10 +546,8 @@ def _start_distribution():
 
     if bundle is None:
         url = get_base_url()
-        if not HEADLESS_MODE_ENABLED:
-            show_missing_bundle_information(url, bundle_name)
-
-        elif bundle_name:
+        username = distribution.active_user
+        if bundle_name:
             _print((
                 f"!!! Requested release bundle '{bundle_name}'"
                 " is not available on server."
@@ -562,7 +560,7 @@ def _start_distribution():
         else:
             mode = "production"
             if distribution.use_dev:
-                mode = "dev"
+                mode = f"dev for user '{username}'"
             elif distribution.use_staging:
                 mode = "staging"
 
@@ -573,6 +571,11 @@ def _start_distribution():
                 "!!! Make sure there is a release bundle set"
                 f" as \"{mode}\" on the AYON server '{url}'."
             )
+
+
+        if not HEADLESS_MODE_ENABLED:
+            show_missing_bundle_information(url, bundle_name, username)
+
         sys.exit(1)
 
     # With known bundle and states we can define default settings variant

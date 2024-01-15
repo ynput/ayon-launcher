@@ -18,6 +18,7 @@ class MissingBundleWindow(QtWidgets.QDialog):
         self,
         url=None,
         bundle_name=None,
+        username=None,
         use_staging=None,
         use_dev=None,
         parent=None
@@ -31,6 +32,7 @@ class MissingBundleWindow(QtWidgets.QDialog):
 
         self._url = url
         self._bundle_name = bundle_name
+        self._username = username
         self._use_staging = use_staging
         self._use_dev = use_dev
         self._first_show = True
@@ -68,6 +70,12 @@ class MissingBundleWindow(QtWidgets.QDialog):
         if bundle_name == self._bundle_name:
             return
         self._bundle_name = bundle_name
+        self._update_label()
+
+    def set_username(self, username):
+        if username == self._username:
+            return
+        self._username = username
         self._update_label()
 
     def set_use_staging(self, use_staging):
@@ -123,7 +131,10 @@ class MissingBundleWindow(QtWidgets.QDialog):
         if self._use_staging:
             mode = "staging"
         elif self._use_dev:
-            mode = "dev for your user"
+            if self._username:
+                mode = f"dev for user <b>{self._username}</b>"
+            else:
+                mode = "dev for your user"
         return (
             f"No release bundle is set as {mode} on the AYON"
             f" server{url_part} so there is nothing to launch."
@@ -144,6 +155,7 @@ def main():
 
     url = None
     bundle_name = None
+    username = None
     if "--url" in sys.argv:
         url_index = sys.argv.index("--url") + 1
         if url_index < len(sys.argv):
@@ -154,10 +166,17 @@ def main():
         if bundle_index < len(sys.argv):
             bundle_name = sys.argv[bundle_index]
 
+    if "--user" in sys.argv:
+        user_index = sys.argv.index("--user") + 1
+        if user_index < len(sys.argv):
+            username = sys.argv[user_index]
+
     use_staging = is_staging_enabled()
     use_dev = is_dev_mode_enabled()
     app = get_qt_app()
-    window = MissingBundleWindow(url, bundle_name, use_staging, use_dev)
+    window = MissingBundleWindow(
+        url, bundle_name, username, use_staging, use_dev
+    )
     window.show()
     app.exec_()
 

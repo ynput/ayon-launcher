@@ -69,7 +69,7 @@ def get_dependencies_dir():
     return dependencies_dir
 
 
-def show_missing_bundle_information(url, bundle_name=None):
+def show_missing_bundle_information(url, bundle_name=None, username=None):
     """Show missing bundle information window.
 
     This function should be called when server does not have set bundle for
@@ -82,6 +82,8 @@ def show_missing_bundle_information(url, bundle_name=None):
     Args:
         url (str): Server url where bundle is not set.
         bundle_name (Optional[str]): Name of bundle that was not found.
+        username (Optional[str]): Username. Is used only when dev mode is
+            enabled.
     """
 
     ui_dir = os.path.join(os.path.dirname(__file__), "ui")
@@ -89,6 +91,8 @@ def show_missing_bundle_information(url, bundle_name=None):
     args = get_ayon_launch_args(script_path, "--skip-bootstrap", "--url", url)
     if bundle_name:
         args.extend(["--bundle", bundle_name])
+    if username:
+        args.extend(["--user", username])
     subprocess.call(args)
 
 
