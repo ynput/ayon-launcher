@@ -503,7 +503,7 @@ def create_global_connection():
     )
 
 
-def is_token_valid(url, token) -> bool:
+def is_token_valid(url: str, token: str) -> bool:
     """Check if token is valid.
 
     Note:
@@ -555,7 +555,7 @@ def need_server_or_login() -> tuple[bool, bool]:
     return False, True
 
 
-def confirm_server_login(url, token, username):
+def confirm_server_login(url: str, token: str, username: Union[str, None]):
     """Confirm login of user and do necessary stepts to apply changes.
 
     This should not be used on "change" of user but on first login.
