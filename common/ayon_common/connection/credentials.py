@@ -319,7 +319,19 @@ def change_user_ui() -> ChangeUserResult:
          ChangeUserResult: Information about user change.
     """
 
-    from .ui import change_user
+    # For backwards compatibility show dialog that current session does not
+    #   allow credentials change
+    if os.getenv("AYON_IN_LOGIN_MODE") == "0":
+        show_invalid_credentials_ui(in_subprocess=False)
+        return ChangeUserResult(
+            False,
+            os.getenv(SERVER_URL_ENV_KEY),
+            os.getenv(SERVER_API_ENV_KEY),
+            None,
+            None,
+            None,
+            None
+        )
 
     url, username = get_last_server_with_username()
     token = load_token(url)

@@ -196,8 +196,17 @@ elif (
         os.environ["AYON_HEADLESS_MODE"]
     )
 
+# Login mode is helper to detect if user is using AYON server credentials
+#   from login UI (and keyring), or from environment variables.
+# - Variable is set in first AYON launcher process for possible subprocesseses
+if "AYON_IN_LOGIN_MODE" not in os.environ:
+    os.environ["AYON_IN_LOGIN_MODE"] = (
+        "0" if "AYON_API_KEY" in os.environ else "1"
+    )
+
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
+AYON_IN_LOGIN_MODE = os.environ["AYON_IN_LOGIN_MODE"] == "1"
 
 _pythonpath = os.getenv("PYTHONPATH", "")
 _python_paths = _pythonpath.split(os.pathsep)
@@ -306,6 +315,7 @@ from ayon_common.connection.credentials import (
     set_environments,
     create_global_connection,
     confirm_server_login,
+    show_invalid_credentials_ui,
 )
 from ayon_common.distribution import (
     AyonDistribution,
@@ -410,6 +420,11 @@ def _connect_to_ayon_server(force=False):
             f" and '{SERVER_API_ENV_KEY}' environment variables to specify"
             " valid server url and api key for headless mode."
         ))
+        sys.exit(1)
+
+    # Show message that used credentials are invalid
+    if not AYON_IN_LOGIN_MODE:
+        show_invalid_credentials_ui(message=message, in_subprocess=True)
         sys.exit(1)
 
     # Show login dialog
