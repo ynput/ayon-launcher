@@ -396,6 +396,10 @@ def _connect_to_ayon_server(force=False):
         force (Optional[bool]): Force login to server.
     """
 
+    if force and HEADLESS_MODE_ENABLED:
+        _print("!!! Login UI was requested in headless mode.")
+        sys.exit(1)
+
     load_environments()
     need_server = need_api_key = True
     if not force:
@@ -415,8 +419,10 @@ def _connect_to_ayon_server(force=False):
     else:
         message = f"Missing API key for '{current_url}'."
 
-    _print("!!! Got invalid credentials.")
-    _print(message)
+    if not force:
+        _print("!!! Got invalid credentials.")
+        _print(message)
+
     # Exit in headless mode
     if HEADLESS_MODE_ENABLED:
         _print((
@@ -874,6 +880,12 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 def main():
     if SHOW_LOGIN_UI:
+        if HEADLESS_MODE_ENABLED:
+            _print((
+                "!!! Invalid arguments combination"
+                " '--ayon-login' and '--headless'."
+            ))
+            sys.exit(1)
         _connect_to_ayon_server(True)
 
     if SKIP_BOOTSTRAP:
