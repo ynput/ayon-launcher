@@ -167,7 +167,7 @@ def main():
             bundle_name = sys.argv[bundle_index]
 
     if "--user" in sys.argv:
-        user_index = sys.argv.index("--bundle") + 1
+        user_index = sys.argv.index("--user") + 1
         if user_index < len(sys.argv):
             username = sys.argv[user_index]
 
