@@ -52,6 +52,11 @@ install_requires = [
     "email.mime.text",
     "sqlite3",
     "timeit",
+]
+
+# These are added just to be sure created executable has available even
+#     unused modules. Some of them are not available on all platforms.
+python_builtins = [
     # Just to be sure
     "abc",
     "argparse",
@@ -198,6 +203,13 @@ install_requires = [
     "zipimport",
     "zoneinfo",
 ]
+for module_name in python_builtins:
+    try:
+        __import__(module_name)
+    except ImportError:
+        pass
+    else:
+        install_requires.append(module_name)
 
 includes = []
 excludes = [
