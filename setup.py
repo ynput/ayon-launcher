@@ -206,10 +206,9 @@ python_builtins = [
 for module_name in python_builtins:
     try:
         __import__(module_name)
+        install_requires.append(module_name)
     except ImportError:
         pass
-    else:
-        install_requires.append(module_name)
 
 includes = []
 excludes = [
