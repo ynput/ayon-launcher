@@ -484,33 +484,34 @@ def is_token_valid(url, token) -> bool:
     return api.has_valid_token
 
 
-def need_server_or_login() -> bool:
+def need_server_or_login() -> tuple[bool, bool]:
     """Check if server url or login to the server are needed.
 
     It is recommended to call 'load_environments' on startup before this check.
     But in some cases this function could be called after startup.
 
     Returns:
-        bool: 'True' if server and token are available. Otherwise 'False'.
+        tuple[bool, bool]: Server or api key needed. Both are 'True' if
+            are available and valid.
     """
 
     server_url = os.environ.get(SERVER_URL_ENV_KEY)
     if not server_url:
-        return True
+        return True, True
 
     try:
         server_url = validate_url(server_url)
     except UrlError:
-        return True
+        return True, True
 
     token = os.environ.get(SERVER_API_ENV_KEY)
     if token:
-        return not is_token_valid(server_url, token)
+        return False, not is_token_valid(server_url, token)
 
     token = load_token(server_url)
     if token:
-        return not is_token_valid(server_url, token)
-    return True
+        return False, not is_token_valid(server_url, token)
+    return False, True
 
 
 def confirm_server_login(url, token, username):

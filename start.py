@@ -383,22 +383,36 @@ def _connect_to_ayon_server(force=False):
     """
 
     load_environments()
-    need_login = True
+    need_server = need_api_key = True
     if not force:
-        need_login = need_server_or_login()
+        need_server, need_api_key = need_server_or_login()
 
-    if not need_login:
+    if not need_server and not need_api_key:
         return
 
+    current_url = os.environ.get(SERVER_URL_ENV_KEY)
+    if need_server:
+        if current_url:
+            message = f"Could not connect to AYON server '{current_url}'."
+        else:
+            message = "AYON Server URL is not set."
+    elif os.environ.get(SERVER_API_ENV_KEY):
+        message = f"Invalid API key for '{current_url}'."
+    else:
+        message = f"Missing API key for '{current_url}'."
+
+    _print("!!! Got invalid credentials.")
+    _print(message)
+    # Exit in headless mode
     if HEADLESS_MODE_ENABLED:
-        _print("!!! Cannot open Login dialog in headless mode.")
         _print((
-            "!!! Please use `{}` to specify server address"
-            " and '{}' to specify user's token."
-        ).format(SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY))
+            f"!!! Please use '{SERVER_URL_ENV_KEY}'"
+            f" and '{SERVER_API_ENV_KEY}' environment variables to specify"
+            " valid server url and api key for headless mode."
+        ))
         sys.exit(1)
 
-    current_url = os.environ.get(SERVER_URL_ENV_KEY)
+    # Show login dialog
     url, token, username = ask_to_login_ui(current_url, always_on_top=True)
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
