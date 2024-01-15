@@ -176,6 +176,18 @@ if "--ayon-login" in sys.argv:
     sys.argv.remove("--ayon-login")
     SHOW_LOGIN_UI = True
 
+# Login mode is helper to detect if user is using AYON server credentials
+#   from login UI (and keyring), or from environment variables.
+# - Variable is set in first AYON launcher process for possible subprocesses
+if SHOW_LOGIN_UI:
+    # Make sure login mode is set to '1' when '--ayon-login' is passed
+    os.environ["AYON_IN_LOGIN_MODE"] = "1"
+
+elif "AYON_IN_LOGIN_MODE" not in os.environ:
+    os.environ["AYON_IN_LOGIN_MODE"] = (
+        "0" if "AYON_API_KEY" in os.environ else "1"
+    )
+
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
     os.environ["OPENPYPE_HEADLESS_MODE"] = "1"
@@ -194,14 +206,6 @@ elif (
 ):
     os.environ["OPENPYPE_HEADLESS_MODE"] = (
         os.environ["AYON_HEADLESS_MODE"]
-    )
-
-# Login mode is helper to detect if user is using AYON server credentials
-#   from login UI (and keyring), or from environment variables.
-# - Variable is set in first AYON launcher process for possible subprocesseses
-if "AYON_IN_LOGIN_MODE" not in os.environ:
-    os.environ["AYON_IN_LOGIN_MODE"] = (
-        "0" if "AYON_API_KEY" in os.environ else "1"
     )
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
