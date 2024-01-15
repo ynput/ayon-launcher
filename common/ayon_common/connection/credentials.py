@@ -308,6 +308,38 @@ def ask_to_login_ui(
     return data["output"]
 
 
+def show_login_ui(
+    url: Union[str, None],
+    username: Union[str, None],
+    token: Union[str, None],
+) -> ChangeUserResult:
+    """Show login UI and process inputs.
+
+    Todos:
+        Add more arguments to function to be able to prefill UI with
+            information, like server is unreachable, url is invalid, token is
+            unauthorized, etc.
+
+    Args:
+        url (Union[str, None]): Server url that could be prefilled in UI.
+        username (Union[str, None]): Username that could be prefilled in UI.
+        token (Union[str, None]): User's token that could be prefilled in UI.
+
+    Returns:
+        ChangeUserResult: Information about user change.
+    """
+
+    from .ui import change_user
+
+    result = change_user(url, username, token)
+    new_url, new_token, new_username, logged_out = result
+
+    return ChangeUserResult(
+        logged_out, url, token, username,
+        new_url, new_token, new_username
+    )
+
+
 def change_user_ui() -> ChangeUserResult:
     """Change user using UI.
 
@@ -335,13 +367,7 @@ def change_user_ui() -> ChangeUserResult:
 
     url, username = get_last_server_with_username()
     token = load_token(url)
-    result = change_user(url, username, token)
-    new_url, new_token, new_username, logged_out = result
-
-    output = ChangeUserResult(
-        logged_out, url, token, username,
-        new_url, new_token, new_username
-    )
+    output = show_login_ui(url, username, token)
     if output.logged_out:
         logout(url, token)
 
