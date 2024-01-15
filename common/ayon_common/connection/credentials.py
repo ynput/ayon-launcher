@@ -61,6 +61,11 @@ def _get_servers_path():
     return get_ayon_appdirs("used_servers.json")
 
 
+def _get_ui_dir_path(*args) -> str:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(current_dir, "ui", *args)
+
+
 def get_servers_info_data():
     """Metadata about used server on this machine.
 
@@ -276,9 +281,7 @@ def ask_to_login_ui(
         tuple[str, str, str]: Url, user's token and username.
     """
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    ui_dir = os.path.join(current_dir, "ui")
-
+    ui_dir = _get_ui_dir_path()
     if url is None:
         url = get_last_server()
     username = get_last_username_by_url(url)
@@ -528,3 +531,46 @@ def confirm_server_login(url, token, username):
     add_server(url, username)
     store_token(url, token)
     set_environments(url, token)
+
+
+def _show_invalid_credentials_subprocess(message, always_on_top=False):
+    ui_script_path = _get_ui_dir_path("invalid_window.py")
+    data = {
+        "message": message,
+        "always_on_top": always_on_top,
+    }
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix="ayon_invalid_cred", suffix=".json", delete=False
+    ) as tmp:
+        output = tmp.name
+        json.dump(data, tmp)
+
+    code = subprocess.call(
+        get_ayon_launch_args(ui_script_path, "--skip-bootstrap", output))
+    if code != 0:
+        raise RuntimeError("Failed to show login UI")
+
+
+def show_invalid_credentials_ui(
+    message: Optional[str] = None,
+    in_subprocess: bool = False,
+    always_on_top: bool = False,
+):
+    """Show UI with information about invalid credentials.
+
+    This can be used when AYON launcher is in bypass login mode. In that case
+    'change_user_ui' cannot be used to change credentials.
+
+    Args:
+        in_subprocess (bool): Show UI in subprocess.
+        message (Optional[str]): Message to be shown to user.
+        always_on_top (Optional[bool]): Window will be drawn on top of
+            other windows.
+    """
+
+    if in_subprocess:
+        return _show_invalid_credentials_subprocess(message, always_on_top)
+
+    from .ui import invalid_credentials
+
+    invalid_credentials(message)
