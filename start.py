@@ -289,14 +289,12 @@ from ayon_api import (
     set_default_settings_variant,
     get_addons_studio_settings,
 )
-from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
-# Kept for backwards compatibility of older ayon-python-api in case older
-#     is used.
-try:
-    from ayon_api.constants import DEFAULT_VARIANT_ENV_KEY
-except ImportError:
-    DEFAULT_VARIANT_ENV_KEY = "AYON_DEFAULT_SETTINGS_VARIANT"
-
+from ayon_api.constants import (
+    SERVER_URL_ENV_KEY,
+    SERVER_API_ENV_KEY,
+    DEFAULT_VARIANT_ENV_KEY,
+    SITE_ID_ENV_KEY,
+)
 from ayon_common import is_staging_enabled, is_dev_mode_enabled
 from ayon_common.connection.credentials import (
     ask_to_login_ui,
@@ -315,7 +313,10 @@ from ayon_common.distribution import (
     UpdateWindowManager,
 )
 
-from ayon_common.utils import store_current_executable_info
+from ayon_common.utils import (
+    store_current_executable_info,
+    get_local_site_id,
+)
 from ayon_common.startup import show_startup_error
 
 
@@ -643,6 +644,10 @@ def _start_distribution():
 
 def boot():
     """Bootstrap AYON."""
+
+    # Setup site id in environment variable for all possible subprocesses
+    if SITE_ID_ENV_KEY not in os.environ:
+        os.environ[SITE_ID_ENV_KEY] = get_local_site_id()
 
     _connect_to_ayon_server()
     create_global_connection()
