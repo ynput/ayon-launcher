@@ -9,6 +9,7 @@ import tarfile
 from uuid import UUID
 
 import appdirs
+from ayon_api.constants import SITE_ID_ENV_KEY
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
 CLEANUP_INTERVAL = 2  # days
@@ -85,7 +86,7 @@ def get_local_site_id():
     """
 
     # used for background syncing
-    site_id = os.environ.get("AYON_SITE_ID")
+    site_id = os.environ.get(SITE_ID_ENV_KEY)
     if site_id:
         return site_id
 
