@@ -1982,15 +1982,24 @@ class AyonDistribution:
         output = []
         if not self.use_dev:
             return output
+
+        addon_versions = {}
         dev_addons = {}
         bundle = self.bundle_to_use
         if bundle is not None:
             dev_addons = bundle.addons_dev_info
+            addon_versions = bundle.addon_versions
+
         for addon_name, addon_item in self.addon_items.items():
-            dev_addon_info = dev_addons.get(addon_name) or {}
-            if dev_addon_info.get("enabled") is not True:
+            addon_version = addon_versions.get(addon_name)
+            # Addon is not in bundle -> Skip
+            if addon_version is None:
                 continue
-            output.append(dev_addon_info["path"])
+
+            dev_addon_info = dev_addons.get(addon_name) or {}
+            if dev_addon_info.get("enabled") is True:
+                output.append(dev_addon_info["path"])
+
         return output
 
 
