@@ -657,11 +657,11 @@ def boot():
 
 def _on_main_addon_missing():
     if HEADLESS_MODE_ENABLED:
-        raise RuntimeError("Failed to import required OpenPype addon.")
+        raise RuntimeError("Failed to import required AYON core addon.")
     show_startup_error(
-        "Missing OpenPype addon",
+        "Missing core addon",
         (
-            "AYON-launcher requires OpenPype addon to be able to start."
+            "AYON-launcher requires AYON core addon to be able to start."
             "<br/><br/>Please contact your administrator"
             " to resolve the issue."
         )
@@ -672,7 +672,7 @@ def _on_main_addon_missing():
 def _on_main_addon_import_error():
     if HEADLESS_MODE_ENABLED:
         raise RuntimeError(
-            "Failed to import OpenPype addon. Probably because"
+            "Failed to import AYON core addon. Probably because"
             " of missing or incompatible dependency package"
         )
     show_startup_error(
@@ -687,14 +687,7 @@ def _on_main_addon_import_error():
     sys.exit(1)
 
 
-def main_cli():
-    """Main startup logic.
-
-    This is the main entry point for the AYON launcher. At this
-    moment is fully dependent on 'openpype' addon. Which means it
-    contains more logic than it should.
-    """
-
+def _main_cli_openpype():
     try:
         from openpype import PACKAGE_DIR
     except ImportError:
@@ -708,6 +701,7 @@ def main_cli():
     python_path = os.getenv("PYTHONPATH", "")
     split_paths = python_path.split(os.pathsep)
 
+    # TODO move to ayon core import
     additional_paths = [
         # add OpenPype tools
         os.path.join(PACKAGE_DIR, "tools"),
@@ -716,8 +710,10 @@ def main_cli():
         os.path.join(PACKAGE_DIR, "vendor", "python", "common")
     ]
     for path in additional_paths:
-        split_paths.insert(0, path)
-        sys.path.insert(0, path)
+        if path not in split_paths:
+            split_paths.insert(0, path)
+        if path not in sys.path:
+            sys.path.insert(0, path)
     os.environ["PYTHONPATH"] = os.pathsep.join(split_paths)
 
     _print(">>> loading environments ...")
@@ -743,6 +739,52 @@ def main_cli():
 
     try:
         cli.main(obj={}, prog_name="ayon")
+    except Exception:  # noqa
+        exc_info = sys.exc_info()
+        _print("!!! AYON crashed:")
+        traceback.print_exception(*exc_info)
+        sys.exit(1)
+
+
+def main_cli():
+    """Main startup logic.
+
+    This is the main entry point for the AYON launcher. At this
+    moment is fully dependent on 'ayon_core' addon. Which means it
+    contains more logic than it should.
+    """
+
+    try:
+        import ayon_core
+        ayon_core_used = True
+    except ImportError:
+        ayon_core_used = False
+
+    if not ayon_core_used:
+        return _main_cli_openpype()
+
+    try:
+        from ayon_core import cli
+    except ImportError:
+        _on_main_addon_import_error()
+
+    # print info when not running scripts defined in 'silent commands'
+    if not SKIP_HEADERS:
+        info = get_info(is_staging_enabled(), is_dev_mode_enabled())
+        info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
+
+        t_width = 20
+        with contextlib.suppress(ValueError, OSError):
+            t_width = os.get_terminal_size().columns - 2
+
+        _header = f"*** AYON [{__version__}] "
+        info.insert(0, _header + "-" * (t_width - len(_header)))
+
+        for i in info:
+            _print(i)
+
+    try:
+        cli.main()
     except Exception:  # noqa
         exc_info = sys.exc_info()
         _print("!!! AYON crashed:")
