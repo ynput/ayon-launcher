@@ -176,6 +176,18 @@ if "--ayon-login" in sys.argv:
     sys.argv.remove("--ayon-login")
     SHOW_LOGIN_UI = True
 
+# Login mode is helper to detect if user is using AYON server credentials
+#   from login UI (and keyring), or from environment variables.
+# - Variable is set in first AYON launcher process for possible subprocesses
+if SHOW_LOGIN_UI:
+    # Make sure login mode is set to '1' when '--ayon-login' is passed
+    os.environ["AYON_IN_LOGIN_MODE"] = "1"
+
+elif "AYON_IN_LOGIN_MODE" not in os.environ:
+    os.environ["AYON_IN_LOGIN_MODE"] = (
+        "0" if "AYON_API_KEY" in os.environ else "1"
+    )
+
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
     os.environ["OPENPYPE_HEADLESS_MODE"] = "1"
@@ -198,6 +210,7 @@ elif (
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
+AYON_IN_LOGIN_MODE = os.environ["AYON_IN_LOGIN_MODE"] == "1"
 
 _pythonpath = os.getenv("PYTHONPATH", "")
 _python_paths = _pythonpath.split(os.pathsep)
@@ -304,6 +317,7 @@ from ayon_common.connection.credentials import (
     set_environments,
     create_global_connection,
     confirm_server_login,
+    show_invalid_credentials_ui,
 )
 from ayon_common.distribution import (
     AyonDistribution,
@@ -383,23 +397,49 @@ def _connect_to_ayon_server(force=False):
         force (Optional[bool]): Force login to server.
     """
 
-    load_environments()
-    need_login = True
-    if not force:
-        need_login = need_server_or_login()
-
-    if not need_login:
-        return
-
-    if HEADLESS_MODE_ENABLED:
-        _print("!!! Cannot open Login dialog in headless mode.")
-        _print((
-            "!!! Please use `{}` to specify server address"
-            " and '{}' to specify user's token."
-        ).format(SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY))
+    if force and HEADLESS_MODE_ENABLED:
+        _print("!!! Login UI was requested in headless mode.")
         sys.exit(1)
 
+    load_environments()
+    need_server = need_api_key = True
+    if not force:
+        need_server, need_api_key = need_server_or_login()
+
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
+    if not need_server and not need_api_key:
+        _print(f">>> Connected to AYON server {current_url}")
+        return
+
+    if need_server:
+        if current_url:
+            message = f"Could not connect to AYON server '{current_url}'."
+        else:
+            message = "AYON Server URL is not set."
+    elif os.environ.get(SERVER_API_ENV_KEY):
+        message = f"Invalid API key for '{current_url}'."
+    else:
+        message = f"Missing API key for '{current_url}'."
+
+    if not force:
+        _print("!!! Got invalid credentials.")
+        _print(message)
+
+    # Exit in headless mode
+    if HEADLESS_MODE_ENABLED:
+        _print((
+            f"!!! Please use '{SERVER_URL_ENV_KEY}'"
+            f" and '{SERVER_API_ENV_KEY}' environment variables to specify"
+            " valid server url and api key for headless mode."
+        ))
+        sys.exit(1)
+
+    # Show message that used credentials are invalid
+    if not AYON_IN_LOGIN_MODE:
+        show_invalid_credentials_ui(message=message, in_subprocess=True)
+        sys.exit(1)
+
+    # Show login dialog
     url, token, username = ask_to_login_ui(current_url, always_on_top=True)
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
@@ -846,6 +886,12 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 def main():
     if SHOW_LOGIN_UI:
+        if HEADLESS_MODE_ENABLED:
+            _print((
+                "!!! Invalid arguments combination"
+                " '--ayon-login' and '--headless'."
+            ))
+            sys.exit(1)
         _connect_to_ayon_server(True)
 
     if SKIP_BOOTSTRAP:

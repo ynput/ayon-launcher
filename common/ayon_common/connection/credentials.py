@@ -61,6 +61,11 @@ def _get_servers_path():
     return get_ayon_appdirs("used_servers.json")
 
 
+def _get_ui_dir_path(*args) -> str:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(current_dir, "ui", *args)
+
+
 def get_servers_info_data():
     """Metadata about used server on this machine.
 
@@ -276,9 +281,7 @@ def ask_to_login_ui(
         tuple[str, str, str]: Url, user's token and username.
     """
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    ui_dir = os.path.join(current_dir, "ui")
-
+    ui_dir = _get_ui_dir_path()
     if url is None:
         url = get_last_server()
     username = get_last_username_by_url(url)
@@ -305,6 +308,38 @@ def ask_to_login_ui(
     return data["output"]
 
 
+def show_login_ui(
+    url: Union[str, None],
+    username: Union[str, None],
+    token: Union[str, None],
+) -> ChangeUserResult:
+    """Show login UI and process inputs.
+
+    Todos:
+        Add more arguments to function to be able to prefill UI with
+            information, like server is unreachable, url is invalid, token is
+            unauthorized, etc.
+
+    Args:
+        url (Union[str, None]): Server url that could be prefilled in UI.
+        username (Union[str, None]): Username that could be prefilled in UI.
+        token (Union[str, None]): User's token that could be prefilled in UI.
+
+    Returns:
+        ChangeUserResult: Information about user change.
+    """
+
+    from .ui import change_user
+
+    result = change_user(url, username, token)
+    new_url, new_token, new_username, logged_out = result
+
+    return ChangeUserResult(
+        logged_out, url, token, username,
+        new_url, new_token, new_username
+    )
+
+
 def change_user_ui() -> ChangeUserResult:
     """Change user using UI.
 
@@ -316,17 +351,23 @@ def change_user_ui() -> ChangeUserResult:
          ChangeUserResult: Information about user change.
     """
 
-    from .ui import change_user
+    # For backwards compatibility show dialog that current session does not
+    #   allow credentials change
+    if os.getenv("AYON_IN_LOGIN_MODE") == "0":
+        show_invalid_credentials_ui(in_subprocess=False)
+        return ChangeUserResult(
+            False,
+            os.getenv(SERVER_URL_ENV_KEY),
+            os.getenv(SERVER_API_ENV_KEY),
+            None,
+            None,
+            None,
+            None
+        )
 
     url, username = get_last_server_with_username()
     token = load_token(url)
-    result = change_user(url, username, token)
-    new_url, new_token, new_username, logged_out = result
-
-    output = ChangeUserResult(
-        logged_out, url, token, username,
-        new_url, new_token, new_username
-    )
+    output = show_login_ui(url, username, token)
     if output.logged_out:
         logout(url, token)
 
@@ -462,7 +503,7 @@ def create_global_connection():
     )
 
 
-def is_token_valid(url, token) -> bool:
+def is_token_valid(url: str, token: str) -> bool:
     """Check if token is valid.
 
     Note:
@@ -484,36 +525,37 @@ def is_token_valid(url, token) -> bool:
     return api.has_valid_token
 
 
-def need_server_or_login() -> bool:
+def need_server_or_login() -> tuple[bool, bool]:
     """Check if server url or login to the server are needed.
 
     It is recommended to call 'load_environments' on startup before this check.
     But in some cases this function could be called after startup.
 
     Returns:
-        bool: 'True' if server and token are available. Otherwise 'False'.
+        tuple[bool, bool]: Server or api key needed. Both are 'True' if
+            are available and valid.
     """
 
     server_url = os.environ.get(SERVER_URL_ENV_KEY)
     if not server_url:
-        return True
+        return True, True
 
     try:
         server_url = validate_url(server_url)
     except UrlError:
-        return True
+        return True, True
 
     token = os.environ.get(SERVER_API_ENV_KEY)
     if token:
-        return not is_token_valid(server_url, token)
+        return False, not is_token_valid(server_url, token)
 
     token = load_token(server_url)
     if token:
-        return not is_token_valid(server_url, token)
-    return True
+        return False, not is_token_valid(server_url, token)
+    return False, True
 
 
-def confirm_server_login(url, token, username):
+def confirm_server_login(url: str, token: str, username: Union[str, None]):
     """Confirm login of user and do necessary stepts to apply changes.
 
     This should not be used on "change" of user but on first login.
@@ -527,3 +569,46 @@ def confirm_server_login(url, token, username):
     add_server(url, username)
     store_token(url, token)
     set_environments(url, token)
+
+
+def _show_invalid_credentials_subprocess(message, always_on_top=False):
+    ui_script_path = _get_ui_dir_path("invalid_window.py")
+    data = {
+        "message": message,
+        "always_on_top": always_on_top,
+    }
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix="ayon_invalid_cred", suffix=".json", delete=False
+    ) as tmp:
+        output = tmp.name
+        json.dump(data, tmp)
+
+    code = subprocess.call(
+        get_ayon_launch_args(ui_script_path, "--skip-bootstrap", output))
+    if code != 0:
+        raise RuntimeError("Failed to show login UI")
+
+
+def show_invalid_credentials_ui(
+    message: Optional[str] = None,
+    in_subprocess: bool = False,
+    always_on_top: bool = False,
+):
+    """Show UI with information about invalid credentials.
+
+    This can be used when AYON launcher is in bypass login mode. In that case
+    'change_user_ui' cannot be used to change credentials.
+
+    Args:
+        in_subprocess (bool): Show UI in subprocess.
+        message (Optional[str]): Message to be shown to user.
+        always_on_top (Optional[bool]): Window will be drawn on top of
+            other windows.
+    """
+
+    if in_subprocess:
+        return _show_invalid_credentials_subprocess(message, always_on_top)
+
+    from .ui import invalid_credentials
+
+    invalid_credentials(message)
