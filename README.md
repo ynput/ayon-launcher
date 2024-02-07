@@ -41,12 +41,12 @@ Create installer information from json file on server and upload the installer f
 ### Windows
 Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
 
-*Or,* Run `./tools/manage.ps1 upload --username <your admin username> --password  <your pasword>`
+*Or,* run `./tools/manage.ps1 upload --username <your admin username> --password  <your pasword>`
 
 ### Linux & macOS
 Run `./tools/make.sh upload --server <your server> --api-key <your api key>`
 
-*Or,* Run `./tools/make.sh upload --username <your admin username> --password  <your pasword>`
+*Or,* run `./tools/make.sh upload --username <your admin username> --password  <your pasword>`
 
 
 Upload command has more options, use `--help` to investigate them. For example, it is possible to use username & password instead of api key.
@@ -60,6 +60,7 @@ AYON can be executed either from live sources (this repository) or from
 
 ### From sources
 You need to create env and install dependencies first.
+> Ideally, this step should be re-run with each new version.
 
 #### Windows
 ```
@@ -72,18 +73,18 @@ You need to create env and install dependencies first.
 ./tools/make.sh create-env
 ./tools/make.sh install-runtime-dependencies
 ```
-#### Run
+### Run
 AYON can be run directly from sources by activating virtual environment:
 
-```sh
-poetry run python start.py &args
+#### Windows
 ```
-> For Windows, you can use this alternatively
-> ```
-> tools/ayon_console.bat
-> ```
+./tools/manage.ps1 run
+```
 
-
+#### Linux & macOS
+```
+./tools/make.sh run
+```
 ### From frozen code
 
 You need to build AYON first. This will produce executable - `ayon.exe` and `ayon_console.exe` on Windows, `ayon` on Linux and `AYON {version}.app` for macOS.
@@ -143,6 +144,6 @@ Environment variables that are set for backwards compatibility with openpype add
 Developer mode enables to skip standard distribution process and use local sources of addon code. This is useful for development of addon. Developer mode must be enabled and configured on AYON server. To use it in AYON launcher create dev bundle and use `--use-dev` argument, or define bundle name `--bundle <dev bundle name>` in cli arguments.
 
 ## Links
-- [Launcher Dev | Ayon Docs](https://ayon.ynput.io/docs/dev_launcher)
-- [Ayon Developer Mode – Guide | Ayon Forums](https://community.ynput.io/t/ayon-developer-mode-guide/993)
-- [How to keep up with Ayon updates? | Ayon Forums](https://community.ynput.io/t/how-to-keep-up-with-ayon-updates/1066)
+- [Launcher Dev | AYON Docs](https://ayon.ynput.io/docs/dev_launcher)
+- [AYON Developer Mode – Guide | AYON Forums](https://community.ynput.io/t/ayon-developer-mode-guide/993)
+- [How to keep up with AYON updates? | AYON Forums](https://community.ynput.io/t/how-to-keep-up-with-ayon-updates/1066)
