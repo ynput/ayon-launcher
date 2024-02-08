@@ -897,6 +897,10 @@ def script_cli(start_arg=None):
     with open(filepath, "r") as stream:
         content = stream.read()
 
+    # Remove `start.py` argument as this is not expect when running python
+    # scripts.
+    sys.argv.pop(0)
+
     script_globals = dict(globals())
     script_globals["__file__"] = filepath
     exec(compile(content, filepath, "exec"), script_globals)
