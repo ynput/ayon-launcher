@@ -96,6 +96,11 @@ version = "6.4.3"
 package = "PySide2"
 version = "5.15.2"
 
+# Python dependencies that will be available only in runtime of
+#   AYON process - do not interfere with DCCs dependencies
+[ayon.runtime.deps]
+opentimelineio = "0.14.1"
+
 [tool.pyright]
 include = [
     "vendor"
