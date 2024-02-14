@@ -41,12 +41,12 @@ Create installer information from json file on server and upload the installer f
 ### Windows
 Run `./tools/manage.ps1 upload --server <your server> --api-key <your api key>`
 
-*Or,* run `./tools/manage.ps1 upload --username <your admin username> --password  <your pasword>`
+*Or,* run `./tools/manage.ps1 upload --server <your server> --username <your admin username> --password  <your pasword>`
 
 ### Linux & macOS
 Run `./tools/make.sh upload --server <your server> --api-key <your api key>`
 
-*Or,* run `./tools/make.sh upload --username <your admin username> --password  <your pasword>`
+*Or,* run `./tools/make.sh upload --server <your server> --username <your admin username> --password  <your pasword>`
 
 
 Upload command has more options, use `--help` to investigate them. For example, it is possible to use username & password instead of api key.
