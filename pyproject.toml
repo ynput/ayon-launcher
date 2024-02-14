@@ -46,9 +46,6 @@ semver = "^2.13.0"
 QtPy = "^2.3.0"
 pywin32 = { version = "301", markers = "sys_platform == 'win32'" }
 python3-xlib = { version="*", markers = "sys_platform == 'linux'"}
-# move to core addon
-Click = "^8"
-six = "^1.15"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^6.0"
