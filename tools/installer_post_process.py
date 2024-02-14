@@ -122,6 +122,9 @@ def create_connection(
 
     if api_key:
         api.set_token(api_key)
+        # TODO It is necessary to call 'validate_token' because
+        #   of bug in 'ayon_api'. Service user is not validated correctly.
+        api.validate_token()
         if api.has_valid_token:
             return api
 
