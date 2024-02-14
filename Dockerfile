@@ -1,4 +1,4 @@
-# Build Pype docker image
+# Build AYON docker image
 FROM ubuntu:focal AS builder
 ARG PYTHON_VERSION=3.9.12
 ARG BUILD_DATE
