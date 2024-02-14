@@ -117,7 +117,7 @@ def get_ayon_launch_args(*args):
 
     output = [sys.executable]
     if not IS_BUILT_APPLICATION:
-        output.append(sys.argv[0])
+        output.append(os.path.join(os.environ["AYON_ROOT"], "start.py"))
     output.extend(args)
     return output
 
