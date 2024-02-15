@@ -273,13 +273,13 @@ build_ayon () {
     # Fix codesign bug by creating copy of executable, removing source
     #   executable and replacing by the copy
     #   - this will clear cache of codesign
-    cp $ayonexe $tmp_ayonexe
-    rm $ayonexe
-    mv $tmp_ayonexe $ayonexe
+    cp "$ayonexe" "$tmp_ayonexe"
+    rm "$ayonexe"
+    mv "$tmp_ayonexe" "$ayonexe"
 
     # fix code signing issue
     echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
-    codesign --remove-signature $ayonexe || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+    codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
   fi
 
   if [[ "$should_make_installer" == 1 ]]; then
