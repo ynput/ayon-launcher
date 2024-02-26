@@ -94,6 +94,8 @@ from version import __version__
 
 ORIGINAL_ARGS = list(sys.argv)
 
+PREVIOUS_AYON_VERSION = os.getenv("AYON_VERSION")
+
 os.environ["AYON_VERSION"] = __version__
 
 # Define which bundle is used
@@ -176,6 +178,36 @@ if "--ayon-login" in sys.argv:
     sys.argv.remove("--ayon-login")
     SHOW_LOGIN_UI = True
 
+
+def _is_in_login_mode():
+    # Handle cases when source AYON launcher has version before '1.0.1'
+    # - When user launcher an executable of AYON launcher it will run correct
+    #   version of AYON launcher by bundle, but older launcher versions
+    #   will not set 'AYON_IN_LOGIN_MODE' environment variable. Therefore
+    #   we need to check 'PREVIOUS_AYON_VERSION' and set 'AYON_IN_LOGIN_MODE'
+    #   to 'True' when version is before '1.0.1'.
+    # - this would be `return "AYON_API_KEY" not in os.environ` otherwise
+    if "AYON_API_KEY" not in os.environ:
+        return True
+
+    # Handle cases when source AYON launcher has version before '1.0.1'
+    version_parts = PREVIOUS_AYON_VERSION.split(".")
+    if len(version_parts) < 3:
+        return False
+
+    try:
+        # Keep only first 3 version parts which should be integers
+        new_version_parts = [
+            int(value)
+            for idx, value in enumerate(version_parts)
+            if idx < 3
+        ]
+    except ValueError:
+        return False
+    milestone = (1, 0, 1)
+    return tuple(new_version_parts) < milestone
+
+
 # Login mode is helper to detect if user is using AYON server credentials
 #   from login UI (and keyring), or from environment variables.
 # - Variable is set in first AYON launcher process for possible subprocesses
@@ -184,9 +216,7 @@ if SHOW_LOGIN_UI:
     os.environ["AYON_IN_LOGIN_MODE"] = "1"
 
 elif "AYON_IN_LOGIN_MODE" not in os.environ:
-    os.environ["AYON_IN_LOGIN_MODE"] = (
-        "0" if "AYON_API_KEY" in os.environ else "1"
-    )
+    os.environ["AYON_IN_LOGIN_MODE"] = str(int(_is_in_login_mode()))
 
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
