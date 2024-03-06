@@ -1,7 +1,7 @@
 import sys
 import json
 
-from qtpy import QtWidgets, QtGui
+from qtpy import QtWidgets, QtGui, QtCore
 
 from ayon_common.resources import (
     get_icon_path,
@@ -14,7 +14,7 @@ class MessageWindow(QtWidgets.QDialog):
     default_width = 410
     default_height = 170
 
-    def __init__(self, title, message, parent=None):
+    def __init__(self, title, message, detail, parent=None):
         super().__init__(parent)
 
         icon_path = get_icon_path()
@@ -37,9 +37,28 @@ class MessageWindow(QtWidgets.QDialog):
         info_label = QtWidgets.QLabel(message, info_widget)
         info_label.setWordWrap(True)
 
+        details_wrapper = QtWidgets.QWidget(info_widget)
+
+        details_separator = QtWidgets.QFrame(details_wrapper)
+        details_separator.setObjectName("Separator")
+        details_separator.setMinimumHeight(2)
+        details_separator.setMaximumHeight(2)
+
+        details_widget = QtWidgets.QLabel(details_wrapper)
+        details_widget.setWordWrap(True)
+        details_widget.setTextInteractionFlags(
+            QtCore.Qt.TextBrowserInteraction
+        )
+
+        details_wrapper_layout = QtWidgets.QVBoxLayout(details_wrapper)
+        details_wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        details_wrapper_layout.addWidget(details_separator, 0)
+        details_wrapper_layout.addWidget(details_widget, 0)
+
         info_layout = QtWidgets.QVBoxLayout(info_widget)
         info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.addWidget(info_label, 0)
+        info_layout.addWidget(details_wrapper, 0)
         info_layout.addStretch(1)
 
         body_layout = QtWidgets.QHBoxLayout(body_widget)
@@ -61,8 +80,14 @@ class MessageWindow(QtWidgets.QDialog):
 
         confirm_btn.clicked.connect(self._on_confirm_click)
 
+        if detail:
+            details_widget.setText(detail)
+        else:
+            details_wrapper.setVisible(False)
+
         self._icon_label = icon_label
         self._confirm_btn = confirm_btn
+        self._details_widget = details_widget
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -111,7 +136,7 @@ def main():
         data = json.load(stream)
 
     app = get_qt_app()
-    window = MessageWindow(data["title"], data["message"])
+    window = MessageWindow(data["title"], data["message"], data["detail"])
     window.show()
     app.exec_()
 
