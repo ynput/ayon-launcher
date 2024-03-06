@@ -18,6 +18,41 @@ from .widgets import (
 )
 
 
+class ShowPasswordButton(QtWidgets.QPushButton):
+    state_changed = QtCore.Signal(bool)
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        show_password_icon = QtGui.QIcon(get_resource_path("eye.png"))
+        hide_password_icon = QtGui.QIcon(get_resource_path("eye_closed.png"))
+
+        self.setObjectName("PasswordBtn")
+        self.setIcon(show_password_icon)
+        self.setToolTip("Show")
+
+        self.clicked.connect(self._on_click)
+
+        self._password_visible = False
+        self._show_password_icon = show_password_icon
+        self._hide_password_icon = hide_password_icon
+
+    def _on_click(self):
+        self._password_visible = not self._password_visible
+        if self._password_visible:
+            new_icon = self._hide_password_icon
+            new_hint = "Show"
+        else:
+            new_icon = self._show_password_icon
+            new_hint = "Hide"
+        self.setIcon(new_icon)
+        self.setToolTip(new_hint)
+        self.state_changed.emit(self._password_visible)
+
+    def is_password_visible(self):
+        return self._password_visible
+
+
 class LogoutConfirmDialog(QtWidgets.QDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -178,12 +213,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         api_preview.setReadOnly(True)
         api_preview.setObjectName("LikeDisabledInput")
 
-        show_password_icon_path = get_resource_path("eye.png")
-        show_password_icon = QtGui.QIcon(show_password_icon_path)
-        show_password_btn = PressHoverButton(user_cred_widget)
-        show_password_btn.setObjectName("PasswordBtn")
-        show_password_btn.setIcon(show_password_icon)
-        show_password_btn.setFocusPolicy(QtCore.Qt.ClickFocus)
+        show_password_btn = ShowPasswordButton(user_cred_widget)
 
         cred_msg_sep = QtWidgets.QFrame(self)
         cred_msg_sep.setObjectName("Separator")
@@ -258,7 +288,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         username_input.textChanged.connect(self._on_user_change)
         username_input.returnPressed.connect(self._on_username_enter_press)
         password_input.returnPressed.connect(self._on_password_enter_press)
-        show_password_btn.change_state.connect(self._on_show_password)
+        show_password_btn.state_changed.connect(self._on_password_state_change)
         url_edit_btn.clicked.connect(self._on_url_edit_click)
         username_edit_btn.clicked.connect(self._on_username_edit_click)
         logout_btn.clicked.connect(self._on_logout_click)
@@ -452,7 +482,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def _on_password_enter_press(self):
         self._login()
 
-    def _on_show_password(self, show_password):
+    def _on_password_state_change(self, show_password):
         if show_password:
             placeholder_text = "< MySecret124 >"
             echo_mode = QtWidgets.QLineEdit.Normal
