@@ -387,7 +387,7 @@ def get_packages_info(build_root):
     """
 
     requirements_path = build_root / "requirements.txt"
-    poetry_requirements_path = build_root / "poetry_requirements.txt"
+    poetry_requirements_path = build_root / "poetry_lock.json"
     if not requirements_path.exists():
         raise RuntimeError(
             "Failed to get packages info -> couldn't find 'requirements.txt'."
@@ -396,27 +396,14 @@ def get_packages_info(build_root):
     if not poetry_requirements_path.exists():
         raise RuntimeError(
             "Failed to get packages info"
-            " -> couldn't find 'poetry_requirements.txt'."
+            " -> couldn't find 'poetry_lock.json'."
         )
 
     with open(str(requirements_path), "r", encoding="utf-8") as stream:
         content = stream.read()
 
     with open(str(poetry_requirements_path), "r", encoding="utf-8") as stream:
-        poetry_content = stream.read()
-
-    poetry_packages = {}
-    for line in poetry_content.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-
-        match = re.match(r"^(.+?)(?:==|>=|<=|~=|!=|@)(.+)$", line)
-        if not match:
-            raise ValueError(f"Cannot parse package info '{line}'.")
-        package_name, version = match.groups()
-        version = version.split(";")[0].strip()
-        poetry_packages[package_name.rstrip()] = version
+        poetry_packages = json.load(stream)
 
     packages = {}
     for line in content.split("\n"):
