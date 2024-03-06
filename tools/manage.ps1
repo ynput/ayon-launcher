@@ -189,7 +189,11 @@ function New-DockerBuild {
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
     Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
     $variant = $args[0]
-    $dockerfile = "$($repo_root)\Dockerfile.$variant"
+    if (($variant -eq $null) -or ($variant -eq "ubuntu")) {
+        $dockerfile = "$($repo_root)\Dockerfile"
+    } else {
+        $dockerfile = "$($repo_root)\Dockerfile.$variant"
+    }
     if (-not (Test-Path -PathType Leaf -Path $dockerfile)) {
         Write-Color -Text "!!! ", "Dockerfile for specifed platform ", "[", $variant, "]", "doesn't exist." -Color Red, Yellow, Cyan, White, Cyan, Yellow
         Restore-Cwd
@@ -251,7 +255,7 @@ function Default-Func {
     Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
-    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu","', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
     Write-Host ""
 }
 
