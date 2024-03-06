@@ -364,19 +364,59 @@ def get_runtime_modules(root):
 def get_packages_info(build_root):
     """Read lock file to get packages.
 
-    Retruns:
+    Combine requirements freeze from venv and from poetry export. Requirements
+    freezed with pip 24 do not contain git urls, instead are pointing to
+    source folder on a disk. In that case is used poetry export which contains
+    the git url.
+
+    Notes:
+        This is not ideal solution. The most ideal would be to get all the
+            information from poetry. But poetry export is limited only to
+            requirements.txt and using custom export logic would require
+            to implement it on our own.
+        The custom logic would also require to run venv located inside poetry
+            because poetry does not have mechanism to run internal python
+            via poetry executable. Parsing poetry lock on our own is also not
+            ideal because it can change based on poetry version.
+        We might hit an issue that newer poetry export won't be able to export
+            the urls either.
+
+    Returns:
         list[tuple[str, Union[str, None]]]: List of tuples containing package
             name and version.
     """
 
     requirements_path = build_root / "requirements.txt"
+    poetry_requirements_path = build_root / "poetry_requirements.txt"
     if not requirements_path.exists():
         raise RuntimeError(
             "Failed to get packages info -> couldn't find 'requirements.txt'."
         )
 
+    if not poetry_requirements_path.exists():
+        raise RuntimeError(
+            "Failed to get packages info"
+            " -> couldn't find 'poetry_requirements.txt'."
+        )
+
     with open(str(requirements_path), "r", encoding="utf-8") as stream:
         content = stream.read()
+
+    with open(str(poetry_requirements_path), "r", encoding="utf-8") as stream:
+        poetry_content = stream.read()
+
+    poetry_packages = {}
+    for line in poetry_content.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        match = re.match(r"^(.+?)(?:==|>=|<=|~=|!=|@)(.+)$", line)
+        if not match:
+            raise ValueError(f"Cannot parse package info '{line}'.")
+        package_name, version = match.groups()
+        version = version.split(";")[0].strip()
+        poetry_packages[package_name.rstrip()] = version
 
     packages = {}
     for line in content.split("\n"):
@@ -388,7 +428,12 @@ def get_packages_info(build_root):
         if not match:
             raise ValueError(f"Cannot parse package info '{line}'.")
         package_name, version = match.groups()
-        packages[package_name.rstrip()] = version.lstrip()
+        package_name = package_name.rstrip()
+        version = version.lstrip()
+
+        if version.startswith("file:"):
+            version = poetry_packages[package_name]
+        packages[package_name] = version.lstrip()
 
     return packages
 
