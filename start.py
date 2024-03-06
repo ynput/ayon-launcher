@@ -739,7 +739,7 @@ def _on_main_addon_missing():
     sys.exit(1)
 
 
-def _on_main_addon_import_error():
+def _on_main_addon_import_error(exception):
     if HEADLESS_MODE_ENABLED:
         raise RuntimeError(
             "Failed to import AYON core addon. Probably because"
@@ -752,7 +752,8 @@ def _on_main_addon_import_error():
             " addons."
             "<br/><br/>Please contact your administrator"
             " to resolve the issue."
-        )
+        ),
+        str(exception)
     )
     sys.exit(1)
 
@@ -765,8 +766,9 @@ def _main_cli_openpype():
 
     try:
         from openpype import cli
-    except ImportError:
-        _on_main_addon_import_error()
+    except ImportError as exc:
+        traceback.print_exception(*sys.exc_info())
+        _on_main_addon_import_error(exc)
 
     python_path = os.getenv("PYTHONPATH", "")
     split_paths = python_path.split(os.pathsep)
@@ -835,8 +837,9 @@ def main_cli():
 
     try:
         from ayon_core import cli
-    except ImportError:
-        _on_main_addon_import_error()
+    except ImportError as exc:
+        traceback.print_exception(*sys.exc_info())
+        _on_main_addon_import_error(exc)
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
