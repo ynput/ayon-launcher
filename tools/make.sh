@@ -265,13 +265,21 @@ build_ayon () {
   if [[ "$OSTYPE" == "darwin"* ]]; then
     macoscontents="$repo_root/build/AYON $ayon_version.app/Contents"
     macosdir="$macoscontents/MacOS"
-
+    ayonexe="$macosdir/ayon"
+    tmp_ayonexe="$macosdir/ayon_tmp"
     # force hide icon from Dock
     defaults write "$macoscontents/Info" LSUIElement 1
 
+    # Fix codesign bug by creating copy of executable, removing source
+    #   executable and replacing by the copy
+    #   - this will clear cache of codesign
+    cp "$ayonexe" "$tmp_ayonexe"
+    rm "$ayonexe"
+    mv "$tmp_ayonexe" "$ayonexe"
+
     # fix code signing issue
     echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
-    codesign --remove-signature "$macosdir/ayon" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+    codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
   fi
 
   if [[ "$should_make_installer" == 1 ]]; then
