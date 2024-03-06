@@ -94,7 +94,7 @@ from version import __version__
 
 ORIGINAL_ARGS = list(sys.argv)
 
-PREVIOUS_AYON_VERSION = os.getenv("AYON_VERSION")
+PREVIOUS_AYON_VERSION = os.getenv("AYON_VERSION", "")
 
 os.environ["AYON_VERSION"] = __version__
 
