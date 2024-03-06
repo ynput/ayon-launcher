@@ -7,7 +7,7 @@ import tempfile
 from ayon_common.utils import get_ayon_launch_args
 
 
-def show_startup_error(title, message):
+def show_startup_error(title, message, detail=None):
     """Show startup error message.
 
     This will trigger a subprocess with UI message dialog.
@@ -26,7 +26,14 @@ def show_startup_error(title, message):
         filepath = tmp.name
 
     with open(filepath, "w") as stream:
-        json.dump({"title": title, "message": message}, stream)
+        json.dump(
+            {
+                "title": title,
+                "message": message,
+                "detail": detail,
+            },
+            stream
+        )
 
     args = get_ayon_launch_args(
         script_path, "--skip-bootstrap", filepath
