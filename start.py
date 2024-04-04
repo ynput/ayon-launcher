@@ -912,6 +912,11 @@ def script_cli(start_arg=None):
     if start_arg is None:
         start_arg = StartArgScript.from_args(sys.argv)
 
+    # Remove first argument from sys.argv
+    # - start.py when running from code and ayon executable whne running
+    #   from build
+    sys.argv.pop(0)
+
     # Find '__main__.py' in directory
     if not start_arg.is_valid:
         if not start_arg.argument:
