@@ -39,6 +39,7 @@ Temporary Items
 /dist/
 /shim/venv
 /shim/build
+/shim/build.log
 /shim/dist
 
 /vendor/*
