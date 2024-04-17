@@ -62,6 +62,10 @@ function Change-Cwd() {
     Set-Location -Path $repo_root
 }
 
+function Change-Shim-Cwd() {
+    Set-Location -Path "$($repo_root)\shim"
+}
+
 function Restore-Cwd() {
     $tmp_current_dir = Get-Location
     if ("$tmp_current_dir" -ne "$current_dir") {
@@ -186,6 +190,7 @@ function Get-BuildLog {
 }
 
 function New-DockerBuild {
+    Change-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
     Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
     $variant = $args[0]
@@ -260,6 +265,7 @@ function Default-Func {
 }
 
 function Create-Env {
+    Change-Cwd
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
     if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
@@ -292,6 +298,16 @@ function Create-Env {
         }
     }
 
+    Change-Shim-Cwd
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.in-project true --local
+    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.create true --local
+    & "$env:POETRY_HOME\bin\poetry" install --no-root $poetry_verbosity --ansi
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
+    }
+
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     Restore-Cwd
     try
@@ -303,14 +319,17 @@ function Create-Env {
 
 
 function Build-Ayon($MakeInstaller = $false) {
+    Change-Cwd
     $ayon_version = Get-Ayon-Version
     if (-not $ayon_version) {
         Exit-WithCode 1
     }
-
     # Create build directory if not exist
     if (-not (Test-Path -PathType Container -Path "$($repo_root)\build")) {
         New-Item -ItemType Directory -Force -Path "$($repo_root)\build"
+    }
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\dist")) {
+        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\dist"
     }
 
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
@@ -322,13 +341,21 @@ function Build-Ayon($MakeInstaller = $false) {
         Write-Color -Text $_.Exception.Message -Color Red
         Exit-WithCode 1
     }
+    try {
+        Remove-Item -Recurse -Force "$($repo_root)\shim\dist\*"
+    }
+    catch {
+        Write-Color -Text "!!! ", "Cannot clean shim directory, possibly because process is using it." -Color Red, Gray
+        Write-Color -Text $_.Exception.Message -Color Red
+        Exit-WithCode 1
+    }
+
     if (-not $disable_submodule_update) {
         Write-Color -Text ">>> ", "Making sure submodules are up-to-date ..." -Color Green, Gray
         & git submodule update --init --recursive
     } else {
         Write-Color -Text "*** ", "Not updating submodules ..." -Color Green, Gray
     }
-    $ayon_version = Get-Ayon-Version
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
@@ -346,9 +373,23 @@ function Build-Ayon($MakeInstaller = $false) {
     Get-ChildItem $repo_root -Filter "__pycache__" -Force -Recurse | Where-Object { $_.FullName -inotmatch 'build' } | Remove-Item -Force -Recurse
     Write-Color -Text "OK" -Color green
 
-    Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
+    Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
+    Change-Shim-Cwd
+    $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
+    Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Color -Text "------------------------------------------" -Color Red
+        Get-Content "$($repo_root)\shim\build.log"
+        Write-Color -Text "------------------------------------------" -Color Yellow
+        Write-Color -Text "!!! ", "Build failed. Check the log: ", ".\shim\build.log" -Color Red, Yellow, White
+        Exit-WithCode $LASTEXITCODE
+    }
+
+    Change-Cwd
+    Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $FreezeContent = & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze
     & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
     # Make sure output is UTF-8 without BOM
@@ -366,7 +407,6 @@ function Build-Ayon($MakeInstaller = $false) {
         Exit-WithCode $LASTEXITCODE
     }
 
-    Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
@@ -383,6 +423,7 @@ function Build-Ayon($MakeInstaller = $false) {
 }
 
 function Installer-Post-Process() {
+    Change-Cwd
     & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
@@ -392,6 +433,7 @@ function Make-Ayon-Installer-Raw() {
 }
 
 function Make-Ayon-Installer() {
+    Change-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     Make-Ayon-Installer-Raw
@@ -421,6 +463,7 @@ function Install-Runtime-Dependencies() {
 }
 
 function Run-From-Code() {
+    Change-Cwd
     & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py" @arguments
 }
 
@@ -431,28 +474,20 @@ function Main {
     }
     $FunctionName = $FunctionName.ToLower() -replace "\W"
     if ($FunctionName -eq "run") {
-        Change-Cwd
         Run-From-Code
     } elseif ($FunctionName -eq "createenv") {
-        Change-Cwd
         Create-Env
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
-        Change-Cwd
         Install-Runtime-Dependencies
     } elseif ($FunctionName -eq "build") {
-        Change-Cwd
         Build-Ayon
     } elseif ($FunctionName -eq "makeinstaller") {
-        Change-Cwd
         Make-Ayon-Installer
     } elseif ($FunctionName -eq "buildmakeinstaller") {
-        Change-Cwd
         Build-Ayon -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
-        Change-Cwd
         Installer-Post-Process "upload" @arguments
     } elseif ($FunctionName -eq "dockerbuild") {
-        Change-Cwd
         New-DockerBuild @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
@@ -469,6 +504,8 @@ if (-not (Test-Path 'env:POETRY_HOME')) {
 
 Print-AsciiArt
 Test-Python
-Main
-
-Restore-Cwd
+try {
+    Main
+} finally {
+    Restore-Cwd
+}

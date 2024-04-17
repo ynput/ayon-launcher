@@ -187,6 +187,15 @@ create_env () {
     echo -e "${BIGreen}>>>${RST} Installing dependencies ..."
   fi
 
+  current_dir=$(pwd)
+  pushd "$repo_root/shim"
+  "$POETRY_HOME/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
+    if [ $? -ne 0 ] ; then
+    echo -e "${BIRed}!!!${RST} Virtual environment creation for shim failed."
+    return 1
+  fi
+
+  popd
   "$POETRY_HOME/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
   if [ $? -ne 0 ] ; then
     echo -e "${BIRed}!!!${RST} Virtual environment creation failed."
@@ -233,6 +242,7 @@ build_ayon () {
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
+  rm -rf "$repo_root/shim/dist" > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Building AYON ${BIWhite}[${RST} ${BIGreen}$ayon_version${RST} ${BIWhite}]${RST}"
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
@@ -256,11 +266,16 @@ build_ayon () {
   echo -e "${BIGreen}>>>${RST} Building ..."
   "$POETRY_HOME/bin/poetry" run python -m pip --no-color freeze > "$repo_root/build/requirements.txt"
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/_venv_deps.py"
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" build &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" bdist_mac &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+
+  build_command="build"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    build_command="build_mac"
   fi
+
+  pushd "$repo_root/shim"
+  "$POETRY_HOME/bin/poetry" run python "$repo_root/shim/setup.py" "$build_command" &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  popd
+  "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" "$build_command" &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
