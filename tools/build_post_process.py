@@ -31,6 +31,7 @@ import shutil
 import tarfile
 import hashlib
 import copy
+import zipfile
 from pathlib import Path
 
 import blessed
@@ -38,6 +39,29 @@ import enlighten
 
 term = blessed.Terminal()
 manager = enlighten.get_manager()
+
+
+class ZipFileLongPaths(zipfile.ZipFile):
+    """Allows longer paths in zip files.
+
+    Regular DOS paths are limited to MAX_PATH (260) characters, including
+    the string's terminating NUL character.
+    That limit can be exceeded by using an extended-length path that
+    starts with the '\\?\' prefix.
+    """
+    _is_windows = platform.system().lower() == "windows"
+
+    def _extract_member(self, member, tpath, pwd):
+        if self._is_windows:
+            tpath = os.path.abspath(tpath)
+            if tpath.startswith("\\\\"):
+                tpath = "\\\\?\\UNC\\" + tpath[2:]
+            else:
+                tpath = "\\\\?\\" + tpath
+
+        return super(ZipFileLongPaths, self)._extract_member(
+            member, tpath, pwd
+        )
 
 
 def _print(msg: str, type: int = 0) -> None:
@@ -114,6 +138,33 @@ def get_ayon_version(ayon_root):
         exec(fp.read(), content)
 
     return content["__version__"]
+
+
+def create_shim_zip(ayon_root, build_content_root):
+    dist_root = ayon_root / "shim" / "dist"
+    dst_root = build_content_root / "shim"
+    os.makedirs(dst_root, exist_ok=True)
+    zip_path = dst_root / "shim.zip"
+    shutil.copy(dist_root / "version", dst_root / "version")
+
+    dist_root_str = os.path.normpath(str(dist_root))
+    with ZipFileLongPaths(
+        str(zip_path), "w", zipfile.ZIP_DEFLATED
+    ) as zipf:
+        dist_root_str_offset = len(dist_root_str) + 1
+        for root, _, filenames in os.walk(dist_root_str):
+            if not filenames:
+                continue
+
+            dst_root = None
+            if root != dist_root_str:
+                dst_root = root[dist_root_str_offset:]
+            for filename in filenames:
+                src_path = os.path.join(root, filename)
+                dst_path = filename
+                if dst_root:
+                    dst_path = os.path.join(dst_root, dst_path)
+                zipf.write(src_path, dst_path)
 
 
 def _get_darwin_output_path(build_root, ayon_version):
@@ -456,6 +507,7 @@ def post_build_process(ayon_root, build_root):
 
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
+    create_shim_zip(ayon_root, build_content_root)
 
     dependency_cleanup(ayon_root, build_content_root)
     store_base_metadata(build_root, build_content_root, ayon_version)
