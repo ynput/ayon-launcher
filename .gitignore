@@ -37,6 +37,9 @@ Temporary Items
 ###########
 /build
 /dist/
+/shim/venv
+/shim/build
+/shim/dist
 
 /vendor/*
 /.venv
