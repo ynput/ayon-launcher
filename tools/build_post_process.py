@@ -140,12 +140,24 @@ def get_ayon_version(ayon_root):
     return content["__version__"]
 
 
-def create_shim_zip(ayon_root, build_content_root):
+def copy_shim_to_build(ayon_root, build_content_root):
+    """Copy shim executables and add metadata file next to it.
+
+    Zip shim executable content and add metadata file with version and
+        hash of shim zip file.
+
+    Args:
+        ayon_root (Path): Path to AYON root.
+        build_content_root (Path): Path to build content directory.
+
+    """
     dist_root = ayon_root / "shim" / "dist"
-    dst_root = build_content_root / "shim"
-    os.makedirs(dst_root, exist_ok=True)
-    zip_path = dst_root / "shim.zip"
-    shutil.copy(dist_root / "version", dst_root / "version")
+    dst_shim_root = build_content_root / "shim"
+    dst_json_path = dst_shim_root / "shim.json"
+    os.makedirs(dst_shim_root, exist_ok=True)
+    zip_path = dst_shim_root / "shim.zip"
+    with open(dist_root / "version", "r") as stream:
+        version = stream.read().strip()
 
     dist_root_str = os.path.normpath(str(dist_root))
     with ZipFileLongPaths(
@@ -165,6 +177,19 @@ def create_shim_zip(ayon_root, build_content_root):
                 if dst_root:
                     dst_path = os.path.join(dst_root, dst_path)
                 zipf.write(src_path, dst_path)
+
+    hash_obj = hashlib.sha256()
+    with open(zip_path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1000), b""):
+            hash_obj.update(chunk)
+
+    shim_data = {
+        "version": version,
+        "hash_type": "sha256",
+        "hash_value": hash_obj.hexdigest(),
+    }
+    with open(dst_json_path, "w") as stream:
+        json.dump(shim_data, stream)
 
 
 def _get_darwin_output_path(build_root, ayon_version):
@@ -507,7 +532,7 @@ def post_build_process(ayon_root, build_root):
 
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
-    create_shim_zip(ayon_root, build_content_root)
+    copy_shim_to_build(ayon_root, build_content_root)
 
     dependency_cleanup(ayon_root, build_content_root)
     store_base_metadata(build_root, build_content_root, ayon_version)
