@@ -44,7 +44,6 @@ build_exe_options = dict(
         "libssl",
         "multiprocessing",
         "pydoc_data",
-        "select",
         "sqlite3",
         "test",
         "tkinter",
