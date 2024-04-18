@@ -184,7 +184,7 @@ def main():
     # - replace start python script path when running from code
     args = list(sys.argv)
     args[0] = executable_path
-    os.system(subprocess.list2cmdline(args))
+    sys.exit(subprocess.call(args))
 
 
 if __name__ == "__main__":
