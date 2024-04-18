@@ -359,6 +359,7 @@ from ayon_common.distribution import (
 
 from ayon_common.utils import (
     store_current_executable_info,
+    deploy_ayon_launcher_shims,
     get_local_site_id,
 )
 from ayon_common.startup import show_startup_error
@@ -712,8 +713,20 @@ def _start_distribution():
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
+def init_launcher_executable():
+    """Initialize AYON launcher executable.
+
+    Make sure current AYON launcher executable is stored to known executables
+        and shim is deployed.
+
+    """
+    store_current_executable_info()
+    deploy_ayon_launcher_shims()
+
+
 def boot():
-    """Bootstrap AYON."""
+    """Bootstrap AYON launcher."""
+    init_launcher_executable()
 
     # Setup site id in environment variable for all possible subprocesses
     if SITE_ID_ENV_KEY not in os.environ:
@@ -722,7 +735,6 @@ def boot():
     _connect_to_ayon_server()
     create_global_connection()
     _start_distribution()
-    store_current_executable_info()
 
 
 def _on_main_addon_missing():

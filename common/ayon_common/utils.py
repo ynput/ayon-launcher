@@ -9,6 +9,7 @@ import tarfile
 from uuid import UUID
 
 import appdirs
+import semver
 from ayon_api.constants import SITE_ID_ENV_KEY
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
@@ -376,6 +377,39 @@ def cleanup_executables_info():
         "fmt": DATE_FMT,
     }
     store_executables_info(info)
+
+
+def deploy_ayon_launcher_shims():
+    """Deploy shim executables for AYON launcher."""
+    if not IS_BUILT_APPLICATION:
+        return
+
+    executable_root = os.path.dirname(sys.executable)
+    shim_root = os.path.join(executable_root, "shim")
+
+    with open(os.path.join(shim_root, "shim.json"), "r") as stream:
+        shim_data = json.load(stream)
+
+    src_shim_version = semver.VersionInfo.parse(shim_data["version"])
+
+    dst_shim_root = get_ayon_appdirs("shim")
+    if not os.path.exists(dst_shim_root):
+        os.makedirs(dst_shim_root, exist_ok=True)
+
+    # Read existing shim version (if there is any)
+    dst_shim_version = "0.0.0"
+    dst_shim_version_path = os.path.join(dst_shim_root, "version")
+    if os.path.exists(dst_shim_version_path):
+        with open(dst_shim_version_path, "r") as stream:
+            dst_shim_version = stream.read().strip()
+
+    # Skip if shim is same or lower
+    if src_shim_version <= semver.VersionInfo.parse(dst_shim_version):
+        return
+
+    zip_file = ZipFileLongPaths(os.path.join(shim_root, "shim.zip"))
+    zip_file.extractall(dst_shim_root)
+    zip_file.close()
 
 
 class _Cache:
