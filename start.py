@@ -977,6 +977,11 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 
 def main():
+    # AYON launcher was started to initialize itself
+    if "init-ayon-launcher" in sys.argv:
+        init_launcher_executable()
+        sys.exit(0)
+
     if SHOW_LOGIN_UI:
         if HEADLESS_MODE_ENABLED:
             _print((
