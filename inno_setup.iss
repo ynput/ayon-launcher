@@ -53,7 +53,11 @@ Type: filesandordirs; Name: "{app}"
 Type: filesandordirs; Name: "{app}"
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; AfterInstall: AfterInstallProc(); Flags: ignoreversion recursesubdirs createallsubdirs
+; AfterInstall functions are called for each file that is extracted. That's
+; why README.md is copied in separate file definition so we can run
+; 'AfterInstallProc' only once, at the end.
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "\README.md"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\README.md"; DestDir: "{app}"; AfterInstall: AfterInstallProc();
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
