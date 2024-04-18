@@ -70,9 +70,11 @@ Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowai
 [Code]
 procedure AfterInstallProc();
 var
+  ResultCode: Integer;
   OutputFilepath: String;
   InstallDir: String;
 begin
+  Exec(ExpandConstant('{app}\ayon.exe'), 'init-ayon-launcher', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
   OutputFilepath := GetEnv('AYON_INSTALL_EXE_OUTPUT');
   InstallDir := ExpandConstant('{app}');
   if Length(OutputFilepath) > 0 then
