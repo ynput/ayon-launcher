@@ -61,8 +61,8 @@ Source: "{#SourceDir}\README.md"; DestDir: "{app}"; AfterInstall: AfterInstallPr
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\ayon.exe"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\ayon.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{localappdata}\Ynput\AYON\shim\ayon.exe"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{localappdata}\Ynput\AYON\shim\ayon.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowait postinstall skipifsilent
