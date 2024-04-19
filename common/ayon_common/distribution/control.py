@@ -696,7 +696,6 @@ class InstallerDistributionItem(BaseDistributionItem):
         self.log.info(f"Setting executable to {executable}")
         self._executable = executable
 
-
     def _install_macos(self, filepath):
         """Install macOS AYON launcher.
 
