@@ -233,6 +233,7 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
     ]
     if subprocess.call(args) != 0:
         raise ValueError("Failed to create shim DMG image")
+    return dmg_path
 
 
 def copy_shim_to_build(ayon_root, build_content_root):
