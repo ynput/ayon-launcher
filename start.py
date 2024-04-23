@@ -720,8 +720,9 @@ def init_launcher_executable():
         and shim is deployed.
 
     """
+    create_desktop_icons = "--create-desktop-icons" in sys.argv
     store_current_executable_info()
-    deploy_ayon_launcher_shims()
+    deploy_ayon_launcher_shims(create_desktop_icons=create_desktop_icons)
 
 
 def boot():
@@ -925,7 +926,7 @@ def script_cli(start_arg=None):
         start_arg = StartArgScript.from_args(sys.argv)
 
     # Remove first argument from sys.argv
-    # - start.py when running from code 
+    # - start.py when running from code
     # - ayon executable when running from build
     sys.argv.pop(0)
 

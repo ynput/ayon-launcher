@@ -230,6 +230,25 @@ install_runtime_dependencies () {
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py"
 }
 
+fix_macos_build () {
+  macoscontents="$1"
+  macosdir="$macoscontents/MacOS"
+  ayonexe="$macosdir/ayon"
+  tmp_ayonexe="$macosdir/ayon_tmp"
+  # force hide icon from Dock
+  defaults write "$macoscontents/Info" LSUIElement 1
+
+  # Fix codesign bug by creating copy of executable, removing source
+  #   executable and replacing by the copy
+  #   - this will clear cache of codesign
+  cp "$ayonexe" "$tmp_ayonexe"
+  rm "$ayonexe"
+  mv "$tmp_ayonexe" "$ayonexe"
+
+  # fix code signing issue
+  echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
+  codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+}
 # Main
 build_ayon () {
   should_make_installer=$1
@@ -274,28 +293,14 @@ build_ayon () {
 
   pushd "$repo_root/shim"
   "$POETRY_HOME/bin/poetry" run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
+  fi
   popd
   "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
-
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    macoscontents="$repo_root/build/AYON $ayon_version.app/Contents"
-    macosdir="$macoscontents/MacOS"
-    ayonexe="$macosdir/ayon"
-    tmp_ayonexe="$macosdir/ayon_tmp"
-    # force hide icon from Dock
-    defaults write "$macoscontents/Info" LSUIElement 1
-
-    # Fix codesign bug by creating copy of executable, removing source
-    #   executable and replacing by the copy
-    #   - this will clear cache of codesign
-    cp "$ayonexe" "$tmp_ayonexe"
-    rm "$ayonexe"
-    mv "$tmp_ayonexe" "$ayonexe"
-
-    # fix code signing issue
-    echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
-    codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+    fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
   fi
 
   if [[ "$should_make_installer" == 1 ]]; then
