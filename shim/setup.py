@@ -54,7 +54,7 @@ build_exe_options = dict(
 )
 
 bdist_mac_options = dict(
-    bundle_name=f"AYON shim {__version__}",
+    bundle_name=f"AYON",
     iconfile=mac_icon_path
 )
 
