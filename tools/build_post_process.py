@@ -205,7 +205,7 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
         raise ValueError("create-dmg is not available")
 
     dmg_path = dst_shim_root / "shim.dmg"
-    app_filepath = dist_root / f"AYON.app"
+    app_filepath = dist_root.parent / "build" / f"AYON.app"
     plist_path = app_filepath / "Contents" / "Info.plist"
 
     with open(plist_path, "rb") as stream:
