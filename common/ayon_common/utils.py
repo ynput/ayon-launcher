@@ -396,7 +396,13 @@ def get_shim_executable_path():
 def _get_installed_shim_version():
     executable_root = get_shim_executable_root()
     dst_shim_version = "0.0.0"
-    dst_shim_version_path = os.path.join(executable_root, "version")
+    if platform.system().lower() == "darwin":
+        contents_dir = os.path.dirname(executable_root)
+        dst_shim_version_path = os.path.join(
+            contents_dir, "Resources", "version"
+        )
+    else:
+        dst_shim_version_path = os.path.join(executable_root, "version")
     if os.path.exists(dst_shim_version_path):
         with open(dst_shim_version_path, "r") as stream:
             dst_shim_version = stream.read().strip()
