@@ -25,6 +25,12 @@ if IS_WINDOWS:
 include_files = [
     "version",
 ]
+if IS_LINUX:
+    include_files.extend([
+        "ayon.desktop",
+        "../common/ayon_common/resources/AYON.png",
+        "../common/ayon_common/resources/AYON_staging.png",
+    ])
 
 mac_icon_path = resources_dir / "AYON.icns"
 
@@ -55,7 +61,7 @@ build_exe_options = dict(
 )
 
 bdist_mac_options = dict(
-    bundle_name=f"AYON",
+    bundle_name="AYON",
     iconfile=mac_icon_path
 )
 
