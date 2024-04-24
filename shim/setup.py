@@ -17,14 +17,15 @@ IS_LINUX = low_platform_name == "linux"
 IS_MACOS = low_platform_name == "darwin"
 
 base = None
+icon_path = None
 if IS_WINDOWS:
     base = "Win32GUI"
+    icon_path = (resources_dir / "AYON.ico").as_posix()
 
 include_files = [
     "version",
 ]
 
-icon_path = resources_dir / "AYON.ico"
 mac_icon_path = resources_dir / "AYON.icns"
 
 build_exe_options = dict(
@@ -63,7 +64,7 @@ executables = [
         "shim_start.py",
         base=base,
         target_name="ayon",
-        icon=icon_path.as_posix()
+        icon=icon_path
     ),
 ]
 if IS_WINDOWS:
@@ -72,7 +73,7 @@ if IS_WINDOWS:
             "shim_start.py",
             base=None,
             target_name="ayon_console",
-            icon=icon_path.as_posix()
+            icon=icon_path
         )
     )
 
