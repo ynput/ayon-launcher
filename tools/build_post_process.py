@@ -196,8 +196,6 @@ def _build_shim_linux(
 
 
 def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
-    import plistlib
-
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
@@ -206,21 +204,6 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
 
     dmg_path = dst_shim_root / "shim.dmg"
     app_filepath = dist_root.parent / "build" / f"AYON.app"
-    plist_path = app_filepath / "Contents" / "Info.plist"
-
-    with open(plist_path, "rb") as stream:
-        data = plistlib.load(stream)
-
-    data["CFBundleURLTypes"] = [
-        {
-            "CFBundleTypeRole": "Viewer",
-            "CFBundleURLName": "com.ayon.URLscheme",
-            "CFBundleURLSchemes": ["ayon-launcher"]
-        }
-    ]
-    with open(plist_path, "wb") as stream:
-        plistlib.dump(data, stream)
-
 
     args = [
         "create-dmg",
