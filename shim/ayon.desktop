@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=AYON launcher
+Name=AYON
 GenericName=AYON
 Comment=Launch AYON launcher applications
 TryExec={ayon_exe_root}/ayon
@@ -12,6 +12,6 @@ Keywords=AYON;
 Actions=Staging;
 
 [Desktop Action Staging]
-Name=AYON launcher - staging
+Name=AYON (staging)
 Exec={ayon_exe_root}/ayon --use-staging %u
 Icon={ayon_exe_root}/AYON_staging.png
