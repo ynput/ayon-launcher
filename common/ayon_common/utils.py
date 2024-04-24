@@ -731,6 +731,13 @@ def _deploy_shim_linux(installer_shim_root):
     data = data.replace("{ayon_exe_root}", shim_executable)
     with open(dst_path, "w") as stream:
         stream.write(data)
+
+    # Symlink to desktop if has desktop and does not yet exist
+    desktop_root = os.path.expanduser("~/Desktop")
+    if os.path.exists(desktop_root):
+        desktop_path = os.path.join(desktop_root, desktop_filename)
+        if not os.path.exists(desktop_path):
+            os.symlink(desktop_executable, desktop_path)
     return True
 
 
