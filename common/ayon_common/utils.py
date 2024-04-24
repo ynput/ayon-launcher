@@ -6,6 +6,7 @@ import datetime
 import subprocess
 import zipfile
 import tarfile
+import shutil
 from uuid import UUID
 
 import appdirs
@@ -717,6 +718,19 @@ def _deploy_shim_linux(installer_shim_root):
         os.path.join(installer_shim_root, "shim.zip")
     ) as zip_file:
         zip_file.extractall(executable_root)
+
+    # Add 'ayon.desktop' to applications
+    shim_executable = os.path.join(executable_root, "ayon")
+    desktop_filename = "ayon.desktop"
+    apps_dir = os.path.expanduser("~/.local/share/applications")
+    desktop_executable = os.path.join(executable_root, desktop_filename)
+    dst_path = os.path.join(apps_dir, desktop_filename)
+    shutil.copy(desktop_executable, apps_dir)
+    with open(dst_path, "r") as stream:
+        data = stream.read()
+    data = data.replace("{ayon_exe_root}", shim_executable)
+    with open(dst_path, "w") as stream:
+        stream.write(data)
     return True
 
 
