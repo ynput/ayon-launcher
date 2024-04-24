@@ -7,7 +7,6 @@ Exec={ayon_exe_root}/ayon %u
 Icon={ayon_exe_root}/AYON.png
 Terminal=false
 Type=Application
-MimeType=application/ayon-launcher;
 SingleMainWindow=false
 Keywords=AYON;
 Actions=Staging;
