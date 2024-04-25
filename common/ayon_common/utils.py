@@ -723,9 +723,7 @@ def _deploy_shim_linux(installer_shim_root):
     shim_executable = os.path.join(executable_root, "ayon")
     desktop_filename = "ayon.desktop"
     apps_dir = os.path.expanduser("~/.local/share/applications")
-    desktop_executable = os.path.join(
-        executable_root, "shim", desktop_filename
-    )
+    desktop_executable = os.path.join(executable_root, desktop_filename)
     dst_path = os.path.join(apps_dir, desktop_filename)
     shutil.copy(desktop_executable, apps_dir)
     with open(dst_path, "r") as stream:
