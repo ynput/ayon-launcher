@@ -31,7 +31,6 @@ import shutil
 import tarfile
 import hashlib
 import copy
-import zipfile
 from pathlib import Path
 
 import blessed
@@ -39,29 +38,6 @@ import enlighten
 
 term = blessed.Terminal()
 manager = enlighten.get_manager()
-
-
-class ZipFileLongPaths(zipfile.ZipFile):
-    """Allows longer paths in zip files.
-
-    Regular DOS paths are limited to MAX_PATH (260) characters, including
-    the string's terminating NUL character.
-    That limit can be exceeded by using an extended-length path that
-    starts with the '\\?\' prefix.
-    """
-    _is_windows = platform.system().lower() == "windows"
-
-    def _extract_member(self, member, tpath, pwd):
-        if self._is_windows:
-            tpath = os.path.abspath(tpath)
-            if tpath.startswith("\\\\"):
-                tpath = "\\\\?\\UNC\\" + tpath[2:]
-            else:
-                tpath = "\\\\?\\" + tpath
-
-        return super(ZipFileLongPaths, self)._extract_member(
-            member, tpath, pwd
-        )
 
 
 def _print(msg: str, type: int = 0) -> None:
@@ -173,11 +149,13 @@ def _build_shim_windows(
 def _build_shim_linux(
     dst_shim_root: Path, dist_root: Path
 ) -> Path:
-    zip_path = dst_shim_root / "shim.zip"
+    tar_path = dst_shim_root / "shim.tar.gz"
+    # Open file in write mode to be sure that it exists
+    with open(tar_path, "w"):
+        pass
+
     dist_root_str = os.path.normpath(str(dist_root))
-    with ZipFileLongPaths(
-        str(zip_path), "w", zipfile.ZIP_DEFLATED
-    ) as zipf:
+    with tarfile.open(tar_path, mode="w:gz") as tar:
         dist_root_str_offset = len(dist_root_str) + 1
         for root, _, filenames in os.walk(dist_root_str):
             if not filenames:
@@ -191,11 +169,13 @@ def _build_shim_linux(
                 dst_path = filename
                 if dst_root:
                     dst_path = os.path.join(dst_root, dst_path)
-                zipf.write(src_path, dst_path)
-    return zip_path
+                tar.add(src_path, arcname=dst_path)
+    return tar_path
 
 
 def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
+    import plistlib
+
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
@@ -204,6 +184,21 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
 
     dmg_path = dst_shim_root / "shim.dmg"
     app_filepath = dist_root.parent / "build" / f"AYON.app"
+    plist_path = app_filepath / "Contents" / "Info.plist"
+
+    with open(plist_path, "rb") as stream:
+        data = plistlib.load(stream)
+
+    data["CFBundleURLTypes"] = [
+        {
+            "CFBundleTypeRole": "Viewer",
+            "CFBundleURLName": "com.ayon.URLscheme",
+            "CFBundleURLSchemes": ["ayon-launcher"],
+        }
+    ]
+    with open(plist_path, "wb") as stream:
+        plistlib.dump(data, stream)
+
 
     args = [
         "create-dmg",

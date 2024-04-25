@@ -714,10 +714,10 @@ def _deploy_shim_linux(installer_shim_root):
     """
     executable_root = _get_shim_executable_root()
     os.makedirs(executable_root, exist_ok=True)
-    with ZipFileLongPaths(
-        os.path.join(installer_shim_root, "shim.zip")
-    ) as zip_file:
-        zip_file.extractall(executable_root)
+    extract_archive_file(
+        os.path.join(installer_shim_root, "shim.tar.gz"),
+        executable_root
+    )
 
     # Add 'ayon.desktop' to applications
     desktop_filename = "ayon.desktop"
