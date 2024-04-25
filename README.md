@@ -101,6 +101,7 @@ Main logic is now using command line handling from `openpype` addon. If path to 
 
 ### Arguments
 There are reserver global arguments that cannot be used in any cli handling:
+- `init-ayon-launcher` - Initialize launcher. Register executable path to known AYON launcher locations, and install shim executable.
 - `--bundle <BUNDLE NAME>` - Force AYON to use specific bundle instead of the one that is set in the config file. This is useful for testing new bundles before they are released.
 - `--verbose <LOG LEVEL>` - Change logging level to one of the following: DEBUG, INFO, WARNING, ERROR, CRITICAL.
 - `--debug` - Simplified way how to change verbose to DEBUG. Also sets `AYON_DEBUG` environment variable to `1`.
