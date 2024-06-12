@@ -241,7 +241,10 @@ if IS_WINDOWS:
     ])
 
 
-icon_path = resources_dir / "AYON.ico"
+
+icon_path = None
+if IS_WINDOWS:
+    icon_path = (resources_dir / "AYON.ico").as_posix()
 mac_icon_path = resources_dir / "AYON.icns"
 
 build_exe_options = dict(
@@ -265,7 +268,7 @@ executables = [
         "start.py",
         base=base,
         target_name="ayon",
-        icon=icon_path.as_posix()
+        icon=icon_path
     ),
 ]
 if IS_WINDOWS:
@@ -274,7 +277,7 @@ if IS_WINDOWS:
             "start.py",
             base=None,
             target_name="ayon_console",
-            icon=icon_path.as_posix()
+            icon=icon_path
         )
     )
 
@@ -284,7 +287,7 @@ if IS_LINUX:
             "app_launcher.py",
             base=None,
             target_name="app_launcher",
-            icon=icon_path.as_posix()
+            icon=icon_path
         )
     )
 
