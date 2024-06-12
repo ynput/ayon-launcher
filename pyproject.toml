@@ -93,6 +93,10 @@ version = "6.7.1"
 package = "PySide6"
 version = "6.7.1"
 
+[ayon.qtbinding.centos7]
+package = "PySide6"
+version = "6.2.4"
+
 [tool.pyright]
 include = [
     "vendor"
