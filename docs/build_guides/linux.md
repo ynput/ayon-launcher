@@ -90,13 +90,13 @@ eval "$(pyenv virtualenv-init -)"
 exec $SHELL
 
 # install Python 3.9.x
-pyenv install -v 3.9.6
+pyenv install -v 3.9.13
 
 # change path to repository
 cd /path/to/OpenPype
 
 # set local python version
-pyenv local 3.9.6
+pyenv local 3.9.13
 
 ```
 </details>

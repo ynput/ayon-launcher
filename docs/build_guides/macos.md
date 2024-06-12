@@ -45,13 +45,13 @@ Easy way of installing everything necessary is to use [Homebrew](https://brew.sh
    brew install openssl readline sqlite3 xz zlib
 
    # replace with up-to-date 3.9.x version
-   pyenv install 3.9.6
+   pyenv install 3.9.13
    ```
 
 5) Set local Python version:
    ```sh
    # switch to AYON source directory
-   pyenv local 3.9.6
+   pyenv local 3.9.13
    ```
 
 ## Build
