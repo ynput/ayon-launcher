@@ -112,7 +112,7 @@ git clone --recurse-submodules git@github.com:ynput/ayon-launcher.git
 Create virtual environment in `./.venv` and install python runtime dependencies like PySide, Pillow..
 
 **For Centos:**
-Centos does not support default version of PySide6. We've prepared last supported version, all you need to do is to set environment variable `QT_BINDING` to `centor7`.
+Centos does not support default version of PySide6. We've prepared last supported version, all you need to do is to set environment variable `QT_BINDING` to `centos7`.
 
 ```
 ./tools/make.sh create-env
