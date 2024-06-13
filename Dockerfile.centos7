@@ -105,4 +105,4 @@ RUN cp /usr/lib64/libffi* ./build/output/lib \
     && ln -sr ./build/output/lib/libssl.so ./build/output/lib/libssl.1.1.so \
     && ln -sr ./build/output/lib/libcrypto.so ./build/output/lib/libcrypto.1.1.so \
     && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
-    && cp /usr/lib64/libxcb* ./build/output/vendor/python/PySide6/Qt/lib
+    && cp /usr/lib64/libxcb* ./build/output/vendor/python/PySide2/Qt/lib
