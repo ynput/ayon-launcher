@@ -1,6 +1,6 @@
 # Build AYON launcher docker image
 FROM rockylinux:9 AS builder
-ARG PYTHON_VERSION=3.9.16
+ARG PYTHON_VERSION=3.9.13
 
 LABEL description="Docker Image to build and run AYON Launcher under RockyLinux 9"
 LABEL org.opencontainers.image.name="ynput/ayon-launcher"
