@@ -82,14 +82,18 @@ build-backend = "poetry.core.masonry.api"
 # Poetry will support custom location (-t flag for pip)
 # https://pip.pypa.io/en/stable/cli/pip_install/#requirement-specifiers
 [ayon.qtbinding.windows]
-package = "PySide2"
-version = "5.15.2"
+package = "PySide6"
+version = "6.7.1"
 
 [ayon.qtbinding.darwin]
 package = "PySide6"
-version = "6.4.3"
+version = "6.7.1"
 
 [ayon.qtbinding.linux]
+package = "PySide6"
+version = "6.7.1"
+
+[ayon.qtbinding.centos7]
 package = "PySide2"
 version = "5.15.2"
 
