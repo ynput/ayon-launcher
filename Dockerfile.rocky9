@@ -40,8 +40,7 @@ RUN dnf -y install \
         autoconf \
         patch \
         ncurses \
-	ncurses-devel \
-        qt5-qtbase-devel \
+        ncurses-devel \
         xcb-util-wm \
         xcb-util-renderutil \
     && dnf clean all
