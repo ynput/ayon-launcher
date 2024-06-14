@@ -287,7 +287,6 @@ if IS_LINUX:
             "app_launcher.py",
             base=None,
             target_name="app_launcher",
-            icon=icon_path
         )
     )
 
