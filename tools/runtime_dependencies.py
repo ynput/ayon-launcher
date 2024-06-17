@@ -95,9 +95,15 @@ def _pip_install(runtime_dep_root, package, version=None):
 
 def install_qtbinding(pyproject, runtime_dep_root, platform_name):
     _print("Handling Qt binding framework ...")
-    qtbinding_def = pyproject["ayon"]["qtbinding"][platform_name]
+
+    qt_package = os.getenv("QT_BINDING")
+    qt_binding_options = pyproject["ayon"]["qtbinding"]
+    qtbinding_def = qt_binding_options.get(qt_package)
+    if not qtbinding_def:
+        qtbinding_def = pyproject["ayon"]["qtbinding"][platform_name]
     package = qtbinding_def["package"]
     version = qtbinding_def.get("version")
+
     _pip_install(runtime_dep_root, package, version)
 
     # Remove libraries for QtSql which don't have available libraries
