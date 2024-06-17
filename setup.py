@@ -277,6 +277,7 @@ if IS_WINDOWS:
             icon=icon_path.as_posix()
         )
     )
+    build_exe_options["include_msvcr"] = True
 
 if IS_LINUX:
     executables.append(

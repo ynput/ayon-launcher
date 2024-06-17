@@ -32,17 +32,18 @@ In case you run in error about `xcb` when running AYON,
 you'll need also additional libraries for Qt5:
 
 ```sh
-sudo apt install qt5-default
+sudo apt install qt6-default
 ```
-or if you are on Ubuntu > 20.04, there is no `qt5-default` packages so you need to install its content individually:
+or if you are on Ubuntu > 20.04, there is no `qt6-default` packages so you need to install its content individually:
 
 ```sh
-sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+sudo apt-get install qtbase6-dev qtchooser qt6-qmake qtbase6-dev-tools
 ```
 </details>
 
 <details>
-<summary>Details for Centos</summary>
+<summary>Details for Centos 7</summary>
+Note that centos 7 is old OS and some of the packages are not available so there might be used older versions. For example still uses PySide2 instead of PySide6.
 Install git, cmake and curl
 
 ```sh
@@ -110,6 +111,10 @@ git clone --recurse-submodules git@github.com:ynput/ayon-launcher.git
 
 #### Prepare environment
 Create virtual environment in `./.venv` and install python runtime dependencies like PySide, Pillow..
+
+**For Centos:**
+Centos does not support default version of PySide6. We've prepared last supported version, all you need to do is to set environment variable `QT_BINDING` to `centos7`.
+
 ```
 ./tools/make.sh create-env
 ./tools/make.sh install-runtime-dependencies

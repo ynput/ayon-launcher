@@ -1,6 +1,6 @@
 # Build AYON docker image
 FROM ubuntu:focal AS builder
-ARG PYTHON_VERSION=3.9.12
+ARG PYTHON_VERSION=3.9.13
 ARG BUILD_DATE
 ARG VERSION
 
