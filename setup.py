@@ -232,7 +232,10 @@ include_files = [
     "README.md"
 ]
 
+icon_path = None
+mac_icon_path = resources_dir / "AYON.icns"
 if IS_WINDOWS:
+    icon_path = (resources_dir / "AYON.ico").as_posix()
     install_requires.extend([
         # `pywin32` packages
         "win32ctypes",
@@ -240,12 +243,6 @@ if IS_WINDOWS:
         "pythoncom"
     ])
 
-
-
-icon_path = None
-if IS_WINDOWS:
-    icon_path = (resources_dir / "AYON.ico").as_posix()
-mac_icon_path = resources_dir / "AYON.icns"
 
 build_exe_options = dict(
     build_exe="build/output",
