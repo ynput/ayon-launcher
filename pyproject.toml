@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AYON"
-version = "1.0.3-dev.1"
+version = "1.0.3"
 description = "Open VFX and Animation pipeline with support."
 authors = ["Ynput s.r.o. <info@ynput.io>"]
 license = "MIT License"
