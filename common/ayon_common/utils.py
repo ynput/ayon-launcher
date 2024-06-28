@@ -629,6 +629,18 @@ def validate_file_checksum(filepath, checksum, checksum_algorithm):
 
 
 # --- SHIM information ---
+def is_windows_launcher_protocol_registered():
+    from ._windows_register_scheme import is_reg_set
+
+    return is_reg_set()
+
+
+def register_windows_launcher_protocol():
+    from ._windows_register_scheme import set_reg
+
+    return set_reg(get_shim_executable_path())
+
+
 def _get_shim_executable_root():
     """Root to shim executable.
 
@@ -700,7 +712,9 @@ def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
     if create_desktop_icons:
         args.append('/TASKS="desktopicon"')
     code = subprocess.call(args)
-    return code == 0
+    if code != 0:
+        return False
+    return register_windows_launcher_protocol()
 
 
 def _deploy_shim_linux(installer_shim_root):
