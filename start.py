@@ -86,9 +86,11 @@ import os
 import platform
 import sys
 import site
+import time
 import traceback
 import contextlib
 import subprocess
+from urllib.parse import urlparse, parse_qs
 
 from version import __version__
 
@@ -287,6 +289,7 @@ os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
+import requests
 
 
 if sys.__stdout__:
@@ -831,6 +834,80 @@ def _main_cli_openpype():
         sys.exit(1)
 
 
+def process_uri():
+    if len(sys.argv) <= 1:
+        return False
+
+    uri = sys.argv[-1]
+
+    parsed_uri = urlparse(uri)
+    if parsed_uri.scheme != "ayon-launcher":
+        return False
+
+    # NOTE This is expecting only singlo option of ayon-launcher launch option
+    #   which is ayon-launcher://action/?server_url=...&token=...
+    parsed_query = parse_qs(parsed_uri.query)
+
+    server_url = parsed_query["server_url"][0]
+    token = parsed_query["token"][0]
+    # Use raw requests to get all necessary information from server
+    response = requests.get(f"{server_url}/api/actions/take/{token}")
+    # TODO validate response
+    data = response.json()
+    variant = data["variant"]
+
+    # Cleanup environemnt variables
+    env = os.environ.copy()
+    # Remove all possible clash env keys
+    for key in {
+        "AYON_API_KEY",
+        "AYON_USE_STAGING",
+        "AYON_USE_DEV",
+    }:
+        env.pop(key, None)
+
+    # Set new environment variables based on information from server
+    if variant == "staging":
+        env["AYON_USE_STAGING"] = "1"
+
+    elif variant != "production":
+        env["AYON_USE_DEV"] = "1"
+        env["AYON_BUNDLE_NAME"] = variant
+
+    # We're always in logic mode when running URI
+    env["AYON_IN_LOGIN_MODE"] = "1"
+
+    # Add executable to args
+    args = data["args"]
+    args.insert(0, sys.executable)
+    kwargs = {"env": env}
+    low_platform = platform.system().lower()
+    if low_platform == "darwin":
+        new_args = ["open", "-na", args.pop(0), "--args"]
+        new_args.extend(args)
+        args = new_args
+
+    elif low_platform == "windows":
+        flags = (
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS
+        )
+        kwargs["creationflags"] = flags
+
+        if not sys.stdout:
+            kwargs["stdout"] = subprocess.DEVNULL
+            kwargs["stderr"] = subprocess.DEVNULL
+
+    process = subprocess.Popen(args, **kwargs)
+    # Make sure process is running
+    # NOTE there might be a better way to do it?
+    for _ in range(5):
+        if process.pid is not None:
+            break
+        time.sleep(0.1)
+    return True
+
+
 def main_cli():
     """Main startup logic.
 
@@ -991,6 +1068,9 @@ def main():
             ))
             sys.exit(1)
         _connect_to_ayon_server(True)
+
+    if process_uri():
+        sys.exit(0)
 
     if SKIP_BOOTSTRAP:
         return script_cli()
