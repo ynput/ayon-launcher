@@ -155,7 +155,7 @@ def _needs_update(shim_icon_path, shim_command):
 def is_reg_set(shim_path: str) -> bool:
     shim_icon_path = subprocess.list2cmdline([shim_path])
     shim_command = subprocess.list2cmdline([
-        shim_path, "%1"
+        shim_path, '"%1"'
     ])
     return not _needs_update(shim_icon_path, shim_command)
 
@@ -163,7 +163,7 @@ def is_reg_set(shim_path: str) -> bool:
 def set_reg(shim_path: str) -> bool:
     shim_icon_path = subprocess.list2cmdline([shim_path])
     shim_command = subprocess.list2cmdline([
-        shim_path, "%1"
+        shim_path, '"%1"'
     ])
     if _needs_update(shim_icon_path, shim_command):
         return _update_reg(shim_icon_path, shim_command)
