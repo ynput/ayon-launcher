@@ -51,7 +51,13 @@ python3-xlib = { version="*", markers = "sys_platform == 'linux'"}
 flake8 = "^6.0"
 autopep8 = "^2.0"
 coverage = "*"
+# cx_freeze is frozen to this version because of the Centos 7 support
+# newer versions are using `patchelf` version which is not
+# available on Centos 7
 cx_freeze = "6.12.0"
+# this is here because of the bug in cx_freeze, fixed in cx_freeze 7
+# see https://github.com/ynput/ayon-launcher/issues/114
+lief = "<0.14"
 GitPython = "^3.1.17"
 jedi = "^0.13"
 Jinja2 = "^3"
