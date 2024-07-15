@@ -1,0 +1,83 @@
+# Build AYON launcher docker image
+FROM rockylinux:8 AS builder
+ARG PYTHON_VERSION=3.9.13
+
+LABEL description="Docker Image to build and run AYON Launcher under RockyLinux 9"
+LABEL org.opencontainers.image.name="ynput/ayon-launcher"
+LABEL org.opencontainers.image.title="AYON Launcher Docker Image"
+LABEL org.opencontainers.image.url="https://ayon.ynput.io/"
+LABEL org.opencontainers.image.source="https://github.com/ynput/ayon-launcher"
+LABEL org.opencontainers.image.documentation="https://ayon.ynput.io"
+LABEL org.opencontainers.image.created=$BUILD_DATE
+LABEL org.opencontainers.image.version=$VERSION
+
+
+USER root
+
+# update base
+RUN dnf install -y dnf-plugins-core \
+    && dnf -y update \
+    && dnf clean all
+
+# add tools we need
+RUN dnf -y install \
+        bash \
+        which \
+        git \
+        make \
+        cmake \
+        wget \
+        gcc \
+        zlib-devel \
+        bzip2 \
+        bzip2-devel \
+        readline-devel \
+        sqlite sqlite-devel \
+        openssl-devel \
+        openssl-libs \
+        tk-devel libffi-devel \
+        automake \
+        autoconf \
+        patch \
+        ncurses \
+        ncurses-devel \
+        xcb-util-wm \
+        xcb-util-renderutil \
+        xz-devel \
+        findutils \
+    && dnf clean all
+
+RUN mkdir /opt/ayon-launcher
+
+RUN curl https://pyenv.run | bash
+# ENV PYTHON_CONFIGURE_OPTS --enable-shared
+
+RUN echo 'export PATH="$HOME/.pyenv/bin:$PATH"'>> $HOME/.bashrc \
+    && echo 'eval "$(pyenv init -)"' >> $HOME/.bashrc \
+    && echo 'eval "$(pyenv virtualenv-init -)"' >> $HOME/.bashrc \
+    && echo 'eval "$(pyenv init --path)"' >> $HOME/.bashrc
+RUN source $HOME/.bashrc && pyenv install ${PYTHON_VERSION}
+
+COPY . /opt/ayon-launcher/
+RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
+RUN chmod +x /opt/ayon-launcher/tools/make.sh
+
+WORKDIR /opt/ayon-launcher
+
+RUN source $HOME/.bashrc \
+    && pyenv local ${PYTHON_VERSION}
+
+RUN source $HOME/.bashrc \
+    && ./tools/make.sh create-env
+
+RUN source $HOME/.bashrc \
+    && ./tools/make.sh install-runtime
+
+RUN source $HOME/.bashrc \
+    && bash ./tools/make.sh build-make-installer
+
+RUN cp /usr/lib64/libffi* ./build/output/lib \
+    && cp /usr/lib64/libssl* ./build/output/lib \
+    && cp /usr/lib64/libcrypto* ./build/output/lib \
+    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
+    && cp /usr/lib64/libxcb* ./build/output/lib

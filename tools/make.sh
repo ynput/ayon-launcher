@@ -394,7 +394,7 @@ default_help() {
   echo "  upload                        Upload installer to server"
   echo "  create-server-package         Create package ready for AYON server"
   echo "  run                           Run desktop application from code"
-  echo "  docker-build [variant]        Build AYON using Docker. Variant can be 'centos7', 'debian' or 'rocky9'"
+  echo "  docker-build [variant]        Build AYON using Docker. Variant can be 'centos7', 'debian', 'rocky8' or 'rocky9'"
   echo ""
 }
 
