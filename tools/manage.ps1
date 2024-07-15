@@ -255,7 +255,7 @@ function Default-Func {
     Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
-    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu","', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu", "', '", "debian", "', '", "rocky8", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
     Write-Host ""
 }
 
