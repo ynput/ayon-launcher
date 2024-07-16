@@ -11,6 +11,7 @@ import hashlib
 import time
 import subprocess
 from pathlib import Path
+import distro
 
 import toml
 import enlighten
@@ -135,6 +136,12 @@ def main():
     runtime_dep_root = repo_root / "vendor"
     pyproject = toml.load(repo_root / "pyproject.toml")
     platform_name = platform.system().lower()
+    # special handling for centos7 and rocky8 - we might need to make
+    # it more universal for other flavours of linux
+    if platform_name == "linux":
+        linux_brand = f"{distro.id()}{distro.major_version()}"
+        if linux_brand in ["centos7", "rocky8"]:
+            platform_name = linux_brand
     install_qtbinding(pyproject, runtime_dep_root, platform_name)
     install_runtime_dependencies(pyproject, runtime_dep_root)
     end_time = time.time_ns()
