@@ -98,7 +98,7 @@ version = "6.7.1"
 package = "PySide2"
 version = "5.15.2"
 
-[ayon.qtbinding.rocky8]
+[ayon.qtbinding.pyside2]
 package = "PySide2"
 version = "5.15.2"
 
