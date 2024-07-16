@@ -89,8 +89,6 @@ RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
 WORKDIR /opt/ayon-launcher
 
-ENV QT_BINDING=centos7
-
 RUN source $HOME/.bashrc \
     && pyenv local ${PYTHON_VERSION}
 
