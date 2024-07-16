@@ -97,11 +97,28 @@ def _pip_install(runtime_dep_root, package, version=None):
 def install_qtbinding(pyproject, runtime_dep_root, platform_name):
     _print("Handling Qt binding framework ...")
 
+    qt_variants = []
+    # Use QT_BINDING environment variable if set
+    # - existence is not validate, if does not exists it is just skipped
     qt_package = os.getenv("QT_BINDING")
+    if qt_package:
+        qt_variants.append(qt_package)
+
+    # Special handling for specific distro (e.g. centos7 and rocky8)
+    if platform_name == "linux":
+        qt_variants.append(f"{distro.id()}{distro.major_version()}")
+
     qt_binding_options = pyproject["ayon"]["qtbinding"]
-    qtbinding_def = qt_binding_options.get(qt_package)
+    qtbinding_def = None
+    for qt_variant in qt_variants:
+        qtbinding_def = qt_binding_options.get(qt_variant)
+        if qtbinding_def:
+            break
+
+    # Use platform default Qt binding
     if not qtbinding_def:
         qtbinding_def = pyproject["ayon"]["qtbinding"][platform_name]
+
     package = qtbinding_def["package"]
     version = qtbinding_def.get("version")
 
@@ -136,12 +153,6 @@ def main():
     runtime_dep_root = repo_root / "vendor"
     pyproject = toml.load(repo_root / "pyproject.toml")
     platform_name = platform.system().lower()
-    # special handling for centos7 and rocky8 - we might need to make
-    # it more universal for other flavours of linux
-    if platform_name == "linux":
-        linux_brand = f"{distro.id()}{distro.major_version()}"
-        if linux_brand in ["centos7", "rocky8"]:
-            platform_name = linux_brand
     install_qtbinding(pyproject, runtime_dep_root, platform_name)
     install_runtime_dependencies(pyproject, runtime_dep_root)
     end_time = time.time_ns()
