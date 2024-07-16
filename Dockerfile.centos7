@@ -2,6 +2,9 @@
 FROM centos:7 AS builder
 ARG PYTHON_VERSION=3.9.13
 
+ARG CUSTOM_QT_BINDING=""
+ENV QT_BINDING=$CUSTOM_QT_BINDING
+
 LABEL description="Docker Image to build and run AYON Launcher under Centos 7"
 LABEL org.opencontainers.image.name="ynput/ayon-launcher"
 LABEL org.opencontainers.image.title="AYON Launcher Docker Image"
@@ -10,7 +13,6 @@ LABEL org.opencontainers.image.source="https://github.com/ynput/ayon-launcher"
 LABEL org.opencontainers.image.documentation="https://ayon.ynput.io"
 LABEL org.opencontainers.image.created=$BUILD_DATE
 LABEL org.opencontainers.image.version=$VERSION
-
 
 USER root
 
