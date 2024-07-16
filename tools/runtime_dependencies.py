@@ -11,7 +11,6 @@ import hashlib
 import time
 import subprocess
 from pathlib import Path
-import distro
 
 import toml
 import enlighten
@@ -106,6 +105,8 @@ def install_qtbinding(pyproject, runtime_dep_root, platform_name):
 
     # Special handling for specific distro (e.g. centos7 and rocky8)
     if platform_name == "linux":
+        import distro
+
         qt_variants.append(f"{distro.id()}{distro.major_version()}")
 
     qt_binding_options = pyproject["ayon"]["qtbinding"]
