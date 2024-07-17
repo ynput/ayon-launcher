@@ -878,8 +878,12 @@ def process_uri():
     env["AYON_IN_LOGIN_MODE"] = "1"
 
     # Add executable to args
-    args = data["args"]
-    args.insert(0, sys.executable)
+    uri_args = data["args"]
+    args = [sys.executable]
+    if not IS_BUILT_APPLICATION:
+        args.append(os.path.abspath(__file__))
+    args += uri_args
+
     kwargs = {"env": env}
     low_platform = platform.system().lower()
     if low_platform == "darwin":
