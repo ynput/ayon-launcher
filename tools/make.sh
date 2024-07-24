@@ -345,6 +345,14 @@ docker_build() {
     fi
   fi
 
+  qtenv=""
+  for var in "$@"
+  do
+    if [[ "$var" == '--use-pyside2' ]]; then
+      $qtenv="pyside2"
+      break
+    fi
+  done
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
@@ -354,7 +362,7 @@ docker_build() {
   local launcher_version="$(python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
@@ -380,7 +388,7 @@ docker_build() {
 
 default_help() {
   print_art
-  echo "Ayon desktop application tool"
+  echo "AYON desktop application tool"
   echo ""
   echo "Usage: ./make.sh [target]"
   echo ""
