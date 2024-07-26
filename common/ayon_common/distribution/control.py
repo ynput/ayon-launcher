@@ -929,7 +929,7 @@ class AyonDistribution:
         )
 
         if bundle_name is NOT_SET:
-            bundle_name = os.environ.get("AYON_BUNDLE_NAME", NOT_SET)
+            bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
 
         self._installers_info = installers_info
         self._installer_items = NOT_SET
