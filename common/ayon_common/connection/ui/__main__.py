@@ -11,6 +11,7 @@ def main(output_path):
     url = data.get("url")
     username = data.get("username")
     always_on_top = data.get("always_on_top", False)
+    force_username = data.get("force_username")
     out_url, out_token, out_username = ask_to_login(
         url, username, always_on_top=always_on_top)
 

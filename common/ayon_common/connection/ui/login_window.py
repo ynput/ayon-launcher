@@ -623,6 +623,17 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._username_preview.setText(username)
         self._username_input.setText(username)
 
+    def set_force_username(self, force_username: bool):
+        """Force filled username.
+
+        User cannot change username if enabled.
+
+        Args:
+            force_username (bool): If True, username will be forced.
+
+        """
+        self._username_input.setEnabled(force_username)
+
     def _set_api_key(self, api_key):
         if not api_key or len(api_key) < 3:
             self._api_preview.setText(api_key or "")
@@ -664,7 +675,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
             self.set_allow_logout(False)
 
 
-def ask_to_login(url=None, username=None, always_on_top=False):
+def ask_to_login(
+    url=None, username=None, force_username=False, always_on_top=False
+):
     """Ask user to login using Qt dialog.
 
     Function creates new QApplication if is not created yet.
@@ -672,6 +685,8 @@ def ask_to_login(url=None, username=None, always_on_top=False):
     Args:
         url (Optional[str]): Server url that will be prefilled in dialog.
         username (Optional[str]): Username that will be prefilled in dialog.
+        force_username (Optional[bool]): If True, username passed to function
+            will be forced.
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
 
@@ -694,6 +709,8 @@ def ask_to_login(url=None, username=None, always_on_top=False):
 
     if username:
         window.set_username(username)
+
+    window.set_force_username(force_username)
 
     if not app_instance.startingUp():
         window.exec_()
