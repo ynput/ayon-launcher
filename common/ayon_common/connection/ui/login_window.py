@@ -632,7 +632,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
             force_username (bool): If True, username will be forced.
 
         """
-        self._username_input.setEnabled(force_username)
+        self._username_input.setEnabled(not force_username)
 
     def _set_api_key(self, api_key):
         if not api_key or len(api_key) < 3:
@@ -676,7 +676,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
 
 def ask_to_login(
-    url=None, username=None, force_username=False, always_on_top=False
+    url=None, username=None, force_username=None, always_on_top=False
 ):
     """Ask user to login using Qt dialog.
 
@@ -710,6 +710,8 @@ def ask_to_login(
     if username:
         window.set_username(username)
 
+    if force_username is None:
+        force_username = False
     window.set_force_username(force_username)
 
     if not app_instance.startingUp():

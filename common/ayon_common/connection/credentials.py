@@ -263,7 +263,7 @@ def store_token(url: str, token: str):
 def ask_to_login_ui(
     url: Optional[str] = None,
     always_on_top: Optional[bool] = False,
-    force_username: Optional[str] = None,
+    username: Optional[str] = None,
 ) -> tuple[str, str, str]:
     """Ask user to login using UI.
 
@@ -277,7 +277,7 @@ def ask_to_login_ui(
         url (Optional[str]): Server url that could be prefilled in UI.
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
-        force_username (Optional[str]): Username that will be prefilled in UI
+        username (Optional[str]): Username that will be prefilled in UI
             and locked.
 
     Returns:
@@ -288,16 +288,17 @@ def ask_to_login_ui(
     if url is None:
         url = get_last_server()
 
-    if force_username:
-        username = force_username
+    if username:
+        force_username = True
     else:
+        force_username = False
         username = get_last_username_by_url(url)
 
     data = {
         "url": url,
         "username": username,
         "always_on_top": always_on_top,
-        "force_username": bool(force_username),
+        "force_username": force_username,
     }
 
     with tempfile.NamedTemporaryFile(
