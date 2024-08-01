@@ -811,6 +811,8 @@ def _main_cli_openpype():
 
     try:
         cli.main(obj={}, prog_name="ayon")
+    except SystemExit:
+        raise
     except Exception:  # noqa
         exc_info = sys.exc_info()
         _print("!!! AYON crashed:")
@@ -858,6 +860,8 @@ def main_cli():
 
     try:
         cli.main()
+    except SystemExit:
+        raise
     except Exception:  # noqa
         exc_info = sys.exc_info()
         _print("!!! AYON crashed:")
@@ -913,7 +917,7 @@ def script_cli(start_arg=None):
         start_arg = StartArgScript.from_args(sys.argv)
 
     # Remove first argument from sys.argv
-    # - start.py when running from code 
+    # - start.py when running from code
     # - ayon executable when running from build
     sys.argv.pop(0)
 
