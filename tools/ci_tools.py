@@ -18,7 +18,7 @@ def get_release_type_github(Log, github_token):
             pr_number = match.group(1)
             try:
                 pr = repo.get_pull(int(pr_number))
-            except:
+            except BaseException:
                 continue
             for label in pr.labels:
                 labels.add(label.name)
