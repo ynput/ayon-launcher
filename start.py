@@ -838,7 +838,7 @@ def process_uri():
     if len(sys.argv) <= 1:
         return False
 
-    uri = sys.argv[-1]
+    uri = sys.argv[-1].strip('"')
 
     parsed_uri = urlparse(uri)
     if parsed_uri.scheme != "ayon-launcher":
