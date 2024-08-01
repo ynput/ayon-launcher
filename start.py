@@ -331,37 +331,36 @@ from ayon_api import (
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
-)
+)  # noqa E402
 from ayon_api.constants import (
     SERVER_URL_ENV_KEY,
     SERVER_API_ENV_KEY,
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
-)
-from ayon_common import is_staging_enabled, is_dev_mode_enabled
+)  # noqa E402
+from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
 from ayon_common.connection.credentials import (
     ask_to_login_ui,
     add_server,
     need_server_or_login,
     load_environments,
-    set_environments,
     create_global_connection,
     confirm_server_login,
     show_invalid_credentials_ui,
-)
+)  # noqa E402
 from ayon_common.distribution import (
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
     show_installer_issue_information,
     UpdateWindowManager,
-)
+)  # noqa E402
 
 from ayon_common.utils import (
     store_current_executable_info,
     get_local_site_id,
-)
-from ayon_common.startup import show_startup_error
+)  # noqa E402
+from ayon_common.startup import show_startup_error  # noqa E402
 
 
 def set_global_environments() -> None:
@@ -827,7 +826,7 @@ def main_cli():
     """
 
     try:
-        import ayon_core
+        import ayon_core  # noqa F401
         ayon_core_used = True
     except ImportError:
         ayon_core_used = False
@@ -913,7 +912,7 @@ def script_cli(start_arg=None):
         start_arg = StartArgScript.from_args(sys.argv)
 
     # Remove first argument from sys.argv
-    # - start.py when running from code 
+    # - start.py when running from code
     # - ayon executable when running from build
     sys.argv.pop(0)
 
