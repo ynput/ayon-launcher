@@ -327,19 +327,19 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import (
+from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
-)  # noqa E402
-from ayon_api.constants import (
+)
+from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
     SERVER_API_ENV_KEY,
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
-)  # noqa E402
+)
 from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
-from ayon_common.connection.credentials import (
+from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
     need_server_or_login,
@@ -347,19 +347,19 @@ from ayon_common.connection.credentials import (
     create_global_connection,
     confirm_server_login,
     show_invalid_credentials_ui,
-)  # noqa E402
-from ayon_common.distribution import (
+)
+from ayon_common.distribution import (  # noqa E402
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
     show_installer_issue_information,
     UpdateWindowManager,
-)  # noqa E402
+)
 
-from ayon_common.utils import (
+from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
     get_local_site_id,
-)  # noqa E402
+)
 from ayon_common.startup import show_startup_error  # noqa E402
 
 
