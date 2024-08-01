@@ -1420,7 +1420,7 @@ class AyonDistribution:
         """
 
         if self._addons_info is NOT_SET:
-            server_info = ayon_api.get_addons_info(details=True)
+            server_info = ayon_api.get_addons_info(details=False)
             self._addons_info = server_info["addons"]
         return self._addons_info
 
