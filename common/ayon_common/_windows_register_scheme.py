@@ -152,19 +152,24 @@ def _needs_update(shim_icon_path, shim_command):
     return False
 
 
+def _get_shim_icon(shim_path: str) -> str:
+    return subprocess.list2cmdline([shim_path])
+
+
+def _get_shim_command(shim_path: str) -> str:
+    cmd = subprocess.list2cmdline([shim_path])
+    return f'{cmd} "%1"'
+
+
 def is_reg_set(shim_path: str) -> bool:
-    shim_icon_path = subprocess.list2cmdline([shim_path])
-    shim_command = subprocess.list2cmdline([
-        shim_path, '"%1"'
-    ])
+    shim_icon_path = _get_shim_icon(shim_path)
+    shim_command = _get_shim_command(shim_path)
     return not _needs_update(shim_icon_path, shim_command)
 
 
 def set_reg(shim_path: str) -> bool:
-    shim_icon_path = subprocess.list2cmdline([shim_path])
-    shim_command = subprocess.list2cmdline([
-        shim_path, '"%1"'
-    ])
+    shim_icon_path = _get_shim_icon(shim_path)
+    shim_command = _get_shim_command(shim_path)
     if _needs_update(shim_icon_path, shim_command):
         return _update_reg(shim_icon_path, shim_command)
     return True
