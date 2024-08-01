@@ -67,7 +67,7 @@ Filename: "{app}\ayon.exe"; Description: "{cm:LaunchProgram,AYON}"; Flags: nowai
 procedure AfterInstallProc();
 var
   ResultCode: Integer;
-  Command: String;
+  ExecParams: String;
   OutputFilepath: String;
   InstallDir: String;
 begin
@@ -75,8 +75,8 @@ begin
   if WizardIsTaskSelected('desktopicon') then
   begin
     ExecParams := ExecParams + ' --create-desktop-icons';
-  end
-  Exec(ExpandConstant('{app}\ayon.exe'), ExecParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+  end;
+  Exec(ExpandConstant('{app}\ayon.exe'), ExecParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   OutputFilepath := GetEnv('AYON_INSTALL_EXE_OUTPUT');
   InstallDir := ExpandConstant('{app}');
   if Length(OutputFilepath) > 0 then
