@@ -926,6 +926,10 @@ def ask_to_login(url=None, username=None, always_on_top=False):
         window.set_username(username)
 
     if not app_instance.startingUp():
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        window.showNormal()
         window.exec_()
     else:
         window.open()
