@@ -285,7 +285,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         # --- Login page ---
         login_ayon_btn = QtWidgets.QPushButton(
-            "Continue to AYON server", login_widget
+            "Login with AYON server", login_widget
         )
         login_ayon_btn.setIcon(QtGui.QIcon(get_ayon_default_icon_path()))
         login_ayon_btn.setObjectName("AYONLoginButton")
