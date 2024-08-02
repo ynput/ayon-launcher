@@ -711,6 +711,15 @@ def _start_distribution():
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
+def fill_pythonpath():
+    """Fill 'sys.path' with paths from PYTHONPATH environment variable."""
+    lookup_set = set(sys.path)
+    for path in (os.getenv("PYTHONPATH") or "").split(os.pathsep):
+        if path not in lookup_set:
+            sys.path.append(path)
+            lookup_set.add(path)
+
+
 def boot():
     """Bootstrap AYON."""
 
@@ -722,6 +731,7 @@ def boot():
     create_global_connection()
     _start_distribution()
     store_current_executable_info()
+    fill_pythonpath()
 
 
 def _on_main_addon_missing():
@@ -974,6 +984,7 @@ def main():
         _connect_to_ayon_server(True)
 
     if SKIP_BOOTSTRAP:
+        fill_pythonpath()
         return script_cli()
 
     boot()
