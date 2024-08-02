@@ -727,6 +727,15 @@ def init_launcher_executable():
     deploy_ayon_launcher_shims(create_desktop_icons=create_desktop_icons)
 
 
+def fill_pythonpath():
+    """Fill 'sys.path' with paths from PYTHONPATH environment variable."""
+    lookup_set = set(sys.path)
+    for path in (os.getenv("PYTHONPATH") or "").split(os.pathsep):
+        if path not in lookup_set:
+            sys.path.append(path)
+            lookup_set.add(path)
+
+
 def boot():
     """Bootstrap AYON launcher."""
     init_launcher_executable()
@@ -738,6 +747,7 @@ def boot():
     _connect_to_ayon_server()
     create_global_connection()
     _start_distribution()
+    fill_pythonpath()
 
 
 def _on_main_addon_missing():
@@ -1076,6 +1086,7 @@ def main():
         sys.exit(0)
 
     if SKIP_BOOTSTRAP:
+        fill_pythonpath()
         return script_cli()
 
     boot()
