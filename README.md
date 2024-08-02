@@ -31,6 +31,12 @@ We provide comprehensive build steps:
 * [macOS](docs/build_guides/macos.md)
 * [Linux](docs/build_guides/linux.md) - needs distribution specific steps
 
+### Linux build
+We do recommend to use docker build options for linux distributions. Prepared dockerfiles do all necessary steps for you.
+
+**NOTE:** There might be cases when linux installer should use PySide2 instead of PySide6 (which is default). You can change this by using `--use-pyside2` in docker build command. Or you can use env variable `QT_BINDING=pyside2` for local build.
+We do handle that case for Centos 7 build, but all other variants are using PySide6 by default.
+
 Output of the build process is installer with metadata file that can be distributed to workstations.
 
 Upload installer to server

@@ -289,7 +289,7 @@ os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
-import requests
+import requests  # noqa: E402
 
 
 if sys.__stdout__:
@@ -330,29 +330,28 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import (
+from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
 )
-from ayon_api.constants import (
+from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
     SERVER_API_ENV_KEY,
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
 )
-from ayon_common import is_staging_enabled, is_dev_mode_enabled
-from ayon_common.connection.credentials import (
+from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
+from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
     need_server_or_login,
     load_environments,
-    set_environments,
     create_global_connection,
     confirm_server_login,
     show_invalid_credentials_ui,
 )
-from ayon_common.distribution import (
+from ayon_common.distribution import (  # noqa E402
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
@@ -360,12 +359,12 @@ from ayon_common.distribution import (
     UpdateWindowManager,
 )
 
-from ayon_common.utils import (
+from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
     deploy_ayon_launcher_shims,
     get_local_site_id,
 )
-from ayon_common.startup import show_startup_error
+from ayon_common.startup import show_startup_error  # noqa E402
 
 
 def set_global_environments() -> None:
@@ -733,6 +732,15 @@ def init_launcher_executable():
     deploy_ayon_launcher_shims(create_desktop_icons=create_desktop_icons)
 
 
+def fill_pythonpath():
+    """Fill 'sys.path' with paths from PYTHONPATH environment variable."""
+    lookup_set = set(sys.path)
+    for path in (os.getenv("PYTHONPATH") or "").split(os.pathsep):
+        if path not in lookup_set:
+            sys.path.append(path)
+            lookup_set.add(path)
+
+
 def boot():
     """Bootstrap AYON launcher."""
     init_launcher_executable()
@@ -744,6 +752,7 @@ def boot():
     _connect_to_ayon_server()
     create_global_connection()
     _start_distribution()
+    fill_pythonpath()
 
 
 def _on_main_addon_missing():
@@ -843,7 +852,7 @@ def process_uri():
     if len(sys.argv) <= 1:
         return False
 
-    uri = sys.argv[-1]
+    uri = sys.argv[-1].strip('"')
 
     parsed_uri = urlparse(uri)
     if parsed_uri.scheme != "ayon-launcher":
@@ -928,7 +937,7 @@ def main_cli():
     """
 
     try:
-        import ayon_core
+        import ayon_core  # noqa F401
         ayon_core_used = True
     except ImportError:
         ayon_core_used = False
@@ -1084,6 +1093,7 @@ def main():
         sys.exit(0)
 
     if SKIP_BOOTSTRAP:
+        fill_pythonpath()
         return script_cli()
 
     boot()

@@ -2,6 +2,8 @@
 
 **WARNING:** Linux needs distribution specific steps.
 
+We highly recommend to use prepared docker build options for Linux. If you want to build AYON on your local machine, the following steps may not be fully working for every case.
+
 ## Requirements
 ---
 

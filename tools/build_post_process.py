@@ -183,7 +183,7 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
         raise ValueError("create-dmg is not available")
 
     dmg_path = dst_shim_root / "shim.dmg"
-    app_filepath = dist_root.parent / "build" / f"AYON.app"
+    app_filepath = dist_root.parent / "build" / "AYON.app"
     plist_path = app_filepath / "Contents" / "Info.plist"
 
     with open(plist_path, "rb") as stream:
@@ -202,7 +202,7 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
 
     args = [
         "create-dmg",
-        "--volname", f"AYON-shim-installer",
+        "--volname", "AYON-shim-installer",
         "--window-pos", "200", "120",
         "--window-size", "600", "300",
         "--app-drop-link", "100", "50",
