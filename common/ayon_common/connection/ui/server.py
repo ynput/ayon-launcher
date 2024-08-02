@@ -3,8 +3,6 @@ import threading
 from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-import requests
-
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
