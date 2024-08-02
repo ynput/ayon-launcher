@@ -66,7 +66,7 @@ def get_server_version(url):
 
     except RequestException:
         pass
-    return (0, 0, 0, None, None)
+    return (0, 0, 0, "", "")
 
 
 class ShowPasswordButton(QtWidgets.QPushButton):
