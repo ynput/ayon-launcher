@@ -82,3 +82,20 @@ QLineEdit[state="invalid"] {
 #LikeDisabledInput:focus {
     border-color: #373D48;
 }
+
+#AYONLoginButton {
+    border: 0px solid transparent;
+    border-radius: 0.3em;
+    padding: 8px 5px 8px 5px;
+    background: #1E4153;
+}
+#AYONLoginButton:hover {
+    background: #224A5E;
+}
+
+#OverlayFrame {
+    background: rgba(0, 0, 0, 127);
+}
+#OverlayFrameLabel {
+    font-size: 15pt;
+}
