@@ -568,6 +568,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._url_input.setVisible(url_edit)
         self._url_edit_btn.setVisible(self._allow_logout and not url_edit)
 
+        self._login_ayon_btn.setVisible(user_edit)
+        self._login_or_sep.setVisible(user_edit)
+
         self._username_preview.setVisible(not user_edit)
         self._username_input.setVisible(user_edit)
         self._username_edit_btn.setVisible(
