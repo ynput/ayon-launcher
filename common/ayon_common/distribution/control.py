@@ -658,7 +658,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             self.log.error(log_output)
             raise InstallerDistributionError(
                 "Install process failed without known reason."
-                f" Try to install AYON manually."
+                " Try to install AYON manually."
             )
 
         executable = install_exe_path.strip() or None
@@ -786,7 +786,7 @@ class InstallerDistributionItem(BaseDistributionItem):
                     exc_info=True
                 )
                 self._installer_error = (
-                    f"Distribution of AYON launcher"
+                    "Distribution of AYON launcher"
                     " failed with unexpected reason."
                 )
 
