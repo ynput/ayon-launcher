@@ -215,9 +215,14 @@ function New-DockerBuild {
         New-Item -ItemType Directory -Path $build_dir
     }
 
+    $qtbindingValue = ""
+    if ($arguments -contains "--use-pyside2") {
+        $qtbindingValue = "pyside2"
+    }
+
     Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
 
-    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
+    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Docker command failed.", $LASTEXITCODE -Color Red, Yellow, Red
         Restore-Cwd
@@ -255,7 +260,7 @@ function Default-Func {
     Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
-    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu","', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu", "', '", "debian", "', '", "rocky8", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
     Write-Host ""
 }
 

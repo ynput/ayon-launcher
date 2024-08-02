@@ -4,6 +4,9 @@ ARG PYTHON_VERSION=3.9.13
 ARG BUILD_DATE
 ARG VERSION
 
+ARG CUSTOM_QT_BINDING=""
+ENV QT_BINDING=$CUSTOM_QT_BINDING
+
 LABEL description="Docker Image to build and run AYON Launcher under Debian"
 LABEL org.opencontainers.image.name="ynput/ayon-launcher"
 LABEL org.opencontainers.image.title="AYON Launcher Docker Image"
