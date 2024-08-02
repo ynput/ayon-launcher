@@ -616,7 +616,11 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
     def _on_first_show(self):
         self.setStyleSheet(load_stylesheet())
+        msh = self.minimumSizeHint()
+        self.setMinimumWidth(max(msh.width(), 320))
+
         self.resize(self.default_width, self.default_height)
+
         self._center_window()
         if self._allow_logout is None:
             self.set_allow_logout(False)
