@@ -289,7 +289,7 @@ os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
-import requests
+import requests  # noqa: E402
 
 
 if sys.__stdout__:
