@@ -95,22 +95,3 @@ class LoginServerListener:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join()
-
-
-def get_user(url, token, timeout=None):
-    base_headers = {
-        "Content-Type": "application/json",
-    }
-    for header_value in (
-            {"Authorization": "Bearer {}".format(token)},
-            {"X-Api-Key": token},
-    ):
-        headers = base_headers.copy()
-        headers.update(header_value)
-        response = requests.get(
-            "{}/api/users/me".format(url),
-            headers=headers,
-            timeout=timeout,
-        )
-        if response.status_code == 200:
-            return response.json()

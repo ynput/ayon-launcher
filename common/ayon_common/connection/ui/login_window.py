@@ -1,6 +1,9 @@
+import re
 import traceback
-
 import webbrowser
+
+import requests
+from requests import RequestException
 from qtpy import QtWidgets, QtCore, QtGui
 
 from ayon_api.exceptions import UrlError
@@ -18,7 +21,52 @@ from .widgets import (
     PressHoverButton,
     PlaceholderLineEdit,
 )
-from .server import LoginServerListener, get_user
+from .server import LoginServerListener
+
+VERSION_REGEX = re.compile(
+    r"(?P<major>0|[1-9]\d*)"
+    r"\.(?P<minor>0|[1-9]\d*)"
+    r"\.(?P<patch>0|[1-9]\d*)"
+    r"(?:-(?P<prerelease>[a-zA-Z\d\-.]*))?"
+    r"(?:\+(?P<buildmetadata>[a-zA-Z\d\-.]*))?"
+)
+
+
+def get_user(url, token, timeout=None):
+    base_headers = {
+        "Content-Type": "application/json",
+    }
+    for header_value in (
+        {"Authorization": "Bearer {}".format(token)},
+        {"X-Api-Key": token},
+    ):
+        headers = base_headers.copy()
+        headers.update(header_value)
+        response = requests.get(
+            "{}/api/users/me".format(url),
+            headers=headers,
+            timeout=timeout,
+        )
+        if response.status_code == 200:
+            return response.json()
+
+
+def get_server_version(url):
+    try:
+        response = requests.get(f"{url}/api/info")
+
+        re_match = VERSION_REGEX.fullmatch(response.json()["version"])
+        return (
+            int(re_match.group("major")),
+            int(re_match.group("minor")),
+            int(re_match.group("patch")),
+            re_match.group("prerelease") or "",
+            re_match.group("buildmetadata") or "",
+        )
+
+    except RequestException:
+        pass
+    return (0, 0, 0, None, None)
 
 
 class ShowPasswordButton(QtWidgets.QPushButton):
@@ -848,6 +896,14 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._clear_message()
 
         url = self._url_input.text()
+        version = get_server_version(url)
+        if version < (1, 3, 2):
+            self._set_message(
+                "<b>AYON server does not support easy login</b>"
+                "<br/>- Server version must be at least 1.3.2"
+            )
+            return
+
         self._set_overlay_visible(True)
 
         if self._server_handler is not None:
