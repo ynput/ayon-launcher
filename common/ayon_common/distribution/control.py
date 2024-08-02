@@ -658,7 +658,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             self.log.error(log_output)
             raise InstallerDistributionError(
                 "Install process failed without known reason."
-                f" Try to install AYON manually."
+                " Try to install AYON manually."
             )
 
         executable = install_exe_path.strip() or None
@@ -789,7 +789,7 @@ class InstallerDistributionItem(BaseDistributionItem):
                     exc_info=True
                 )
                 self._installer_error = (
-                    f"Distribution of AYON launcher"
+                    "Distribution of AYON launcher"
                     " failed with unexpected reason."
                 )
 
@@ -932,7 +932,7 @@ class AyonDistribution:
         )
 
         if bundle_name is NOT_SET:
-            bundle_name = os.environ.get("AYON_BUNDLE_NAME", NOT_SET)
+            bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
 
         self._installers_info = installers_info
         self._installer_items = NOT_SET
@@ -1423,7 +1423,7 @@ class AyonDistribution:
         """
 
         if self._addons_info is NOT_SET:
-            server_info = ayon_api.get_addons_info(details=True)
+            server_info = ayon_api.get_addons_info(details=False)
             self._addons_info = server_info["addons"]
         return self._addons_info
 

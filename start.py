@@ -330,29 +330,28 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import (
+from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
 )
-from ayon_api.constants import (
+from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
     SERVER_API_ENV_KEY,
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
 )
-from ayon_common import is_staging_enabled, is_dev_mode_enabled
-from ayon_common.connection.credentials import (
+from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
+from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
     need_server_or_login,
     load_environments,
-    set_environments,
     create_global_connection,
     confirm_server_login,
     show_invalid_credentials_ui,
 )
-from ayon_common.distribution import (
+from ayon_common.distribution import (  # noqa E402
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
@@ -360,12 +359,12 @@ from ayon_common.distribution import (
     UpdateWindowManager,
 )
 
-from ayon_common.utils import (
+from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
     deploy_ayon_launcher_shims,
     get_local_site_id,
 )
-from ayon_common.startup import show_startup_error
+from ayon_common.startup import show_startup_error  # noqa E402
 
 
 def set_global_environments() -> None:
@@ -921,7 +920,7 @@ def main_cli():
     """
 
     try:
-        import ayon_core
+        import ayon_core  # noqa F401
         ayon_core_used = True
     except ImportError:
         ayon_core_used = False
