@@ -28,7 +28,6 @@ class LoginServerHandler(BaseHTTPRequestHandler):
                 content = stream.read()
             content_type = "image/x-icon"
         else:
-            # TODO use parsed url
             parsed_path = urlparse(self.path)
             query = parse_qs(parsed_path.query)
             tokens = query.get("token")
