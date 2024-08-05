@@ -260,13 +260,13 @@ tomli = {version = "*", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "ayon-python-api"
-version = "1.0.7"
+version = "1.0.8"
 description = "AYON Python API"
 optional = false
 python-versions = "*"
 files = [
-    {file = "ayon-python-api-1.0.7.tar.gz", hash = "sha256:3475538792a783cd01150b8ce73f309beb2fd202551ed8c085484cf5bd9425d9"},
-    {file = "ayon_python_api-1.0.7-py3-none-any.whl", hash = "sha256:3559018bb5ce39f5cb709cfb3ddc123f4643670cd22a76d0016694732dcba37b"},
+    {file = "ayon-python-api-1.0.8.tar.gz", hash = "sha256:ed96606643e58af7ecf50c1af0e96a552061546e31ad33dd571cd63ad6dd66ef"},
+    {file = "ayon_python_api-1.0.8-py3-none-any.whl", hash = "sha256:ad705734d9fabb9204580e5974ed61c2c51b298a3caed36ddf6b344c5ebfb6a4"},
 ]
 
 [package.dependencies]
