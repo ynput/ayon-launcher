@@ -167,10 +167,6 @@ class LogoutConfirmDialog(QtWidgets.QDialog):
         super().resizeEvent(event)
         self._match_btns_sizes()
 
-    def closeEvent(self, event):
-        self._on_server_cancel()
-        super().closeEvent(event)
-
     def _match_btns_sizes(self):
         width = max(
             self._cancel_btn.sizeHint().width(),
@@ -573,6 +569,10 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._update_overlay_position()
+
+    def closeEvent(self, event):
+        self._on_server_cancel()
+        super().closeEvent(event)
 
     def result(self):
         """Result url and token or login.
