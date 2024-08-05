@@ -473,7 +473,7 @@ def _connect_to_ayon_server(force=False):
         sys.exit(1)
 
     # Show login dialog
-    url, token, username = ask_to_login_ui(current_url, always_on_top=True)
+    url, token, username = ask_to_login_ui(current_url, always_on_top=False)
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
         return
