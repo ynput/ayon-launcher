@@ -11,12 +11,16 @@ def get_resource_path(*args):
     return os.path.sep.join(path_items)
 
 
+def get_ayon_default_icon_path():
+    return get_resource_path("AYON.png")
+
+
 def get_icon_path():
     if is_dev_mode_enabled():
         return get_resource_path("AYON_dev.png")
     if is_staging_enabled():
         return get_resource_path("AYON_staging.png")
-    return get_resource_path("AYON.png")
+    return get_ayon_default_icon_path()
 
 
 def load_stylesheet():
