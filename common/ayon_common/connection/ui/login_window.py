@@ -929,13 +929,16 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._server_handler.start()
         self._server_timer.start()
 
-    def _on_server_cancel(self):
+    def _stop_server_handler(self):
         server_handler, self._server_handler = self._server_handler, None
         if server_handler is None:
             return
 
         server_handler.stop()
         self._set_overlay_visible(False)
+
+    def _on_server_cancel(self):
+        self._stop_server_handler()
 
     def _on_server_timer(self):
         if self._server_handler is None:
@@ -955,7 +958,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
             return
 
         # Stop server and timer
-        self._server_handler.stop()
+        self._stop_server_handler()
         self._server_timer.stop()
 
         # Collect user data
