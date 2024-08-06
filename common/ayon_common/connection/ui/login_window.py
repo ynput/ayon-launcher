@@ -505,6 +505,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._credentials_are_valid = None
         self._result = (None, None, None, False)
         self._first_show = True
+        self._force_username = False
 
         self._allow_logout = False
         self._logged_in = False
@@ -530,6 +531,18 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def set_username(self, username):
         self._username_preview.setText(username)
         self._username_input.setText(username)
+
+    def set_force_username(self, force_username: bool):
+        """Force filled username.
+
+        User cannot change username if enabled.
+
+        Args:
+            force_username (bool): If True, username will be forced.
+
+        """
+        self._force_username = force_username
+        self._username_input.setEnabled(not force_username)
 
     def set_logged_in(
         self,
@@ -865,17 +878,6 @@ class ServerLoginWindow(QtWidgets.QDialog):
         ]
         self._set_message("<br/>".join(lines))
 
-    def set_force_username(self, force_username: bool):
-        """Force filled username.
-
-        User cannot change username if enabled.
-
-        Args:
-            force_username (bool): If True, username will be forced.
-
-        """
-        self._username_input.setEnabled(not force_username)
-
     def _set_api_key(self, api_key):
         if not api_key or len(api_key) < 3:
             self._api_preview.setText(api_key or "")
@@ -951,13 +953,24 @@ class ServerLoginWindow(QtWidgets.QDialog):
             self._server_timer_counter += 1
             return
 
-        url = self._url_input.text()
-        user = get_user(url, token)
-
+        # Stop server and timer
         self._server_handler.stop()
         self._server_timer.stop()
 
-        self._result = (url, token, user["name"], False)
+        # Collect user data
+        url = self._url_input.text()
+        user = get_user(url, token)
+        username = user["name"]
+        input_username = self._username_input.text()
+        if self._force_username and username != input_username:
+            self._set_message(
+                "<b>Invalid user</b><br/>"
+                f"- Logged as user '{username}'"
+                f" expected user '{input_username}'"
+            )
+            return
+
+        self._result = (url, token, username, False)
         self.accept()
 
 
