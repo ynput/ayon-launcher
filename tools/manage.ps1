@@ -112,13 +112,8 @@ function Install-Poetry() {
 
     }
 
-    $orighome = $env:POETRY_HOME
-    $origver = $env:POETRY_VERSION
     $env:POETRY_HOME=$poetry_home
-    $env:POETRY_VERSION="1.8.1"
-    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) -
-    $env:POETRY_HOME = $orighome
-    $env:POETRY_VERSION = $origver
+    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) - --version 1.8.1
 }
 
 
