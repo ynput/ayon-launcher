@@ -1,5 +1,9 @@
+import re
 import traceback
+import webbrowser
 
+import requests
+from requests import RequestException
 from qtpy import QtWidgets, QtCore, QtGui
 
 from ayon_api.exceptions import UrlError
@@ -7,6 +11,7 @@ from ayon_api.utils import validate_url, login_to_server
 
 from ayon_common.resources import (
     get_resource_path,
+    get_ayon_default_icon_path,
     get_icon_path,
     load_stylesheet,
 )
@@ -16,6 +21,52 @@ from .widgets import (
     PressHoverButton,
     PlaceholderLineEdit,
 )
+from .server import LoginServerListener
+
+VERSION_REGEX = re.compile(
+    r"(?P<major>0|[1-9]\d*)"
+    r"\.(?P<minor>0|[1-9]\d*)"
+    r"\.(?P<patch>0|[1-9]\d*)"
+    r"(?:-(?P<prerelease>[a-zA-Z\d\-.]*))?"
+    r"(?:\+(?P<buildmetadata>[a-zA-Z\d\-.]*))?"
+)
+
+
+def get_user(url, token, timeout=None):
+    base_headers = {
+        "Content-Type": "application/json",
+    }
+    for header_value in (
+        {"Authorization": "Bearer {}".format(token)},
+        {"X-Api-Key": token},
+    ):
+        headers = base_headers.copy()
+        headers.update(header_value)
+        response = requests.get(
+            "{}/api/users/me".format(url),
+            headers=headers,
+            timeout=timeout,
+        )
+        if response.status_code == 200:
+            return response.json()
+
+
+def get_server_version(url):
+    try:
+        response = requests.get(f"{url}/api/info")
+
+        re_match = VERSION_REGEX.fullmatch(response.json()["version"])
+        return (
+            int(re_match.group("major")),
+            int(re_match.group("minor")),
+            int(re_match.group("patch")),
+            re_match.group("prerelease") or "",
+            re_match.group("buildmetadata") or "",
+        )
+
+    except RequestException:
+        pass
+    return (0, 0, 0, "", "")
 
 
 class ShowPasswordButton(QtWidgets.QPushButton):
@@ -136,6 +187,98 @@ class LogoutConfirmDialog(QtWidgets.QDialog):
         return self._result
 
 
+class OverlayWidget(QtWidgets.QFrame):
+    cancelled = QtCore.Signal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.setObjectName("OverlayFrame")
+
+        self.setFrameShape(QtWidgets.QFrame.NoFrame)
+
+        center_widget = QtWidgets.QWidget(self)
+
+        user_label = QtWidgets.QLabel("Web browser opened", center_widget)
+        user_label.setObjectName("OverlayFrameLabel")
+        waiting_label = QtWidgets.QLabel("Waiting...", center_widget)
+        waiting_label.setAlignment(QtCore.Qt.AlignCenter)
+        cancel_btn = QtWidgets.QPushButton("Cancel", center_widget)
+
+        center_widget.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        user_label.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+
+        mid_layout = QtWidgets.QVBoxLayout(center_widget)
+        mid_layout.setContentsMargins(0, 0, 0, 0)
+        mid_layout.addWidget(user_label, 0)
+        mid_layout.addWidget(waiting_label, 0)
+        mid_layout.addSpacing(20)
+        mid_layout.addWidget(cancel_btn, 0)
+
+        main_layout = QtWidgets.QGridLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(center_widget, 1, 1)
+        main_layout.setRowStretch(0, 1)
+        main_layout.setRowStretch(1, 0)
+        main_layout.setRowStretch(2, 1)
+        main_layout.setColumnStretch(0, 1)
+        main_layout.setColumnStretch(1, 0)
+        main_layout.setColumnStretch(2, 1)
+
+        update_timer = QtCore.QTimer()
+        update_timer.setInterval(500)
+
+        update_timer.timeout.connect(self._update_user_label)
+        cancel_btn.clicked.connect(self._on_cancel_click)
+
+        self._waiting_label = waiting_label
+        self._dots_count = 3
+
+        self._update_timer = update_timer
+
+    def set_visible(self, visible):
+        self.setVisible(visible)
+        if visible:
+            self._update_timer.start()
+
+        elif self._update_timer.isActive():
+            self._update_timer.stop()
+
+    def _update_user_label(self):
+        self._dots_count += 1
+        if self._dots_count > 3:
+            self._dots_count = 0
+        dots = "." * self._dots_count
+        spaces = " " * (3 - self._dots_count)
+        self._waiting_label.setText(f"Waiting{dots}{spaces}")
+
+    def _on_cancel_click(self):
+        self.cancelled.emit()
+
+
+class OrSeparator(QtWidgets.QFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        left_sep = QtWidgets.QFrame(self)
+        left_sep.setObjectName("Separator")
+        left_sep.setMinimumHeight(2)
+        left_sep.setMaximumHeight(2)
+
+        label_widget = QtWidgets.QLabel("OR", self)
+
+        right_sep = QtWidgets.QFrame(self)
+        right_sep.setObjectName("Separator")
+        right_sep.setMinimumHeight(2)
+        right_sep.setMaximumHeight(2)
+
+        main_layout = QtWidgets.QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(left_sep, 1)
+        main_layout.addWidget(label_widget, 0)
+        main_layout.addWidget(right_sep, 1)
+
+
 class ServerLoginWindow(QtWidgets.QDialog):
     default_width = 410
     default_height = 170
@@ -152,7 +295,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         edit_icon = QtGui.QIcon(edit_icon_path)
 
         # --- URL page ---
-        login_widget = QtWidgets.QWidget(self)
+        login_bg_widget = QtWidgets.QWidget(self)
+
+        login_widget = QtWidgets.QWidget(login_bg_widget)
 
         user_cred_widget = QtWidgets.QWidget(login_widget)
 
@@ -177,12 +322,20 @@ class ServerLoginWindow(QtWidgets.QDialog):
         url_layout.addWidget(url_preview, 1)
 
         # --- URL separator ---
-        url_cred_sep = QtWidgets.QFrame(self)
+        url_cred_sep = QtWidgets.QFrame(login_bg_widget)
         url_cred_sep.setObjectName("Separator")
         url_cred_sep.setMinimumHeight(2)
         url_cred_sep.setMaximumHeight(2)
 
         # --- Login page ---
+        login_ayon_btn = QtWidgets.QPushButton(
+            "Login with AYON server", login_widget
+        )
+        login_ayon_btn.setIcon(QtGui.QIcon(get_ayon_default_icon_path()))
+        login_ayon_btn.setObjectName("AYONLoginButton")
+
+        login_or_sep = OrSeparator(login_bg_widget)
+
         username_label = QtWidgets.QLabel("Username:", user_cred_widget)
 
         username_widget = QtWidgets.QWidget(user_cred_widget)
@@ -215,7 +368,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         show_password_btn = ShowPasswordButton(user_cred_widget)
 
-        cred_msg_sep = QtWidgets.QFrame(self)
+        cred_msg_sep = QtWidgets.QFrame(login_bg_widget)
         cred_msg_sep.setObjectName("Separator")
         cred_msg_sep.setMinimumHeight(2)
         cred_msg_sep.setMaximumHeight(2)
@@ -231,6 +384,12 @@ class ServerLoginWindow(QtWidgets.QDialog):
         row += 1
 
         user_cred_layout.addWidget(url_cred_sep, row, 0, 1, 3)
+        row += 1
+
+        user_cred_layout.addWidget(login_ayon_btn, row, 0, 1, 3)
+        row += 1
+
+        user_cred_layout.addWidget(login_or_sep, row, 0, 1, 3)
         row += 1
 
         user_cred_layout.addWidget(username_label, row, 0, 1, 1)
@@ -260,11 +419,11 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         # --- Messages ---
         # Messages for users (e.g. invalid url etc.)
-        message_label = QtWidgets.QLabel(self)
+        message_label = QtWidgets.QLabel(login_bg_widget)
         message_label.setWordWrap(True)
         message_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
 
-        footer_widget = QtWidgets.QWidget(self)
+        footer_widget = QtWidgets.QWidget(login_bg_widget)
         logout_btn = QtWidgets.QPushButton("Logout", footer_widget)
         user_message = QtWidgets.QLabel(footer_widget)
         login_btn = QtWidgets.QPushButton("Login", footer_widget)
@@ -277,14 +436,28 @@ class ServerLoginWindow(QtWidgets.QDialog):
         footer_layout.addWidget(login_btn, 0)
         footer_layout.addWidget(confirm_btn, 0)
 
-        main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.addWidget(login_widget, 0)
-        main_layout.addWidget(message_label, 0)
-        main_layout.addStretch(1)
-        main_layout.addWidget(footer_widget, 0)
+        login_bg_layout = QtWidgets.QVBoxLayout(login_bg_widget)
+        login_bg_layout.setContentsMargins(0, 0, 0, 0)
+        login_bg_layout.addWidget(login_widget, 0)
+        login_bg_layout.addWidget(message_label, 0)
+        login_bg_layout.addStretch(1)
+        login_bg_layout.addWidget(footer_widget, 0)
 
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.addWidget(login_bg_widget, 1)
+
+        # --- Overlay ---
+        overlay_frame = OverlayWidget(self)
+        overlay_frame.set_visible(False)
+
+        server_timer = QtCore.QTimer()
+        server_timer.setInterval(100)
+
+        server_timer.timeout.connect(self._on_server_timer)
+        overlay_frame.cancelled.connect(self._on_server_cancel)
         url_input.textChanged.connect(self._on_url_change)
         url_input.returnPressed.connect(self._on_url_enter_press)
+        login_ayon_btn.clicked.connect(self._login_with_ayon_server)
         username_input.textChanged.connect(self._on_user_change)
         username_input.returnPressed.connect(self._on_username_enter_press)
         password_input.returnPressed.connect(self._on_password_enter_press)
@@ -295,14 +468,20 @@ class ServerLoginWindow(QtWidgets.QDialog):
         login_btn.clicked.connect(self._on_login_click)
         confirm_btn.clicked.connect(self._on_login_click)
 
-        self._message_label = message_label
+        self._overlay_visible = False
+        self._overlay_frame = overlay_frame
+
+        self._login_bg_widget = login_bg_widget
+
+        self._login_widget = login_widget
+
+        self._login_or_sep = login_or_sep
+        self._login_ayon_btn = login_ayon_btn
 
         self._url_widget = url_widget
         self._url_input = url_input
         self._url_preview = url_preview
         self._url_edit_btn = url_edit_btn
-
-        self._login_widget = login_widget
 
         self._user_cred_widget = user_cred_widget
         self._username_input = username_input
@@ -314,6 +493,8 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._show_password_btn = show_password_btn
         self._api_label = api_label
         self._api_preview = api_preview
+
+        self._message_label = message_label
 
         self._logout_btn = logout_btn
         self._user_message = user_message
@@ -330,12 +511,77 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._url_edit_mode = False
         self._username_edit_mode = False
 
+        self._server_timer_counter = 0
+        self._server_timer = server_timer
+        self._server_handler = None
+
     def set_allow_logout(self, allow_logout):
         if allow_logout is self._allow_logout:
             return
         self._allow_logout = allow_logout
 
         self._update_states_by_edit_mode()
+
+    def set_url(self, url):
+        self._url_preview.setText(url)
+        self._url_input.setText(url)
+        self._validate_url()
+
+    def set_username(self, username):
+        self._username_preview.setText(username)
+        self._username_input.setText(username)
+
+    def set_logged_in(
+        self,
+        logged_in,
+        url=None,
+        username=None,
+        api_key=None,
+        allow_logout=None
+    ):
+        if url is not None:
+            self.set_url(url)
+
+        if username is not None:
+            self.set_username(username)
+
+        if api_key:
+            self._set_api_key(api_key)
+
+        if logged_in and allow_logout is None:
+            allow_logout = True
+
+        self._set_logged_in(logged_in)
+
+        if allow_logout:
+            self.set_allow_logout(True)
+        elif allow_logout is False:
+            self.set_allow_logout(False)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._first_show:
+            self._first_show = False
+            self._on_first_show()
+
+        self._update_overlay_position()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_overlay_position()
+
+    def closeEvent(self, event):
+        self._on_server_cancel()
+        super().closeEvent(event)
+
+    def result(self):
+        """Result url and token or login.
+
+        Returns:
+            Union[Tuple[str, str], Tuple[None, None]]: Url and token used for
+                login if was successful otherwise are both set to None.
+        """
+        return self._result
 
     def _set_logged_in(self, logged_in):
         if logged_in is self._logged_in:
@@ -370,6 +616,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._url_input.setVisible(url_edit)
         self._url_edit_btn.setVisible(self._allow_logout and not url_edit)
 
+        self._login_ayon_btn.setVisible(user_edit)
+        self._login_or_sep.setVisible(user_edit)
+
         self._username_preview.setVisible(not user_edit)
         self._username_input.setVisible(user_edit)
         self._username_edit_btn.setVisible(
@@ -400,15 +649,26 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._login_btn.setEnabled(enabled)
         self._confirm_btn.setEnabled(enabled)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if self._first_show:
-            self._first_show = False
-            self._on_first_show()
+    def _update_overlay_position(self):
+        if not self._overlay_visible:
+            return
+        self._overlay_frame.resize(self.size())
+
+    def _set_overlay_visible(self, visible):
+        if self._overlay_visible is visible:
+            return
+        self._overlay_visible = visible
+        self._overlay_frame.set_visible(visible)
+        self._login_bg_widget.setEnabled(not visible)
+        self._update_overlay_position()
 
     def _on_first_show(self):
         self.setStyleSheet(load_stylesheet())
+        msh = self.minimumSizeHint()
+        self.setMinimumWidth(max(msh.width(), 320))
+
         self.resize(self.default_width, self.default_height)
+
         self._center_window()
         if self._allow_logout is None:
             self.set_allow_logout(False)
@@ -422,15 +682,6 @@ class ServerLoginWindow(QtWidgets.QDialog):
             widget = self._password_input
 
         self._set_input_focus(widget)
-
-    def result(self):
-        """Result url and token or login.
-
-        Returns:
-            Union[Tuple[str, str], Tuple[None, None]]: Url and token used for
-                login if was successful otherwise are both set to None.
-        """
-        return self._result
 
     def _center_window(self):
         """Move window to center of screen."""
@@ -480,7 +731,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._set_input_focus(self._password_input)
 
     def _on_password_enter_press(self):
-        self._login()
+        self._on_login_click()
 
     def _on_password_state_change(self, show_password):
         if show_password:
@@ -614,15 +865,6 @@ class ServerLoginWindow(QtWidgets.QDialog):
         ]
         self._set_message("<br/>".join(lines))
 
-    def set_url(self, url):
-        self._url_preview.setText(url)
-        self._url_input.setText(url)
-        self._validate_url()
-
-    def set_username(self, username):
-        self._username_preview.setText(username)
-        self._username_input.setText(username)
-
     def set_force_username(self, force_username: bool):
         """Force filled username.
 
@@ -647,32 +889,76 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         self._api_preview.setText(api_key)
 
-    def set_logged_in(
-        self,
-        logged_in,
-        url=None,
-        username=None,
-        api_key=None,
-        allow_logout=None
-    ):
-        if url is not None:
-            self.set_url(url)
+    def _login_with_ayon_server(self):
+        if (
+            not self._login_btn.isEnabled()
+            and not self._confirm_btn.isEnabled()
+        ):
+            return
 
-        if username is not None:
-            self.set_username(username)
+        if not self._url_is_valid:
+            self._set_url_valid(self._validate_url())
 
-        if api_key:
-            self._set_api_key(api_key)
+        if not self._url_is_valid:
+            self._set_input_focus(self._url_input)
+            self._set_credentials_valid(None)
+            return
 
-        if logged_in and allow_logout is None:
-            allow_logout = True
+        self._clear_message()
 
-        self._set_logged_in(logged_in)
+        url = self._url_input.text()
+        version = get_server_version(url)
+        if version < (1, 3, 2):
+            self._set_message(
+                "<b>AYON server does not support easy login</b>"
+                "<br/>- Server version must be at least 1.3.2"
+            )
+            return
 
-        if allow_logout:
-            self.set_allow_logout(True)
-        elif allow_logout is False:
-            self.set_allow_logout(False)
+        self._set_overlay_visible(True)
+
+        if self._server_handler is not None:
+            self._server_handler.stop()
+            self._server_handler = None
+        self._server_handler = LoginServerListener(url)
+        redir_url = f"http://localhost:{self._server_handler.port}"
+        webbrowser.open_new_tab(f"{url}/?auth_redirect={redir_url}")
+        self._server_handler.start()
+        self._server_timer.start()
+
+    def _on_server_cancel(self):
+        server_handler, self._server_handler = self._server_handler, None
+        if server_handler is None:
+            return
+
+        server_handler.stop()
+        self._set_overlay_visible(False)
+
+    def _on_server_timer(self):
+        if self._server_handler is None:
+            self._server_timer.stop()
+            self._set_overlay_visible(False)
+            return
+
+        token = self._server_handler.get_token()
+        if not token:
+            return
+
+        # TODO better solution
+        # This is hack to allow server serve the page resources for a little
+        # bit longer
+        if self._server_timer_counter < 3:
+            self._server_timer_counter += 1
+            return
+
+        url = self._url_input.text()
+        user = get_user(url, token)
+
+        self._server_handler.stop()
+        self._server_timer.stop()
+
+        self._result = (url, token, user["name"], False)
+        self.accept()
 
 
 def ask_to_login(
@@ -715,6 +1001,10 @@ def ask_to_login(
     window.set_force_username(force_username)
 
     if not app_instance.startingUp():
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        window.showNormal()
         window.exec_()
     else:
         window.open()

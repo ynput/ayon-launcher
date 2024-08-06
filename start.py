@@ -476,7 +476,7 @@ def _connect_to_ayon_server(force=False, username=None):
     # Show login dialog
     url, token, username = ask_to_login_ui(
         current_url,
-        always_on_top=True,
+        always_on_top=False,
         username=username,
     )
     if url is not None and token is not None:
