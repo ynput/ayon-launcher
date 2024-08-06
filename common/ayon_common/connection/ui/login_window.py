@@ -962,7 +962,10 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
 
 def ask_to_login(
-    url=None, username=None, force_username=None, always_on_top=False
+    url=None,
+    username=None,
+    force_username=None,
+    always_on_top=False
 ):
     """Ask user to login using Qt dialog.
 

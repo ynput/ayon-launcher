@@ -478,6 +478,7 @@ def _connect_to_ayon_server(force=False, username=None):
         current_url,
         always_on_top=False,
         username=username,
+        force_username=bool(username)
     )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
