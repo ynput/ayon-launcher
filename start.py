@@ -870,6 +870,8 @@ def process_uri():
     # TODO validate response
     data = response.json()
     username = data.get("userName")
+
+    os.environ[SERVER_URL_ENV_KEY] = server_url
     _connect_to_ayon_server(username=username)
     variant = data["variant"]
 
