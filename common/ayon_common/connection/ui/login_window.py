@@ -543,6 +543,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         """
         self._force_username = force_username
         self._username_input.setEnabled(not force_username)
+        self._url_input.setEnabled(not force_username)
 
     def set_logged_in(
         self,
