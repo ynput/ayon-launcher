@@ -96,9 +96,7 @@ def get_local_site_id():
             site_id = stream.read()
 
     if not site_id:
-        folder_path = os.path.dirname(site_id_path)
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        os.makedirs(os.path.dirname(site_id_path), exist_ok=True)
         site_id = _create_local_site_id()
         with open(site_id_path, "w") as stream:
             stream.write(site_id)
@@ -177,12 +175,10 @@ def store_executables_info(info):
     """Store information about executables.
 
     This will override existing information so use it wisely.
-    """
 
+    """
     filepath = get_executables_info_filepath()
-    dirpath = os.path.dirname(filepath)
-    if not os.path.exists(dirpath):
-        os.makedirs(dirpath)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     with open(filepath, "w") as stream:
         json.dump(info, stream, indent=4)
