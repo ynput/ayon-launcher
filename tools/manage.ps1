@@ -36,6 +36,7 @@ $current_dir = Get-Location
 $script_dir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $repo_root = (Get-Item $script_dir).parent.FullName
 $app_logo = "$repo_root/common/ayon_common/resources/AYON.png"
+$poetry_home = "$repo_root\.poetry"
 
 & git submodule update --init --recursive
 # Install PSWriteColor to support colorized output to terminal
@@ -111,9 +112,8 @@ function Install-Poetry() {
 
     }
 
-    $env:POETRY_HOME="$repo_root\.poetry"
-    $env:POETRY_VERSION="1.8.1"
-    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) -
+    $env:POETRY_HOME=$poetry_home
+    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) - --version 1.8.1
 }
 
 
@@ -266,7 +266,7 @@ function Default-Func {
 
 function Create-Env {
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$poetry_home\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Install-Poetry
         Write-Color -Text "INSTALLED" -Color Cyan
@@ -280,9 +280,9 @@ function Create-Env {
         Write-Color -Text ">>> ", "Installing virtual environment from lock." -Color Green, Gray
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.in-project true --local
-    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.create true --local
-    & "$env:POETRY_HOME\bin\poetry" install --no-root $poetry_verbosity --ansi
+    & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
+    & "$poetry_home\bin\poetry" config virtualenvs.create true --local
+    & "$poetry_home\bin\poetry" install --no-root $poetry_verbosity --ansi
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
         Restore-Cwd
@@ -290,7 +290,7 @@ function Create-Env {
     }
     if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
         Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-        & "$env:POETRY_HOME\bin\poetry" run pre-commit install
+        & "$poetry_home\bin\poetry" run pre-commit install
         if ($LASTEXITCODE -ne 0)
         {
             Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
@@ -337,7 +337,7 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
         Create-Env
@@ -354,13 +354,13 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    $FreezeContent = & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
+    $FreezeContent = & "$($poetry_home)\bin\poetry" run python -m pip --no-color freeze
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
     # Make sure output is UTF-8 without BOM
     $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
     [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
 
-    $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
+    $out = & "$($poetry_home)\bin\poetry" run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
@@ -372,7 +372,7 @@ function Build-Ayon($MakeInstaller = $false) {
     }
 
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
         Make-Ayon-Installer-Raw
@@ -388,12 +388,12 @@ function Build-Ayon($MakeInstaller = $false) {
 }
 
 function Installer-Post-Process() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function Make-Ayon-Installer-Raw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
 }
 
 function Make-Ayon-Installer() {
@@ -410,7 +410,7 @@ function Make-Ayon-Installer() {
 
 function Install-Runtime-Dependencies() {
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
         Create-Env
@@ -418,7 +418,7 @@ function Install-Runtime-Dependencies() {
         Write-Color -Text "OK" -Color Green
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py"
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Dependencies downloaded", "All done in $( $endTime - $startTime ) secs."
@@ -426,7 +426,7 @@ function Install-Runtime-Dependencies() {
 }
 
 function Run-From-Code() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py" @arguments
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\start.py" @arguments
 }
 
 function Main {
@@ -463,10 +463,6 @@ function Main {
         Write-Host "Unknown function ""$FunctionName"""
         Default-Func
     }
-}
-
-if (-not (Test-Path 'env:POETRY_HOME')) {
-    $env:POETRY_HOME = "$repo_root\.poetry"
 }
 
 # Enable if PS 7.x is needed.

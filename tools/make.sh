@@ -84,6 +84,7 @@ realpath () {
 }
 
 repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
+poetry_home_root="$repo_root/.poetry"
 
 print_art() {
   echo -e "${BGreen}"
@@ -136,7 +137,7 @@ detect_python () {
 
 install_poetry () {
   echo -e "${BIGreen}>>>${RST} Installing Poetry ..."
-  export POETRY_HOME="$repo_root/.poetry"
+  export POETRY_HOME=$poetry_home_root
   command -v curl >/dev/null 2>&1 || { echo -e "${BIRed}!!!${RST}${BIYellow} Missing ${RST}${BIBlue}curl${BIYellow} command.${RST}"; return 1; }
   curl -sSL https://install.python-poetry.org/ | python -
 
@@ -144,10 +145,10 @@ install_poetry () {
   local ssl_command
   ssl_command="import ssl;print(1 if ssl.OPENSSL_VERSION_INFO < (1, 1, 1) else 0)"
   local downgrade_urllib
-  downgrade_urllib="$("$POETRY_HOME/venv/bin/python" <<< ${ssl_command})"
+  downgrade_urllib="$("$poetry_home_root/venv/bin/python" <<< ${ssl_command})"
   if [ $downgrade_urllib -eq "1" ]; then
     echo -e "${BIGreen}>>>${RST} Installing older urllib3 ..."
-    "$POETRY_HOME/venv/bin/python" -m pip install urllib3==1.26.16
+    "$poetry_home_root/venv/bin/python" -m pip install urllib3==1.26.16
   fi
 }
 
@@ -174,7 +175,7 @@ create_env () {
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$POETRY_HOME/bin/poetry" ]; then
+  if [ -f "$poetry_home_root/bin/poetry" ]; then
     echo -e "${BIGreen}OK${RST}"
   else
     echo -e "${BIYellow}NOT FOUND${RST}"
@@ -187,7 +188,7 @@ create_env () {
     echo -e "${BIGreen}>>>${RST} Installing dependencies ..."
   fi
 
-  "$POETRY_HOME/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
+  "$poetry_home_root/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
   if [ $? -ne 0 ] ; then
     echo -e "${BIRed}!!!${RST} Virtual environment creation failed."
     return 1
@@ -196,18 +197,18 @@ create_env () {
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
   clean_pyc
 
-  "$POETRY_HOME/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
+  "$poetry_home_root/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
 
   if [ -d "$repo_root/.git" ]; then
     echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
-    "$POETRY_HOME/bin/poetry" run pre-commit install
+    "$poetry_home_root/bin/poetry" run pre-commit install
   fi
 }
 
 install_runtime_dependencies () {
   # Directories
   echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$POETRY_HOME/bin/poetry" ]; then
+  if [ -f "$poetry_home_root/bin/poetry" ]; then
     echo -e "${BIGreen}OK${RST}"
   else
     echo -e "${BIYellow}NOT FOUND${RST}"
@@ -218,7 +219,7 @@ install_runtime_dependencies () {
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Installing runtime dependencies ..."
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py"
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py"
 }
 
 # Main
@@ -239,7 +240,7 @@ build_ayon () {
   clean_pyc
 
   echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$POETRY_HOME/bin/poetry" ]; then
+  if [ -f "$poetry_home_root/bin/poetry" ]; then
     echo -e "${BIGreen}OK${RST}"
   else
     echo -e "${BIYellow}NOT FOUND${RST}"
@@ -254,14 +255,14 @@ build_ayon () {
     git submodule update --init --recursive || { echo -e "${BIRed}!!!${RST} Poetry installation failed"; return 1; }
   fi
   echo -e "${BIGreen}>>>${RST} Building ..."
-  "$POETRY_HOME/bin/poetry" run python -m pip --no-color freeze > "$repo_root/build/requirements.txt"
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/_venv_deps.py"
+  "$poetry_home_root/bin/poetry" run python -m pip --no-color freeze > "$repo_root/build/requirements.txt"
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/_venv_deps.py"
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" build &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+    "$poetry_home_root/bin/poetry" run python "$repo_root/setup.py" build &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    "$POETRY_HOME/bin/poetry" run python "$repo_root/setup.py" bdist_mac &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+    "$poetry_home_root/bin/poetry" run python "$repo_root/setup.py" bdist_mac &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   fi
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
     macoscontents="$repo_root/build/AYON $ayon_version.app/Contents"
@@ -292,7 +293,7 @@ build_ayon () {
 }
 
 make_installer_raw() {
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/build_post_process.py" "make-installer" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/build_post_process.py" "make-installer" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
 }
 
 make_installer() {
@@ -302,13 +303,13 @@ make_installer() {
 }
 
 installer_post_process() {
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/tools/installer_post_process.py" "$@"
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/installer_post_process.py" "$@"
 }
 
 run_from_code() {
   pushd "$repo_root" > /dev/null || return > /dev/null
   echo -e "${BIGreen}>>>${RST} Running AYON from code ..."
-  "$POETRY_HOME/bin/poetry" run python "$repo_root/start.py" "$@"
+  "$poetry_home_root/bin/poetry" run python "$repo_root/start.py" "$@"
 }
 
 create_container () {
@@ -411,10 +412,6 @@ main() {
   detect_python || return_code=$?
   if [ $return_code != 0 ]; then
     exit $return_code
-  fi
-
-  if [[ -z $POETRY_HOME ]]; then
-   export POETRY_HOME="$repo_root/.poetry"
   fi
 
   # Use first argument, lower and keep only characters
