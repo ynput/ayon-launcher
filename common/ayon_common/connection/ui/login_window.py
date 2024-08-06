@@ -961,8 +961,10 @@ class ServerLoginWindow(QtWidgets.QDialog):
         url = self._url_input.text()
         user = get_user(url, token)
         username = user["name"]
+        # Validate username if is forced
         input_username = self._username_input.text()
         if self._force_username and username != input_username:
+            # Different user was used
             self._set_message(
                 "<b>Invalid user</b><br/>"
                 f"- Logged as user '{username}'"
