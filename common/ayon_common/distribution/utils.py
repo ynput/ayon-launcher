@@ -20,11 +20,7 @@ def get_local_dir(*subdirs):
         raise ValueError("Must fill dir_name if nothing else provided!")
 
     local_dir = get_ayon_appdirs(*subdirs)
-    if not os.path.isdir(local_dir):
-        try:
-            os.makedirs(local_dir)
-        except Exception:  # TODO fix exception
-            raise RuntimeError(f"Cannot create {local_dir}")
+    os.makedirs(local_dir, exist_ok=True)
 
     return local_dir
 
