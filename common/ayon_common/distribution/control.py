@@ -285,9 +285,7 @@ class BaseDistributionItem:
         return self._error_detail
 
     def _pre_source_process(self):
-        download_dirpath = self.download_dirpath
-        if not os.path.isdir(download_dirpath):
-            os.makedirs(download_dirpath)
+        os.makedirs(self.download_dirpath, exist_ok=True)
 
     def _receive_file(self, source_data, source_progress, downloader):
         """Receive source filepath using source data and downloader.
@@ -679,8 +677,8 @@ class InstallerDistributionItem(BaseDistributionItem):
         install_root = os.path.dirname(os.path.dirname(sys.executable))
 
         self.log.info(f"Installing AYON launcher {filepath} into:\n{install_root}")
-        if not os.path.exists(install_root):
-            os.makedirs(install_root)
+
+        os.makedirs(install_root, exist_ok=True)
 
         try:
             extract_archive_file(filepath, install_root)
@@ -839,7 +837,7 @@ class DistributionItem(BaseDistributionItem):
             shutil.rmtree(unzip_dirpath)
 
         # Create directory
-        os.makedirs(unzip_dirpath)
+        os.makedirs(unzip_dirpath, exist_ok=True)
 
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
@@ -1731,12 +1729,9 @@ class AyonDistribution:
         Args:
             filepath (str): Path to json file.
             data (Union[Dict[str, Any], List[Any]]): Data to store into file.
-        """
 
-        if not os.path.exists(filepath):
-            dirpath = os.path.dirname(filepath)
-            if not os.path.exists(dirpath):
-                os.makedirs(dirpath)
+        """
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
 
