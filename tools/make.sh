@@ -146,7 +146,7 @@ install_poetry () {
   ssl_command="import ssl;print(1 if ssl.OPENSSL_VERSION_INFO < (1, 1, 1) else 0)"
   local downgrade_urllib
   downgrade_urllib="$("$poetry_home_root/venv/bin/python" <<< ${ssl_command})"
-  if [ $downgrade_urllib -eq "1" ]; then
+  if [ "$downgrade_urllib" -eq "1" ]; then
     echo -e "${BIGreen}>>>${RST} Installing older urllib3 ..."
     "$poetry_home_root/venv/bin/python" -m pip install urllib3==1.26.16
   fi
