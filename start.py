@@ -415,7 +415,7 @@ def set_addons_environments():
         os.environ.update(env)
 
 
-def _connect_to_ayon_server(force=False):
+def _connect_to_ayon_server(force=False, username=None):
     """Connect to AYON server.
 
     Load existing credentials to AYON server, and show login dialog if are not
@@ -428,8 +428,9 @@ def _connect_to_ayon_server(force=False):
 
     Args:
         force (Optional[bool]): Force login to server.
-    """
+        username (Optional[str]): Username that will be forced to use.
 
+    """
     if force and HEADLESS_MODE_ENABLED:
         _print("!!! Login UI was requested in headless mode.")
         sys.exit(1)
@@ -437,7 +438,7 @@ def _connect_to_ayon_server(force=False):
     load_environments()
     need_server = need_api_key = True
     if not force:
-        need_server, need_api_key = need_server_or_login()
+        need_server, need_api_key = need_server_or_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
     if not need_server and not need_api_key:
@@ -473,7 +474,12 @@ def _connect_to_ayon_server(force=False):
         sys.exit(1)
 
     # Show login dialog
-    url, token, username = ask_to_login_ui(current_url, always_on_top=False)
+    url, token, username = ask_to_login_ui(
+        current_url,
+        always_on_top=False,
+        username=username,
+        force_username=bool(username)
+    )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
         return
@@ -863,6 +869,10 @@ def process_uri():
     response = requests.get(f"{server_url}/api/actions/take/{token}")
     # TODO validate response
     data = response.json()
+    username = data.get("userName")
+
+    os.environ[SERVER_URL_ENV_KEY] = server_url
+    _connect_to_ayon_server(username=username)
     variant = data["variant"]
 
     # Cleanup environemnt variables
