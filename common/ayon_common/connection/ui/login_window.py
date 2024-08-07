@@ -971,8 +971,8 @@ class ServerLoginWindow(QtWidgets.QDialog):
             # Different user was used
             self._set_message(
                 "<b>Invalid user</b>"
-                f"<br/>You're logged as '{input_username}' in your default"
-                f" browser but user '{username}' should be used."
+                f"<br/>You're logged as '{username}' in your default"
+                f" browser but user '{input_username}' should be used."
                 "<br/>Please change user in your default browser, or login"
                 " using credentials."
             )
