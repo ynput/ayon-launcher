@@ -359,6 +359,8 @@ from ayon_common.distribution import (  # noqa E402
 from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
     get_local_site_id,
+    get_launcher_local_dir,
+    get_launcher_storage_dir,
 )
 from ayon_common.startup import show_startup_error  # noqa E402
 
@@ -732,6 +734,11 @@ def boot():
     _start_distribution()
     store_current_executable_info()
     fill_pythonpath()
+
+    # Call launcher storage dir getters to make sure their
+    #   env variables are set
+    get_launcher_local_dir()
+    get_launcher_storage_dir()
 
 
 def _on_main_addon_missing():
