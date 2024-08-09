@@ -57,6 +57,9 @@ Environment variables set during bootstrap:
     - AYON_EXECUTABLE - path to AYON executable
     - AYON_ROOT - path to AYON root directory
     - AYON_MENU_LABEL - label for AYON integrations menu
+    - AYON_LAUNCHER_STORAGE_DIR - dir where addons, dependency packages,
+        shim etc. are stored
+    - AYON_LAUNCHER_LOCAL_DIR - dir where machine specific files are stored
     - AYON_ADDONS_DIR - path to AYON addons directory
     - AYON_DEPENDENCIES_DIR - path to AYON dependencies directory
 
@@ -78,6 +81,8 @@ Some of the environment variables are not in this script but in 'ayon_common'
 module.
 - Function 'create_global_connection' can change 'AYON_USE_DEV' and
     'AYON_USE_STAGING'.
+- Bootstrap will set 'AYON_LAUNCHER_STORAGE_DIR' and 'AYON_LAUNCHER_LOCAL_DIR'
+    if are not set yet.
 - Distribution logic can set 'AYON_ADDONS_DIR' and 'AYON_DEPENDENCIES_DIR'
     if are not set yet.
 """
