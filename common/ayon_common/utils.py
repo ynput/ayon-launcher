@@ -41,6 +41,71 @@ def get_ayon_appdirs(*args):
     )
 
 
+def get_launcher_storage_dir(
+    *subdirs: str,
+    create: Optional[bool] = False
+) -> str:
+    """Get storage directory for launcher.
+
+    Storage directory is used for storing shims, addons, dependencies, etc.
+
+    It is not recommended, but the location can be shared across
+        multiple machines.
+
+    Note:
+        This function should be called at least once on bootstrap.
+
+    Args:
+        *subdirs (str): Subdirectories relative to storage dir.
+        create (Optional[bool]): Create the folder if it does not exist.
+
+    Returns:
+        str: Path to storage directory.
+
+    """
+    storage_dir = os.getenv("AYON_LAUNCHER_STORAGE_DIR")
+    if not storage_dir:
+        storage_dir = get_ayon_appdirs()
+        os.environ["AYON_LAUNCHER_STORAGE_DIR"] = storage_dir
+
+    path = os.path.join(storage_dir, *subdirs)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_launcher_local_dir(
+    *subdirs: str,
+    create: Optional[bool] = False
+) -> str:
+    """Get local directory for launcher.
+
+    Local directory is used for storing machine or user specific data.
+
+    The location is user specific.
+
+    Note:
+        This function should be called at least once on bootstrap.
+
+    Args:
+        *subdirs (str): Subdirectories relative to local dir.
+        create (Optional[bool]): Create the folder if it does not exist.
+
+    Returns:
+        str: Path to local directory.
+
+    """
+    storage_dir = os.getenv("AYON_LAUNCHER_LOCAL_DIR")
+    if not storage_dir:
+        storage_dir = get_ayon_appdirs()
+        os.environ["AYON_LAUNCHER_LOCAL_DIR"] = storage_dir
+
+    path = os.path.join(storage_dir, *subdirs)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
 def is_staging_enabled() -> bool:
     """Check if staging is enabled.
 
