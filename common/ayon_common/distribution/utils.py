@@ -2,7 +2,6 @@ import os
 import json
 import subprocess
 import tempfile
-from typing import Optional
 
 from ayon_common.utils import get_launcher_storage_dir, get_ayon_launch_args
 
