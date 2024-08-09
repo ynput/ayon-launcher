@@ -144,6 +144,7 @@ Environment variables that are set during startup:
 > Environment variables **AYON_ADDONS_DIR** and **AYON_DEPENDENCIES_DIR** by default lead relative to **AYON_LAUNCHER_STORAGE_DIR**.
 > - **AYON_ADDONS_DIR** -> `{AYON_LAUNCHER_STORAGE_DIR}/addons`
 > - **AYON_DEPENDENCIES_DIR** -> `{AYON_LAUNCHER_STORAGE_DIR}/dependency_packages`
+> Changing their values will change where addons and dependency packages are stored even if you change **AYON_LAUNCHER_STORAGE_DIR**!
 
 - **AYON_MENU_LABEL** - Label for AYON menu -> TODO move to openpype addon.
 - **PYBLISH_GUI** - Default pyblish UI that should be used in pyblish -> TODO move to openpype addon.
