@@ -79,8 +79,7 @@ def get_servers_info_data():
     servers_info_path = _get_servers_path()
     if not os.path.exists(servers_info_path):
         dirpath = os.path.dirname(servers_info_path)
-        if not os.path.exists(dirpath):
-            os.makedirs(dirpath)
+        os.makedirs(dirpath, exist_ok=True)
 
         return data
 
