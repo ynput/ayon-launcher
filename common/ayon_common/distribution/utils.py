@@ -2,27 +2,10 @@ import os
 import json
 import subprocess
 import tempfile
+import warnings
+from typing import Optional
 
-from ayon_common.utils import get_ayon_appdirs, get_ayon_launch_args
-
-
-def get_local_dir(*subdirs):
-    """Get product directory in user's home directory.
-
-    Each user on machine have own local directory where are downloaded updates,
-    addons etc.
-
-    Returns:
-        str: Path to product local directory.
-    """
-
-    if not subdirs:
-        raise ValueError("Must fill dir_name if nothing else provided!")
-
-    local_dir = get_ayon_appdirs(*subdirs)
-    os.makedirs(local_dir, exist_ok=True)
-
-    return local_dir
+from ayon_common.utils import get_launcher_storage_dir, get_ayon_launch_args
 
 
 def get_addons_dir():
@@ -40,7 +23,9 @@ def get_addons_dir():
 
     addons_dir = os.environ.get("AYON_ADDONS_DIR")
     if not addons_dir:
-        addons_dir = get_local_dir("addons")
+        addons_dir = get_launcher_storage_dir(
+            "addons", create=True
+        )
         os.environ["AYON_ADDONS_DIR"] = addons_dir
     return addons_dir
 
@@ -60,7 +45,9 @@ def get_dependencies_dir():
 
     dependencies_dir = os.environ.get("AYON_DEPENDENCIES_DIR")
     if not dependencies_dir:
-        dependencies_dir = get_local_dir("dependency_packages")
+        dependencies_dir = get_launcher_storage_dir(
+            "dependency_packages", create=True
+        )
         os.environ["AYON_DEPENDENCIES_DIR"] = dependencies_dir
     return dependencies_dir
 

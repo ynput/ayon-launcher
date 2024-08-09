@@ -158,7 +158,7 @@ def get_local_site_id() -> str:
     if site_id:
         return site_id
 
-    site_id_path = get_ayon_appdirs("site_id")
+    site_id_path = get_launcher_local_dir("site_id")
     if os.path.exists(site_id_path):
         with open(site_id_path, "r") as stream:
             site_id = stream.read()
@@ -196,7 +196,7 @@ def get_executables_info_filepath() -> str:
         str: Path to json file where executables info are stored.
 
     """
-    return get_ayon_appdirs("executables.json")
+    return get_launcher_local_dir("executables.json")
 
 
 def _get_default_executable_info() -> ExecutablesInfo:

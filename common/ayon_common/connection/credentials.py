@@ -27,7 +27,7 @@ from ayon_api.utils import (
 )
 
 from ayon_common.utils import (
-    get_ayon_appdirs,
+    get_launcher_local_dir,
     get_local_site_id,
     get_ayon_launch_args,
 )
@@ -56,7 +56,7 @@ class ChangeUserResult:
 
 
 def _get_servers_path():
-    return get_ayon_appdirs("used_servers.json")
+    return get_launcher_local_dir("used_servers.json")
 
 
 def _get_ui_dir_path(*args) -> str:
