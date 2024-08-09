@@ -140,7 +140,7 @@ Environment variables that are set during startup:
 > - macOS: `~/Library/Application Support/AYON`
 > It is required to set the environment variables before AYON launcher is started as it is required for bootstrap.
 
-> [!NOTE]
+> [!TIP]
 > Environment variables **AYON_ADDONS_DIR** and **AYON_DEPENDENCIES_DIR** by default lead relative to **AYON_LAUNCHER_STORAGE_DIR**.
 > - **AYON_ADDONS_DIR** -> `{AYON_LAUNCHER_STORAGE_DIR}/addons`
 > - **AYON_DEPENDENCIES_DIR** -> `{AYON_LAUNCHER_STORAGE_DIR}/dependency_packages`
