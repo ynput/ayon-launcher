@@ -129,7 +129,7 @@ Environment variables that are set during startup:
 - **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
 - **AYON_ROOT** - Root to AYON launcher content.
 - **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. At own risk can be shared (NOT TESTED).
-- **AYON_LAUNCHER_LOCAL_DIR** - Directory where are stored user/machine specific files.
+- **AYON_LAUNCHER_LOCAL_DIR** - Directory where are stored user/machine specific files. This MUST NOT be shared.
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 
