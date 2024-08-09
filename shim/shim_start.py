@@ -27,6 +27,31 @@ def get_ayon_appdirs(*args):
     )
 
 
+def get_launcher_local_dir(*subdirs: str) -> str:
+    """Get local directory for launcher.
+
+    Local directory is used for storing machine or user specific data.
+
+    The location is user specific.
+
+    Note:
+        This function should be called at least once on bootstrap.
+
+    Args:
+        *subdirs (str): Subdirectories relative to local dir.
+
+    Returns:
+        str: Path to local directory.
+
+    """
+    storage_dir = os.getenv("AYON_LAUNCHER_LOCAL_DIR")
+    if not storage_dir:
+        storage_dir = get_ayon_appdirs()
+        os.environ["AYON_LAUNCHER_LOCAL_DIR"] = storage_dir
+
+    return os.path.join(storage_dir, *subdirs)
+
+
 # Store executables info to a file
 def get_executables_info_filepath():
     """Get path to file where information about executables is stored.
@@ -35,7 +60,7 @@ def get_executables_info_filepath():
         str: Path to json file where executables info are stored.
     """
 
-    return get_ayon_appdirs("executables.json")
+    return get_launcher_local_dir("executables.json")
 
 
 def get_executables_info():
