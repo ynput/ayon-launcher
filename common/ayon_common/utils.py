@@ -6,6 +6,7 @@ import datetime
 import subprocess
 import zipfile
 import tarfile
+import warnings
 from uuid import UUID
 from typing import Optional, Iterable, List, Dict, Tuple, Any
 
@@ -25,7 +26,7 @@ IMPLEMENTED_ARCHIVE_FORMATS = {
 ExecutablesInfo = Dict[str, Any]
 
 
-def get_ayon_appdirs(*args):
+def _get_ayon_appdirs(*args):
     """Local app data directory of AYON launcher.
 
     Args:
@@ -33,12 +34,38 @@ def get_ayon_appdirs(*args):
 
     Returns:
         str: Path to directory/file in local app data dir.
-    """
 
+    """
     return os.path.join(
         appdirs.user_data_dir("AYON", "Ynput"),
         *args
     )
+
+
+def get_ayon_appdirs(*args):
+    """Local app data directory of AYON launcher.
+
+    Deprecated:
+        The function was replaced with 'get_launcher_local_dir'
+            or 'get_launcher_storage_dir' based on usage.
+        Deprecated since 1.1.0 .
+
+    Args:
+        *args (Iterable[str]): Subdirectories/files in local app data dir.
+
+    Returns:
+        str: Path to directory/file in local app data dir.
+
+    """
+    warnings.warn(
+        (
+            "Function 'get_ayon_appdirs' is deprecated. Should be replaced"
+            " with 'get_launcher_local_dir' or 'get_launcher_storage_dir'"
+            " based on use-case."
+        ),
+        DeprecationWarning
+    )
+    return _get_ayon_appdirs(*args)
 
 
 def get_launcher_storage_dir(
@@ -65,7 +92,7 @@ def get_launcher_storage_dir(
     """
     storage_dir = os.getenv("AYON_LAUNCHER_STORAGE_DIR")
     if not storage_dir:
-        storage_dir = get_ayon_appdirs()
+        storage_dir = _get_ayon_appdirs()
         os.environ["AYON_LAUNCHER_STORAGE_DIR"] = storage_dir
 
     path = os.path.join(storage_dir, *subdirs)
@@ -97,7 +124,7 @@ def get_launcher_local_dir(
     """
     storage_dir = os.getenv("AYON_LAUNCHER_LOCAL_DIR")
     if not storage_dir:
-        storage_dir = get_ayon_appdirs()
+        storage_dir = _get_ayon_appdirs()
         os.environ["AYON_LAUNCHER_LOCAL_DIR"] = storage_dir
 
     path = os.path.join(storage_dir, *subdirs)
