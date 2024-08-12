@@ -9,7 +9,8 @@ from cx_Freeze import setup, Executable
 ayon_root = Path(os.path.dirname(__file__))
 resources_dir = ayon_root.parent / "common" / "ayon_common" / "resources"
 
-__version__ = "1.0.0"
+with open(ayon_root / "version", "r") as stream:
+    __version__ = stream.read().strip()
 
 low_platform_name = platform.system().lower()
 IS_WINDOWS = low_platform_name == "windows"
