@@ -117,7 +117,7 @@ def get_ayon_version(ayon_root):
 
 
 def _build_shim_windows(
-    dst_shim_root: Path, dist_root: Path, ayon_root: Path, version: str
+    dst_shim_root: Path, dist_root: Path, version: str
 ):
     iscc_executable = _find_iscc()
 
@@ -235,7 +235,7 @@ def copy_shim_to_build(ayon_root, build_content_root):
     platform_name = platform.system().lower()
     if platform_name == "windows":
         shim_installer_path = _build_shim_windows(
-            dst_shim_root, dist_root, ayon_root, version
+            dst_shim_root, dist_root, version
         )
     elif platform_name == "linux":
         shim_installer_path = _build_shim_linux(
