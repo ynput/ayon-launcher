@@ -286,12 +286,6 @@ build_ayon () {
   echo -e "${BIGreen}>>>${RST} Building ..."
   "$poetry_home_root/bin/poetry" run python -m pip --no-color freeze > "$repo_root/build/requirements.txt"
   "$poetry_home_root/bin/poetry" run python "$repo_root/tools/_venv_deps.py"
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    "$poetry_home_root/bin/poetry" run python "$repo_root/setup.py" build &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    "$poetry_home_root/bin/poetry" run python "$repo_root/setup.py" bdist_mac &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  fi
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
 
   build_command="build"
   if [[ "$OSTYPE" == "darwin"* ]]; then
