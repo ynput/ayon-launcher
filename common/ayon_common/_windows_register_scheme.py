@@ -44,7 +44,9 @@ def _update_reg_in_subprocess(shim_icon_path, shim_command):
         tmp_path = tmp.name
 
     executable = sys.executable
-    command = subprocess.list2cmdline([SCRIPT_PATH, tmp_path])
+    command = subprocess.list2cmdline(
+        ["--skip-bootstrap", SCRIPT_PATH, tmp_path]
+    )
     try:
         process_info = ShellExecuteEx(
             nShow=win32con.SW_SHOWNORMAL,
