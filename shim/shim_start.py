@@ -288,6 +288,8 @@ def _run_argvemulator(timeout: float = 60.0):
             # This does raise error
             # - 'TypeError: an integer is required (got type c_void_p)'
             # not sure what to do about it...
+            # Looks like '/usr/bin/osascript' is set in '_' env variable
+            #   when custom scheme is launcher, could be used?
             sts = carbon.AEProcessEvent(event)
             if sts != 0:
                 print("argvemulator warning: processing events failed")
