@@ -285,6 +285,9 @@ def _run_argvemulator(timeout: float = 60.0):
                 print("argvemulator warning: fetching events failed")
                 break
 
+            # This does raise error
+            # - 'TypeError: an integer is required (got type c_void_p)'
+            # not sure what to do about it...
             sts = carbon.AEProcessEvent(event)
             if sts != 0:
                 print("argvemulator warning: processing events failed")
