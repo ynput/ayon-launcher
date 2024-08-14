@@ -307,6 +307,8 @@ def _run_argvemulator(timeout: float = 60.0):
 
 
 def macos_main() -> None:
+    if platform.system().lower() != "darwin":
+        return
     # only use if started by LaunchServices
     _run_argvemulator()
 
@@ -513,6 +515,5 @@ def main():
 
 
 if __name__ == "__main__":
-    if macos_main is not None:
-        macos_main()
+    macos_main()
     main()
