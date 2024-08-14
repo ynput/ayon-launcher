@@ -345,6 +345,7 @@ from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
 from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
+    load_token,
     need_server_or_login,
     load_environments,
     create_global_connection,
@@ -872,6 +873,9 @@ def process_uri():
     username = data.get("userName")
 
     os.environ[SERVER_URL_ENV_KEY] = server_url
+    token = load_token(server_url)
+    if token:
+        os.environ[SERVER_API_ENV_KEY] = token
 
     _connect_to_ayon_server(username=username)
     variant = data["variant"]
