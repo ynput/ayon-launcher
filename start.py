@@ -859,7 +859,7 @@ def process_uri():
     if parsed_uri.scheme != "ayon-launcher":
         return False
 
-    # NOTE This is expecting only singlo option of ayon-launcher launch option
+    # NOTE This is expecting only single option of ayon-launcher launch option
     #   which is ayon-launcher://action/?server_url=...&token=...
     parsed_query = parse_qs(parsed_uri.query)
 
@@ -873,20 +873,18 @@ def process_uri():
 
     os.environ[SERVER_URL_ENV_KEY] = server_url
 
+    _connect_to_ayon_server(username=username)
+    variant = data["variant"]
+
     # Cleanup environemnt variables
     env = os.environ.copy()
     # Remove all possible clash env keys
-    # - removing 'AYON_API_KEY' removes option to have set
-    # the env variable globaly on machine
     for key in {
         "AYON_API_KEY",
         "AYON_USE_STAGING",
         "AYON_USE_DEV",
     }:
         env.pop(key, None)
-
-    _connect_to_ayon_server(username=username)
-    variant = data["variant"]
 
     # Set new environment variables based on information from server
     if variant == "staging":
