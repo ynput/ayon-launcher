@@ -747,6 +747,11 @@ def _deploy_shim_linux(installer_shim_root):
         desktop_path = os.path.join(desktop_root, desktop_filename)
         if not os.path.exists(desktop_path):
             os.symlink(dst_desktop_executable, desktop_path)
+
+    # Update desktop database
+    # TODO validate if desktop database is updated and somehow show to user?
+    # - the installation also happens on headless machines
+    subprocess.run(["update-desktop-database", apps_dir])
     return True
 
 
