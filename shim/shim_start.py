@@ -511,6 +511,16 @@ def main():
     # - replace start python script path when running from code
     args = list(sys.argv)
     args[0] = executable_path
+    if platform.system().lower() == "darwin":
+        # Trigger new process and close this one on macOs
+        # - we just lost track about the process which can be issue
+        #   if shim is used for validation if process finished
+        mac_args = ["open", "-na", args.pop(0)]
+        if args:
+            mac_args.append("--args")
+            mac_args.extend(args)
+        sys.exit(subprocess.call(mac_args))
+
     sys.exit(subprocess.call(args))
 
 
