@@ -694,7 +694,6 @@ class InstallerDistributionItem(BaseDistributionItem):
         self.log.info(f"Setting executable to {executable}")
         self._executable = executable
 
-
     def _install_macos(self, filepath):
         """Install macOS AYON launcher.
 
@@ -759,6 +758,10 @@ class InstallerDistributionItem(BaseDistributionItem):
             self._install_linux(filepath)
         elif platform_name == "darwin":
             self._install_macos(filepath)
+        else:
+            raise InstallerDistributionError(
+                f"Unsupported platform: {platform_name}"
+            )
 
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader

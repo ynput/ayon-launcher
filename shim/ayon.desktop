@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=AYON
+GenericName=AYON
+Comment=Launch AYON launcher applications
+TryExec={ayon_exe_root}/ayon
+Exec={ayon_exe_root}/ayon %u
+Icon={ayon_exe_root}/AYON.png
+Terminal=false
+Type=Application
+MimeType=x-scheme-handler/ayon-launcher;application/ayon-launcher;
+SingleMainWindow=false
+Keywords=AYON;
+Actions=Staging;
+
+[Desktop Action Staging]
+Name=AYON (staging)
+Exec={ayon_exe_root}/ayon --use-staging %u
+Icon={ayon_exe_root}/AYON_staging.png

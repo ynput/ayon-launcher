@@ -259,7 +259,9 @@ def store_token(url: str, token: str):
 
 def ask_to_login_ui(
     url: Optional[str] = None,
-    always_on_top: Optional[bool] = False
+    always_on_top: Optional[bool] = False,
+    username: Optional[str] = None,
+    force_username: Optional[bool] = False
 ) -> tuple[str, str, str]:
     """Ask user to login using UI.
 
@@ -273,6 +275,8 @@ def ask_to_login_ui(
         url (Optional[str]): Server url that could be prefilled in UI.
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
+        username (Optional[str]): Username that will be prefilled in UI.
+        force_username (Optional[bool]): Username will be locked.
 
     Returns:
         tuple[str, str, str]: Url, user's token and username.
@@ -281,11 +285,15 @@ def ask_to_login_ui(
     ui_dir = _get_ui_dir_path()
     if url is None:
         url = get_last_server()
-    username = get_last_username_by_url(url)
+
+    if not username:
+        username = get_last_username_by_url(url)
+
     data = {
         "url": url,
         "username": username,
         "always_on_top": always_on_top,
+        "force_username": force_username,
     }
 
     with tempfile.NamedTemporaryFile(
@@ -500,7 +508,9 @@ def create_global_connection():
     )
 
 
-def is_token_valid(url: str, token: str) -> bool:
+def is_token_valid(
+    url: str, token: str, expected_username: Optional[str] = None
+) -> bool:
     """Check if token is valid.
 
     Note:
@@ -513,16 +523,22 @@ def is_token_valid(url: str, token: str) -> bool:
     Args:
         url (str): Server url.
         token (str): User's token.
+        expected_username (Optional[str]): Token must belong to user with
+            this username. Ignored if is 'None'.
 
     Returns:
         bool: True if token is valid.
     """
 
     api = ayon_api.ServerAPI(url, token)
-    return api.has_valid_token
+    if not api.has_valid_token:
+        return False
+    if expected_username:
+        return expected_username == api.get_user()["name"]
+    return True
 
 
-def need_server_or_login() -> tuple[bool, bool]:
+def need_server_or_login(username: Optional[str] = None) -> tuple[bool, bool]:
     """Check if server url or login to the server are needed.
 
     It is recommended to call 'load_environments' on startup before this check.
@@ -544,11 +560,11 @@ def need_server_or_login() -> tuple[bool, bool]:
 
     token = os.environ.get(SERVER_API_ENV_KEY)
     if token:
-        return False, not is_token_valid(server_url, token)
+        return False, not is_token_valid(server_url, token, username)
 
     token = load_token(server_url)
     if token:
-        return False, not is_token_valid(server_url, token)
+        return False, not is_token_valid(server_url, token, username)
     return False, True
 
 
