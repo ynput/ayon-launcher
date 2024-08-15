@@ -86,9 +86,11 @@ import os
 import platform
 import sys
 import site
+import time
 import traceback
 import contextlib
 import subprocess
+from urllib.parse import urlparse, parse_qs
 
 from version import __version__
 
@@ -287,6 +289,7 @@ os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
+import requests  # noqa: E402
 
 
 if sys.__stdout__:
@@ -342,6 +345,7 @@ from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
 from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
+    load_token,
     need_server_or_login,
     load_environments,
     create_global_connection,
@@ -358,6 +362,7 @@ from ayon_common.distribution import (  # noqa E402
 
 from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
+    deploy_ayon_launcher_shims,
     get_local_site_id,
 )
 from ayon_common.startup import show_startup_error  # noqa E402
@@ -411,7 +416,7 @@ def set_addons_environments():
         os.environ.update(env)
 
 
-def _connect_to_ayon_server(force=False):
+def _connect_to_ayon_server(force=False, username=None):
     """Connect to AYON server.
 
     Load existing credentials to AYON server, and show login dialog if are not
@@ -424,8 +429,9 @@ def _connect_to_ayon_server(force=False):
 
     Args:
         force (Optional[bool]): Force login to server.
-    """
+        username (Optional[str]): Username that will be forced to use.
 
+    """
     if force and HEADLESS_MODE_ENABLED:
         _print("!!! Login UI was requested in headless mode.")
         sys.exit(1)
@@ -433,7 +439,7 @@ def _connect_to_ayon_server(force=False):
     load_environments()
     need_server = need_api_key = True
     if not force:
-        need_server, need_api_key = need_server_or_login()
+        need_server, need_api_key = need_server_or_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
     if not need_server and not need_api_key:
@@ -469,7 +475,12 @@ def _connect_to_ayon_server(force=False):
         sys.exit(1)
 
     # Show login dialog
-    url, token, username = ask_to_login_ui(current_url, always_on_top=False)
+    url, token, username = ask_to_login_ui(
+        current_url,
+        always_on_top=False,
+        username=username,
+        force_username=bool(username)
+    )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
         return
@@ -711,6 +722,18 @@ def _start_distribution():
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
+def init_launcher_executable():
+    """Initialize AYON launcher executable.
+
+    Make sure current AYON launcher executable is stored to known executables
+        and shim is deployed.
+
+    """
+    create_desktop_icons = "--create-desktop-icons" in sys.argv
+    store_current_executable_info()
+    deploy_ayon_launcher_shims(create_desktop_icons=create_desktop_icons)
+
+
 def fill_pythonpath():
     """Fill 'sys.path' with paths from PYTHONPATH environment variable."""
     lookup_set = set(sys.path)
@@ -721,7 +744,8 @@ def fill_pythonpath():
 
 
 def boot():
-    """Bootstrap AYON."""
+    """Bootstrap AYON launcher."""
+    init_launcher_executable()
 
     # Setup site id in environment variable for all possible subprocesses
     if SITE_ID_ENV_KEY not in os.environ:
@@ -730,7 +754,6 @@ def boot():
     _connect_to_ayon_server()
     create_global_connection()
     _start_distribution()
-    store_current_executable_info()
     fill_pythonpath()
 
 
@@ -825,6 +848,92 @@ def _main_cli_openpype():
         _print("!!! AYON crashed:")
         traceback.print_exception(*exc_info)
         sys.exit(1)
+
+
+def process_uri():
+    if len(sys.argv) <= 1:
+        return False
+
+    uri = sys.argv[-1].strip('"')
+
+    parsed_uri = urlparse(uri)
+    if parsed_uri.scheme != "ayon-launcher":
+        return False
+
+    # NOTE This is expecting only single option of ayon-launcher launch option
+    #   which is ayon-launcher://action/?server_url=...&token=...
+    parsed_query = parse_qs(parsed_uri.query)
+
+    server_url = parsed_query["server_url"][0]
+    token = parsed_query["token"][0]
+    # Use raw requests to get all necessary information from server
+    response = requests.get(f"{server_url}/api/actions/take/{token}")
+    # TODO validate response
+    data = response.json()
+    username = data.get("userName")
+
+    os.environ[SERVER_URL_ENV_KEY] = server_url
+    token = load_token(server_url)
+    if token:
+        os.environ[SERVER_API_ENV_KEY] = token
+
+    _connect_to_ayon_server(username=username)
+    variant = data["variant"]
+
+    # Cleanup environemnt variables
+    env = os.environ.copy()
+    # Remove all possible clash env keys
+    for key in {
+        "AYON_API_KEY",
+        "AYON_USE_STAGING",
+        "AYON_USE_DEV",
+    }:
+        env.pop(key, None)
+
+    # Set new environment variables based on information from server
+    if variant == "staging":
+        env["AYON_USE_STAGING"] = "1"
+
+    elif variant != "production":
+        env["AYON_USE_DEV"] = "1"
+        env["AYON_BUNDLE_NAME"] = variant
+
+    # We're always in logic mode when running URI
+    env["AYON_IN_LOGIN_MODE"] = "1"
+
+    # Add executable to args
+    uri_args = data["args"]
+    args = [sys.executable]
+    if not IS_BUILT_APPLICATION:
+        args.append(os.path.abspath(__file__))
+    args += uri_args
+
+    kwargs = {"env": env}
+    low_platform = platform.system().lower()
+    if low_platform == "darwin":
+        new_args = ["open", "-na", args.pop(0), "--args"]
+        new_args.extend(args)
+        args = new_args
+
+    elif low_platform == "windows":
+        flags = (
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS
+        )
+        kwargs["creationflags"] = flags
+
+        if not sys.stdout:
+            kwargs["stdout"] = subprocess.DEVNULL
+            kwargs["stderr"] = subprocess.DEVNULL
+
+    process = subprocess.Popen(args, **kwargs)
+    # Make sure process is running
+    # NOTE there might be a better way to do it?
+    for _ in range(5):
+        if process.pid is not None:
+            break
+        time.sleep(0.1)
+    return True
 
 
 def main_cli():
@@ -974,6 +1083,11 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 
 def main():
+    # AYON launcher was started to initialize itself
+    if "init-ayon-launcher" in sys.argv:
+        init_launcher_executable()
+        sys.exit(0)
+
     if SHOW_LOGIN_UI:
         if HEADLESS_MODE_ENABLED:
             _print((
@@ -982,6 +1096,9 @@ def main():
             ))
             sys.exit(1)
         _connect_to_ayon_server(True)
+
+    if process_uri():
+        sys.exit(0)
 
     if SKIP_BOOTSTRAP:
         fill_pythonpath()

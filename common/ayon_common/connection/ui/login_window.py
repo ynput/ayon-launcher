@@ -505,6 +505,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._credentials_are_valid = None
         self._result = (None, None, None, False)
         self._first_show = True
+        self._force_username = False
 
         self._allow_logout = False
         self._logged_in = False
@@ -530,6 +531,19 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def set_username(self, username):
         self._username_preview.setText(username)
         self._username_input.setText(username)
+
+    def set_force_username(self, force_username: bool):
+        """Force filled username.
+
+        User cannot change username if enabled.
+
+        Args:
+            force_username (bool): If True, username will be forced.
+
+        """
+        self._force_username = force_username
+        self._username_input.setEnabled(not force_username)
+        self._url_input.setEnabled(not force_username)
 
     def set_logged_in(
         self,
@@ -915,13 +929,16 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._server_handler.start()
         self._server_timer.start()
 
-    def _on_server_cancel(self):
+    def _stop_server_handler(self):
         server_handler, self._server_handler = self._server_handler, None
         if server_handler is None:
             return
 
         server_handler.stop()
         self._set_overlay_visible(False)
+
+    def _on_server_cancel(self):
+        self._stop_server_handler()
 
     def _on_server_timer(self):
         if self._server_handler is None:
@@ -940,17 +957,37 @@ class ServerLoginWindow(QtWidgets.QDialog):
             self._server_timer_counter += 1
             return
 
-        url = self._url_input.text()
-        user = get_user(url, token)
-
-        self._server_handler.stop()
+        # Stop server and timer
+        self._stop_server_handler()
         self._server_timer.stop()
 
-        self._result = (url, token, user["name"], False)
+        # Collect user data
+        url = self._url_input.text()
+        user = get_user(url, token)
+        username = user["name"]
+        # Validate username if is forced
+        input_username = self._username_input.text()
+        if self._force_username and username != input_username:
+            # Different user was used
+            self._set_message(
+                "<b>Invalid user</b>"
+                f"<br/>You're logged as '{username}' in your default"
+                f" browser but user '{input_username}' should be used."
+                "<br/>Please change user in your default browser, or login"
+                " using credentials."
+            )
+            return
+
+        self._result = (url, token, username, False)
         self.accept()
 
 
-def ask_to_login(url=None, username=None, always_on_top=False):
+def ask_to_login(
+    url=None,
+    username=None,
+    force_username=None,
+    always_on_top=False
+):
     """Ask user to login using Qt dialog.
 
     Function creates new QApplication if is not created yet.
@@ -958,6 +995,8 @@ def ask_to_login(url=None, username=None, always_on_top=False):
     Args:
         url (Optional[str]): Server url that will be prefilled in dialog.
         username (Optional[str]): Username that will be prefilled in dialog.
+        force_username (Optional[bool]): If True, username passed to function
+            will be forced.
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
 
@@ -980,6 +1019,10 @@ def ask_to_login(url=None, username=None, always_on_top=False):
 
     if username:
         window.set_username(username)
+
+    if force_username is None:
+        force_username = False
+    window.set_force_username(force_username)
 
     if not app_instance.startingUp():
         window.show()

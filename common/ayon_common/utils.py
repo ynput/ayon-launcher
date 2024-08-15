@@ -6,9 +6,11 @@ import datetime
 import subprocess
 import zipfile
 import tarfile
+import shutil
 from uuid import UUID
 
 import appdirs
+import semver
 from ayon_api.constants import SITE_ID_ENV_KEY
 
 DATE_FMT = "%Y-%m-%d %H:%M:%S"
@@ -620,3 +622,221 @@ def validate_file_checksum(filepath, checksum, checksum_algorithm):
     """
 
     return checksum == calculate_file_checksum(filepath, checksum_algorithm)
+
+
+# --- SHIM information ---
+def is_windows_launcher_protocol_registered():
+    from ._windows_register_scheme import is_reg_set
+
+    return is_reg_set()
+
+
+def register_windows_launcher_protocol():
+    from ._windows_register_scheme import set_reg
+
+    return set_reg(get_shim_executable_path())
+
+
+def _get_shim_executable_root():
+    """Root to shim executable.
+
+    Returns:
+        str: Path to root or shim executable.
+
+    """
+    platform_name = platform.system().lower()
+    if platform_name in ("windows", "linux"):
+        return get_ayon_appdirs("shim")
+    return "/Applications/AYON.app/Contents/MacOS"
+
+
+def get_shim_executable_path():
+    """Path to shim executable.
+
+    It is not validated if shim exists.
+
+    Returns:
+        str: Path where shim executable should be found.
+
+    """
+    filename = "ayon"
+    if platform.system().lower() == "windows":
+        filename += ".exe"
+    return os.path.join(_get_shim_executable_root(), filename)
+
+
+def _get_installed_shim_version():
+    """Get installed shim version.
+
+    Returns:
+        str: Shim version. When shim is not installed, '0.0.0' is returned.
+
+    """
+    version_root = _get_shim_executable_root()
+    dst_shim_version = "0.0.0"
+    if platform.system().lower() == "darwin":
+        contents_dir = os.path.dirname(version_root)
+        version_root = os.path.join(contents_dir, "Resources")
+
+    dst_shim_version_path = os.path.join(version_root, "version")
+    if os.path.exists(dst_shim_version_path):
+        with open(dst_shim_version_path, "r") as stream:
+            dst_shim_version = stream.read().strip()
+    return dst_shim_version
+
+
+def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
+    """Deploy shim executable on Windows.
+
+    Windows shim is deployed using exe installer.
+
+    Args:
+        installer_shim_root (str): Path to installer root.
+        create_desktop_icons (bool): Create icon shortcuts.
+
+    """
+    args = [
+        os.path.join(installer_shim_root, "shim.exe"),
+        "/CURRENTUSER",
+        "/NOCANCEL",
+    ]
+    if not HEADLESS_MODE_ENABLED:
+        args.append("/SILENT")
+    else:
+        args.append("/VERYSILENT")
+
+    if create_desktop_icons:
+        args.append('/TASKS="desktopicon"')
+    code = subprocess.call(args)
+    if code != 0:
+        return False
+    return register_windows_launcher_protocol()
+
+
+def _deploy_shim_linux(installer_shim_root):
+    """Deploy shim executable on Linux.
+
+    Linux shim is deployed using zip file exported to appdirs.
+
+    Args:
+        installer_shim_root (str): Path to installer root.
+
+    """
+    executable_root = _get_shim_executable_root()
+    os.makedirs(executable_root, exist_ok=True)
+    extract_archive_file(
+        os.path.join(installer_shim_root, "shim.tar.gz"),
+        executable_root
+    )
+
+    # Add 'ayon.desktop' to applications
+    desktop_filename = "ayon.desktop"
+    apps_dir = os.path.expanduser("~/.local/share/applications")
+    src_desktop_executable = os.path.join(executable_root, desktop_filename)
+    dst_desktop_executable = os.path.join(apps_dir, desktop_filename)
+    shutil.copy(src_desktop_executable, apps_dir)
+    with open(dst_desktop_executable, "r") as stream:
+        data = stream.read()
+    data = data.replace("{ayon_exe_root}", executable_root)
+    with open(dst_desktop_executable, "w") as stream:
+        stream.write(data)
+
+    # Symlink to desktop if has desktop and does not yet exist
+    desktop_root = os.path.expanduser("~/Desktop")
+    if os.path.exists(desktop_root):
+        desktop_path = os.path.join(desktop_root, desktop_filename)
+        if not os.path.exists(desktop_path):
+            os.symlink(dst_desktop_executable, desktop_path)
+
+    # Update desktop database
+    # TODO validate if desktop database is updated and somehow show to user?
+    # - the installation also happens on headless machines
+    subprocess.run(["update-desktop-database", apps_dir])
+    return True
+
+
+def _deploy_shim_macos(installer_shim_root):
+    """Deploy shim executable on macOS.
+
+    MacOS shim is deployed using dmg file exported to '/Applications'.
+
+    Args:
+        installer_shim_root (str): Path to installer root.
+
+    """
+    import plistlib
+
+    filepath = os.path.join(installer_shim_root, "shim.dmg")
+    # Attach dmg file and read plist output (bytes)
+    stdout = subprocess.check_output([
+        "hdiutil", "attach", filepath, "-plist", "-nobrowse"
+    ])
+    hdi_mounted_volume = None
+    try:
+        # Parse plist output and find mounted volume
+        attach_info = plistlib.loads(stdout)
+        mounted_volumes = []
+        for entity in attach_info["system-entities"]:
+            mounted_volume = entity.get("mount-point")
+            if mounted_volume:
+                mounted_volumes.append(mounted_volume)
+
+        # We do expect there is only one .app in .dmg file
+        src_path = None
+        for mounted_volume in mounted_volumes:
+            for filename in os.listdir(mounted_volume):
+                if filename.endswith(".app"):
+                    hdi_mounted_volume = mounted_volume
+                    src_path = os.path.join(mounted_volume, filename)
+                    break
+
+        # Copy the .app file to /Applications
+        dst_dir = "/Applications"
+        subprocess.run(["cp", "-rf", src_path, dst_dir])
+
+    finally:
+        # Detach mounted volume
+        if hdi_mounted_volume:
+            subprocess.run(["hdiutil", "detach", hdi_mounted_volume])
+
+
+def deploy_ayon_launcher_shims(create_desktop_icons=False):
+    """Deploy shim executables for AYON launcher.
+
+    Args:
+        create_desktop_icons (Optional[bool]): Create desktop shortcuts. Used
+            only on windows.
+
+    """
+    if not IS_BUILT_APPLICATION:
+        return
+
+    # Validate platform name
+    platform_name = platform.system().lower()
+    if platform_name not in ("windows", "linux", "darwin"):
+        raise ValueError("Unsupported platform {}".format(platform_name))
+
+    executable_root = os.path.dirname(sys.executable)
+    installer_shim_root = os.path.join(executable_root, "shim")
+
+    with open(os.path.join(installer_shim_root, "shim.json"), "r") as stream:
+        shim_data = json.load(stream)
+
+    src_shim_version = semver.VersionInfo.parse(shim_data["version"])
+
+    # Read existing shim version (if there is any)
+    dst_shim_version = _get_installed_shim_version()
+
+    # Skip if shim is same or lower
+    if src_shim_version <= semver.VersionInfo.parse(dst_shim_version):
+        return
+
+    platform_name = platform.system().lower()
+    if platform_name == "windows":
+        _deploy_shim_windows(installer_shim_root, create_desktop_icons)
+
+    elif platform_name == "linux":
+        _deploy_shim_linux(installer_shim_root)
+
+    elif platform_name == "darwin":
+        _deploy_shim_macos(installer_shim_root)
