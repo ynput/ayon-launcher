@@ -6,8 +6,10 @@ import datetime
 import subprocess
 import zipfile
 import tarfile
+import warnings
 import shutil
 from uuid import UUID
+from typing import Optional, Iterable, List, Dict, Tuple, Any
 
 import appdirs
 import semver
@@ -23,8 +25,10 @@ IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
 
+ExecutablesInfo = Dict[str, Any]
 
-def get_ayon_appdirs(*args):
+
+def _get_ayon_appdirs(*args):
     """Local app data directory of AYON launcher.
 
     Args:
@@ -32,43 +36,134 @@ def get_ayon_appdirs(*args):
 
     Returns:
         str: Path to directory/file in local app data dir.
-    """
 
+    """
     return os.path.join(
         appdirs.user_data_dir("AYON", "Ynput"),
         *args
     )
 
 
-def is_staging_enabled():
+def get_ayon_appdirs(*args):
+    """Local app data directory of AYON launcher.
+
+    Deprecated:
+        The function was replaced with 'get_launcher_local_dir'
+            or 'get_launcher_storage_dir' based on usage.
+        Deprecated since 1.1.0 .
+
+    Args:
+        *args (Iterable[str]): Subdirectories/files in local app data dir.
+
+    Returns:
+        str: Path to directory/file in local app data dir.
+
+    """
+    warnings.warn(
+        (
+            "Function 'get_ayon_appdirs' is deprecated. Should be replaced"
+            " with 'get_launcher_local_dir' or 'get_launcher_storage_dir'"
+            " based on use-case."
+        ),
+        DeprecationWarning
+    )
+    return _get_ayon_appdirs(*args)
+
+
+def get_launcher_storage_dir(
+    *subdirs: str,
+    create: Optional[bool] = False
+) -> str:
+    """Get storage directory for launcher.
+
+    Storage directory is used for storing shims, addons, dependencies, etc.
+
+    It is not recommended, but the location can be shared across
+        multiple machines.
+
+    Note:
+        This function should be called at least once on bootstrap.
+
+    Args:
+        *subdirs (str): Subdirectories relative to storage dir.
+        create (Optional[bool]): Create the folder if it does not exist.
+
+    Returns:
+        str: Path to storage directory.
+
+    """
+    storage_dir = os.getenv("AYON_LAUNCHER_STORAGE_DIR")
+    if not storage_dir:
+        storage_dir = _get_ayon_appdirs()
+        os.environ["AYON_LAUNCHER_STORAGE_DIR"] = storage_dir
+
+    path = os.path.join(storage_dir, *subdirs)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_launcher_local_dir(
+    *subdirs: str,
+    create: Optional[bool] = False
+) -> str:
+    """Get local directory for launcher.
+
+    Local directory is used for storing machine or user specific data.
+
+    The location is user specific.
+
+    Note:
+        This function should be called at least once on bootstrap.
+
+    Args:
+        *subdirs (str): Subdirectories relative to local dir.
+        create (Optional[bool]): Create the folder if it does not exist.
+
+    Returns:
+        str: Path to local directory.
+
+    """
+    storage_dir = os.getenv("AYON_LAUNCHER_LOCAL_DIR")
+    if not storage_dir:
+        storage_dir = _get_ayon_appdirs()
+        os.environ["AYON_LAUNCHER_LOCAL_DIR"] = storage_dir
+
+    path = os.path.join(storage_dir, *subdirs)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
+def is_staging_enabled() -> bool:
     """Check if staging is enabled.
 
     Returns:
         bool: True if staging is enabled.
-    """
 
+    """
     return os.getenv("AYON_USE_STAGING") == "1"
 
 
-def is_dev_mode_enabled():
+def is_dev_mode_enabled() -> bool:
     """Check if dev is enabled.
 
     A dev bundle is used when dev is enabled.
 
     Returns:
         bool: Dev is enabled.
-    """
 
+    """
     return os.getenv("AYON_USE_DEV") == "1"
 
 
-def _create_local_site_id():
+def _create_local_site_id() -> str:
     """Create a local site identifier.
 
     Returns:
         str: Randomly generated site id.
-    """
 
+    """
     from coolname import generate_slug
 
     new_id = generate_slug(3)
@@ -78,21 +173,21 @@ def _create_local_site_id():
     return new_id
 
 
-def get_local_site_id():
+def get_local_site_id() -> str:
     """Get local site identifier.
 
     Site id is created if does not exist yet.
 
     Returns:
         str: Site id.
-    """
 
+    """
     # used for background syncing
     site_id = os.environ.get(SITE_ID_ENV_KEY)
     if site_id:
         return site_id
 
-    site_id_path = get_ayon_appdirs("site_id")
+    site_id_path = get_launcher_local_dir("site_id")
     if os.path.exists(site_id_path):
         with open(site_id_path, "r") as stream:
             site_id = stream.read()
@@ -105,7 +200,7 @@ def get_local_site_id():
     return site_id
 
 
-def get_ayon_launch_args(*args):
+def get_ayon_launch_args(*args: str) -> List[str]:
     """Launch arguments that can be used to launch ayon process.
 
     Args:
@@ -113,8 +208,8 @@ def get_ayon_launch_args(*args):
 
     Returns:
         list[str]: Launch arguments.
-    """
 
+    """
     output = [sys.executable]
     if not IS_BUILT_APPLICATION:
         output.append(os.path.join(os.environ["AYON_ROOT"], "start.py"))
@@ -123,24 +218,26 @@ def get_ayon_launch_args(*args):
 
 
 # Store executables info to a file
-def get_executables_info_filepath():
+def get_executables_info_filepath() -> str:
     """Get path to file where information about executables is stored.
 
     Returns:
         str: Path to json file where executables info are stored.
+
     """
+    return get_launcher_local_dir("executables.json")
 
-    return get_ayon_appdirs("executables.json")
 
-
-def _get_default_executable_info():
+def _get_default_executable_info() -> ExecutablesInfo:
     return {
         "file_version": "1.0.1",
         "available_versions": []
     }
 
 
-def get_executables_info(check_cleanup=True):
+def get_executables_info(
+    check_cleanup: Optional[bool] = True
+) -> ExecutablesInfo:
     filepath = get_executables_info_filepath()
     if not os.path.exists(filepath):
         return _get_default_executable_info()
@@ -173,7 +270,7 @@ def get_executables_info(check_cleanup=True):
     return get_executables_info(check_cleanup=False)
 
 
-def store_executables_info(info):
+def store_executables_info(info: ExecutablesInfo):
     """Store information about executables.
 
     This will override existing information so use it wisely.
@@ -186,7 +283,7 @@ def store_executables_info(info):
         json.dump(info, stream, indent=4)
 
 
-def load_version_from_file(filepath):
+def load_version_from_file(filepath: str) -> str:
     """Execute python file and return '__version__' variable."""
 
     with open(filepath, "r") as stream:
@@ -196,7 +293,7 @@ def load_version_from_file(filepath):
     return version_globals["__version__"]
 
 
-def load_version_from_root(root):
+def load_version_from_root(root: str) -> Optional[str]:
     """Get version of executable.
 
     Args:
@@ -204,8 +301,8 @@ def load_version_from_root(root):
 
     Returns:
         Union[str, None]: Version of executable.
-    """
 
+    """
     version = None
     if not root or not os.path.exists(root):
         return version
@@ -221,7 +318,7 @@ def load_version_from_root(root):
     return version
 
 
-def load_executable_version(executable):
+def load_executable_version(executable: str) -> Optional[str]:
     """Get version of executable.
 
     Args:
@@ -229,22 +326,20 @@ def load_executable_version(executable):
 
     Returns:
         Union[str, None]: Version of executable.
-    """
 
+    """
     if not executable:
         return None
     return load_version_from_root(os.path.dirname(executable))
 
 
-def store_executables(executables, cleaned_up=False):
+def store_executables(executables: Iterable[str]):
     """Store information about executables.
 
     Args:
         executables (Iterable[str]): Paths to executables.
-        cleaned_up (Optional[bool]): If True, executables are considered
-            as cleaned up.
-    """
 
+    """
     info = get_executables_info(check_cleanup=False)
     info.setdefault("available_versions", [])
 
@@ -299,15 +394,17 @@ def store_current_executable_info():
 
     Todos:
         Don't store executable if is located inside 'ayon-launcher' codebase?
-    """
 
+    """
     if not IS_BUILT_APPLICATION:
         return
 
     store_executables([sys.executable])
 
 
-def get_executables_info_by_version(version, validate=True):
+def get_executables_info_by_version(
+    version: str, validate: Optional[bool] = True
+) -> List[Dict[str, Any]]:
     """Get available executable info by version.
 
     Args:
@@ -316,8 +413,8 @@ def get_executables_info_by_version(version, validate=True):
 
     Returns:
         list[dict[str, Any]]: Executable info matching version.
-    """
 
+    """
     info = get_executables_info()
     available_versions = info.setdefault("available_versions", [])
     if validate:
@@ -338,13 +435,13 @@ def get_executables_info_by_version(version, validate=True):
     ]
 
 
-def get_executable_paths_by_version(version):
+def get_executable_paths_by_version(version: str) -> List[str]:
     """Get executable paths by version.
 
     Returns:
         list[str]: Paths to executables.
-    """
 
+    """
     return [
         item["executable"]
         for item in get_executables_info_by_version(version, validate=True)
@@ -380,14 +477,14 @@ class _Cache:
     downloads_dir = 0
 
 
-def _get_linux_downloads_dir():
+def _get_linux_downloads_dir() -> str:
     return subprocess.run(
         ["xdg-user-dir", "DOWNLOAD"],
         capture_output=True, text=True
     ).stdout.strip("\n")
 
 
-def _get_windows_downloads_dir():
+def _get_windows_downloads_dir() -> Optional[str]:
     import ctypes
     from ctypes import windll, wintypes
 
@@ -421,7 +518,7 @@ def _get_windows_downloads_dir():
     return pathptr.value
 
 
-def _get_macos_downloads_dir():
+def _get_macos_downloads_dir() -> Optional[str]:
     """Get downloads directory on MacOS.
 
     Notes:
@@ -429,12 +526,12 @@ def _get_macos_downloads_dir():
 
     Returns:
         Union[str, None]: Path to downloads directory or None if not found.
-    """
 
+    """
     return None
 
 
-def get_downloads_dir():
+def get_downloads_dir() -> str:
     """Downloads directory path.
 
     Each platform may use different approach how the downloads directory is
@@ -442,8 +539,8 @@ def get_downloads_dir():
 
     Returns:
         Union[str, None]: Path to downloads directory or None if not found.
-    """
 
+    """
     if _Cache.downloads_dir != 0:
         return _Cache.downloads_dir
 
@@ -487,12 +584,12 @@ class ZipFileLongPaths(zipfile.ZipFile):
             else:
                 tpath = "\\\\?\\" + tpath
 
-        return super(ZipFileLongPaths, self)._extract_member(
-            member, tpath, pwd
-        )
+        return super()._extract_member(member, tpath, pwd)
 
 
-def get_archive_ext_and_type(archive_file):
+def get_archive_ext_and_type(
+    archive_file: str
+) -> Tuple[Optional[str], Optional[str]]:
     """Get archive extension and type.
 
     Args:
@@ -500,8 +597,8 @@ def get_archive_ext_and_type(archive_file):
 
     Returns:
         Tuple[str, str]: Archive extension and type.
-    """
 
+    """
     tmp_name = archive_file.lower()
     if tmp_name.endswith(".zip"):
         return ".zip", "zip"
@@ -519,15 +616,15 @@ def get_archive_ext_and_type(archive_file):
     return None, None
 
 
-def extract_archive_file(archive_file, dst_folder=None):
+def extract_archive_file(archive_file: str, dst_folder: Optional[str] = None):
     """Extract archived file to a directory.
 
     Args:
         archive_file (str): Path to a archive file.
         dst_folder (Optional[str]): Directory where content will be extracted.
             By default, same folder where archive file is.
-    """
 
+    """
     if not dst_folder:
         dst_folder = os.path.dirname(archive_file)
 
@@ -567,7 +664,9 @@ def extract_archive_file(archive_file, dst_folder=None):
         tar_file.close()
 
 
-def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
+def calculate_file_checksum(
+    filepath: str, checksum_algorithm: str, chunk_size: Optional[int]=10000
+):
     """Calculate file checksum for given algorithm.
 
     Args:
@@ -581,8 +680,8 @@ def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
 
     Raises:
         ValueError: File not found or unknown checksum algorithm.
-    """
 
+    """
     import hashlib
 
     if not filepath:
@@ -606,7 +705,9 @@ def calculate_file_checksum(filepath, checksum_algorithm, chunk_size=10000):
     return hash_obj.hexdigest()
 
 
-def validate_file_checksum(filepath, checksum, checksum_algorithm):
+def validate_file_checksum(
+    filepath: str, checksum: str, checksum_algorithm: str
+) -> bool:
     """Validate file checksum.
 
     Args:
@@ -619,8 +720,8 @@ def validate_file_checksum(filepath, checksum, checksum_algorithm):
 
     Raises:
         ValueError: File not found or unknown checksum algorithm.
-    """
 
+    """
     return checksum == calculate_file_checksum(filepath, checksum_algorithm)
 
 
@@ -628,7 +729,7 @@ def validate_file_checksum(filepath, checksum, checksum_algorithm):
 def is_windows_launcher_protocol_registered():
     from ._windows_register_scheme import is_reg_set
 
-    return is_reg_set()
+    return is_reg_set(get_shim_executable_path())
 
 
 def register_windows_launcher_protocol():
@@ -646,7 +747,7 @@ def _get_shim_executable_root():
     """
     platform_name = platform.system().lower()
     if platform_name in ("windows", "linux"):
-        return get_ayon_appdirs("shim")
+        return get_launcher_local_dir("shim")
     return "/Applications/AYON.app/Contents/MacOS"
 
 
@@ -706,7 +807,7 @@ def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
         args.append("/VERYSILENT")
 
     if create_desktop_icons:
-        args.append('/TASKS="desktopicon"')
+        args.append("/TASKS=desktopicon")
     code = subprocess.call(args)
     if code != 0:
         return False
