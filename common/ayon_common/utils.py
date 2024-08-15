@@ -747,7 +747,7 @@ def _get_shim_executable_root():
     """
     platform_name = platform.system().lower()
     if platform_name in ("windows", "linux"):
-        return get_launcher_storage_dir("shim")
+        return get_launcher_local_dir("shim")
     return "/Applications/AYON.app/Contents/MacOS"
 
 
