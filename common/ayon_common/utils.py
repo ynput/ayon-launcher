@@ -807,7 +807,7 @@ def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
         args.append("/VERYSILENT")
 
     if create_desktop_icons:
-        args.append('/TASKS="desktopicon"')
+        args.append("/TASKS=desktopicon")
     code = subprocess.call(args)
     if code != 0:
         return False
