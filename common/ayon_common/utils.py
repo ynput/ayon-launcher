@@ -729,7 +729,7 @@ def validate_file_checksum(
 def is_windows_launcher_protocol_registered():
     from ._windows_register_scheme import is_reg_set
 
-    return is_reg_set()
+    return is_reg_set(get_shim_executable_path())
 
 
 def register_windows_launcher_protocol():
