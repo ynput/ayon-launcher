@@ -257,7 +257,6 @@ os.environ["USE_AYON_SERVER"] = "1"
 os.environ["AYON_EXECUTABLE"] = sys.executable
 os.environ["AYON_ROOT"] = AYON_ROOT
 os.environ["AYON_MENU_LABEL"] = "AYON"
-os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
