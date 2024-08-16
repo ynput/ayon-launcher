@@ -19,7 +19,7 @@ Desktop application also deploys AYON shim, which acts as bridge for different v
 
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
 
-#Shim
+Shim
 ------------
 
 AYON shim is a small executable that knows where to find "real" executable of AYON launcher.
