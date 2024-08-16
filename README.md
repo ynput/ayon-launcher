@@ -15,7 +15,26 @@ Desktop application launcher for AYON pipeline. You need AYON launcher to be abl
 
 The main purpose of application is to distribute updates based on current server state and to start main logic of core addon. At this moment core addon is `openpype` (this will change in near future).
 
+Desktop application also deploys AYON shim, which acts as bridge for different versions of AYON launcher. More information [here](#shim).
+
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
+
+#Shim
+------------
+
+AYON shim is a small executable that knows where to find "real" executable of AYON launcher.
+
+Usage of shim:
+1. Handle custom uri protocol scheme `ayon-launcher://` which is used for running web actions.
+2. Path to shim executable can be used for shortcuts and automations, so you don't need to worry about updating the path on AYON launcher update. This might be useful e.g. for Deadline plugin.
+
+> [!CAUTION]
+> Shim on macOs does not wait for AYON launcher to finish, so it cannot be used for automations. Only possible way would be to use AYON launcher directly.
+
+Shim is installed with AYON launcher, or on first run of AYON launcher. It is installed to app data which is based on OS, or to `{AYON_LAUNCHER_LOCAL_DIR}/shim/` directory if `AYON_LAUNCHER_LOCAL_DIR` environment variable is set.
+
+Windows installation requires admin privileges, you'll be prompted for them on installation of AYON launcher.
+
 
 Building AYON Desktop application
 ------------
