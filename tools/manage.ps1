@@ -5,7 +5,7 @@
 .DESCRIPTION
   This script will detect Python installation, create venv with Poetry
   and install all necessary packages from `poetry.lock` or `pyproject.toml`
-  needed by OpenPype to be included during application freeze on Windows.
+  needed by AYON launcher to be included during application freeze on Windows.
 
 .EXAMPLE
 
@@ -155,7 +155,7 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
         Write-Color -Text "WARNING Version ", "[ ",  $p, " ]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
-        Write-Color -Text "*** ", "OpenPype supports only Python 3.9" -Color Yellow, White
+        Write-Color -Text "*** ", "AYON launcher supports only Python 3.9" -Color Yellow, White
     } else {
         Write-Color "OK ", "[ ",  $p, " ]" -Color Green, Cyan, White, Cyan
     }

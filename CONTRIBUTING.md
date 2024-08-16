@@ -3,7 +3,7 @@ We are always happy for any contributions for AYON improvements. Before making a
 
 #### **Did you find a bug?**
 
-1. Check in the [issues](https://github.com/ynput/OpenPype/issues) to make sure it wasn't reported already.
+1. Check in the [issues](https://github.com/ynput/ayon-launcher/issues) to make sure it wasn't reported already.
 2. Ask on our [discord](https://discord.gg/ynput) Often, what appears as a bug, might be the intended behaviour for someone else.
 3. Create a new issue.
 4. Use the issue template for you PR please.

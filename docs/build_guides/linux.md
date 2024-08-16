@@ -96,7 +96,7 @@ exec $SHELL
 pyenv install -v 3.9.13
 
 # change path to repository
-cd /path/to/OpenPype
+cd /path/to/ayon-launcher
 
 # set local python version
 pyenv local 3.9.13

@@ -1,4 +1,4 @@
-"""Launch process that is not child process of python or OpenPype.
+"""Launch process that is not child process of python or AYON launcher.
 
 This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.

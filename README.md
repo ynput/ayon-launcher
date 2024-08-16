@@ -13,7 +13,7 @@ Introduction
 
 Desktop application launcher for AYON pipeline. You need AYON launcher to be able to interact with any of the integrated applications. It acts as the main entry point into the pipeline for all artists publishing and loading data with AYON. Even though AYON launcher is a standalone desktop application, it doesn't do anything until it's connected to an AYON server instance.
 
-The main purpose of application is to distribute updates based on current server state and to start main logic of core addon. At this moment core addon is `openpype` (this will change in near future).
+The main purpose of application is to distribute updates based on current server state and to start main logic of core addon. At this moment core addon is `ayon_core`.
 
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
 
@@ -103,7 +103,7 @@ Startup
 -------------
 Once AYON launcher is installed and launched there are few ways how to affect what will happen. Default behavior will ask for login to server, if user did not log in yet, then starts distribution of updates, and last step is to start the main logic.
 
-Main logic is now using command line handling from `openpype` addon. If path to python script is passed it will start the python script as main logic instead.
+Main logic is now using command line handling from `ayon_core` addon. If path to python script is passed it will start the python script as main logic instead.
 
 ### Arguments
 There are reserver global arguments that cannot be used in any cli handling:
@@ -147,21 +147,9 @@ Environment variables that are set during startup:
 > - **AYON_DEPENDENCIES_DIR** -> `{AYON_LAUNCHER_STORAGE_DIR}/dependency_packages`
 > Changing their values will change where addons and dependency packages are stored even if you change **AYON_LAUNCHER_STORAGE_DIR**!
 
-- **AYON_MENU_LABEL** - Label for AYON menu -> TODO move to openpype addon.
-- **PYBLISH_GUI** - Default pyblish UI that should be used in pyblish -> TODO move to openpype addon.
-- **USE_AYON_SERVER** - Flag for openpype addon.
+- **AYON_MENU_LABEL** - Label for AYON menu -> TODO move to ayon_core addon.
 
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
-
-Environment variables that are set for backwards compatibility with openpype addon:
-- **OPENPYPE_LOG_LEVEL** - Alias to **AYON_LOG_LEVEL**.
-- **OPENPYPE_DEBUG** - Alias to **AYON_DEBUG**.
-- **OPENPYPE_USE_STAGING** - Alias to **AYON_USE_STAGING**.
-- **OPENPYPE_HEADLESS_MODE** - Alias to **AYON_HEADLESS_MODE**.
-- **OPENPYPE_EXECUTABLE** - Alias to **AYON_EXECUTABLE**.
-- **OPENPYPE_ROOT** - Alias to **AYON_ROOT**.
-- **OPENPYPE_REPOS_ROOT** - Alias to **AYON_ROOT**.
-- **AVALON_LABEL** - Alias to **AYON_MENU_LABEL**.
 
 
 ## Developer mode
