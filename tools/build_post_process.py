@@ -199,7 +199,6 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
     with open(plist_path, "wb") as stream:
         plistlib.dump(data, stream)
 
-
     args = [
         "create-dmg",
         "--volname", "AYON-shim-installer",
