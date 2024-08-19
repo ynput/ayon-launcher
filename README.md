@@ -24,13 +24,12 @@ Usage of shim:
 1. Handle custom uri protocol scheme `ayon-launcher://` which is used for running web actions.
 2. Path to shim executable can be used for shortcuts and automations, so you don't need to worry about updating the path on AYON launcher update. This might be useful e.g. for Deadline plugin.
 
-> [!CAUTION]
-> Shim on macOs does not wait for AYON launcher to finish, so it cannot be used for automations. Only possible way would be to use AYON launcher directly.
-
 Shim is installed with AYON launcher, or on first run of AYON launcher. It is installed to app data which is based on OS, or to `{AYON_LAUNCHER_LOCAL_DIR}/shim/` directory if `AYON_LAUNCHER_LOCAL_DIR` environment variable is set.
 
 Windows installation requires admin privileges, you'll be prompted for them on installation of AYON launcher.
 
+> [!CAUTION]
+> Shim on macOs is installed to `/Applications/AYON.app`. To be able to use it in automation which waits for AYON launcher to finish then you have to use full path to executable `/Applications/AYON.app/Contents/MacOS/ayon`.
 
 Building AYON Desktop application
 ------------
