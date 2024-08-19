@@ -84,6 +84,18 @@ if IS_WINDOWS:
         )
     )
 
+if IS_MACOS:
+    # Main executable of AYON.app will be 'ayon_macos'
+    executables.insert(
+        0,
+        Executable(
+            "macos_start.py",
+            target_name="ayon_macos",
+            icon=icon_path
+        )
+    )
+
+
 setup(
     name="AYON-shim",
     version=__version__,
