@@ -297,6 +297,7 @@ def _run_argvemulator(timeout: float = 60.0):
 
 
 def main():
+    _run_argvemulator()
     # Trigger new process and close this
     # - we just lost track about the process which can be issue
     #   if shim is used for validation if process finished
