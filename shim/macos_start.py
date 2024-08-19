@@ -5,8 +5,6 @@ import ctypes
 import time
 import subprocess
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
 # Copyright (c) 2004 Bob Ippolito.
 # Copyright (c) 2010-2024 Ronald Oussoren
 # macOs process initialization sourced from https://github.com/ronaldoussoren/py2app/blob/master/src/py2app/bootstrap/_argv_emulator.py  noqa: E501
@@ -303,7 +301,11 @@ def main():
     # - we just lost track about the process which can be issue
     #   if shim is used for validation if process finished
     args = list(sys.argv)
-    args[0] = os.path.join(CURRENT_DIR, "ayon")
+    if getattr(sys, "frozen", False):
+        macos_root = os.path.dirname(sys.executable)
+    else:
+        macos_root = os.path.dirname(os.path.abspath(__file__))
+    args[0] = os.path.join(macos_root, "ayon")
 
     mac_args = ["open", "-na", args.pop(0)]
     if args:
