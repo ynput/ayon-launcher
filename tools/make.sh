@@ -235,6 +235,7 @@ fix_macos_build () {
   macoscontents="$1"
   macosdir="$macoscontents/MacOS"
   ayonexe="$macosdir/ayon"
+  ayonmacosexe="$macosdir/ayon_macos"
   tmp_ayonexe="$macosdir/ayon_tmp"
   # force hide icon from Dock
   defaults write "$macoscontents/Info" LSUIElement 1
@@ -246,9 +247,18 @@ fix_macos_build () {
   rm "$ayonexe"
   mv "$tmp_ayonexe" "$ayonexe"
 
+  if [ -f "$ayonmacosexe" ]; then
+    cp "$ayonmacosexe" "$tmp_ayonexe"
+    rm "$ayonmacosexe"
+    mv "$tmp_ayonexe" "$ayonmacosexe"
+  fi
+
   # fix code signing issue
   echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
   codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+  if [ -f "$ayonmacosexe" ]; then
+    codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+  fi
 }
 # Main
 build_ayon () {
