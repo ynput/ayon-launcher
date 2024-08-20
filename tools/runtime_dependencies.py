@@ -78,11 +78,11 @@ def _pip_install(runtime_dep_root, package, version=None):
     try:
         subprocess.run(
             [
-                sys.executable,
-                "-m", "pip",
+                "uv",
+                "pip",
                 "install",
                 "--upgrade", arg,
-                "-t", str(python_vendor_dir)
+                "--target", str(python_vendor_dir)
             ],
             check=True,
             stdout=subprocess.DEVNULL
