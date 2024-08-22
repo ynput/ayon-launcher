@@ -378,6 +378,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         # --- Credentials inputs ---
         user_cred_layout = QtWidgets.QGridLayout(user_cred_widget)
         user_cred_layout.setContentsMargins(0, 0, 0, 0)
+        user_cred_layout.setSpacing(6)
         row = 0
 
         user_cred_layout.addWidget(url_label, row, 0, 1, 1)
@@ -445,6 +446,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         footer_layout = QtWidgets.QHBoxLayout(footer_widget)
         footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(6)
         footer_layout.addWidget(logout_btn, 0)
         footer_layout.addWidget(user_message, 1)
         footer_layout.addWidget(login_btn, 0)
@@ -452,12 +454,15 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         login_bg_layout = QtWidgets.QVBoxLayout(login_bg_widget)
         login_bg_layout.setContentsMargins(0, 0, 0, 0)
+        login_bg_layout.setSpacing(6)
         login_bg_layout.addWidget(login_widget, 0)
         login_bg_layout.addWidget(message_label, 0)
         login_bg_layout.addStretch(1)
         login_bg_layout.addWidget(footer_widget, 0)
 
         main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(6)
         main_layout.addWidget(login_bg_widget, 1)
 
         # --- Overlay ---
