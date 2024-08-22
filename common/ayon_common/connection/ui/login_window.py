@@ -429,6 +429,18 @@ class ServerLoginWindow(QtWidgets.QDialog):
         login_btn = QtWidgets.QPushButton("Login", footer_widget)
         confirm_btn = QtWidgets.QPushButton("Confirm", footer_widget)
 
+        # Disable default button behavior
+        # - it is handled based on current input state
+        for btn in (
+            show_password_btn,
+            login_ayon_btn,
+            logout_btn,
+            login_btn,
+            confirm_btn,
+        ):
+            btn.setDefault(False)
+            btn.setAutoDefault(False)
+
         footer_layout = QtWidgets.QHBoxLayout(footer_widget)
         footer_layout.setContentsMargins(0, 0, 0, 0)
         footer_layout.addWidget(logout_btn, 0)
