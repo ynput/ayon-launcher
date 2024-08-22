@@ -750,7 +750,10 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._set_input_valid_state(self._password_input, valid)
 
     def _on_url_enter_press(self):
-        self._set_input_focus(self._username_input)
+        if self._login_ayon_btn.isVisible():
+            self._login_with_ayon_server()
+        else:
+            self._set_input_focus(self._username_input)
 
     def _on_user_change(self, username):
         self._username_preview.setText(username)
