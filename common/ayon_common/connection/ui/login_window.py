@@ -367,6 +367,8 @@ class ServerLoginWindow(QtWidgets.QDialog):
         api_preview.setObjectName("LikeDisabledInput")
 
         show_password_btn = ShowPasswordButton(user_cred_widget)
+        # Cannot be focused, user has to click with mouse
+        show_password_btn.setFocusPolicy(QtCore.Qt.NoFocus)
 
         cred_msg_sep = QtWidgets.QFrame(login_bg_widget)
         cred_msg_sep.setObjectName("Separator")
