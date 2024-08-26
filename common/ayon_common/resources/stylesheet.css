@@ -23,13 +23,18 @@ QPushButton {
     text-align:center center;
     border: 0px solid transparent;
     border-radius: 0.2em;
-    padding: 3px 5px 3px 5px;
+    padding: 4px 6px 4px 6px;
     background: #434a56;
 }
 
 QPushButton:hover {
     background: rgba(168, 175, 189, 0.3);
     color: #F0F2F5;
+}
+
+QPushButton:focus {
+    outline: none;
+    border: 1px solid #91CDFB;
 }
 
 QPushButton:pressed {}
@@ -91,6 +96,10 @@ QLineEdit[state="invalid"] {
 }
 #AYONLoginButton:hover {
     background: #224A5E;
+}
+#AYONLoginButton:focus {
+    outline: none;
+    border: 1px solid #91CDFB;
 }
 
 #OverlayFrame {
