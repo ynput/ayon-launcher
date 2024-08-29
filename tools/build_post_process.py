@@ -588,13 +588,13 @@ def store_base_metadata(build_root, build_content_root, ayon_version):
     """
     platform_name = platform.system().lower()
 
-    os_distro = None
+    distro_short = None
     if platform_name == "linux":
-        os_distro = f"{distro.id()}{distro.major_version()}"
+        distro_short = f"{distro.id()}{distro.major_version()}"
     metadata = {
         "version": ayon_version,
         "platform": platform_name,
-        "distro": os_distro,
+        "distro_short": distro_short,
         "python_version": platform.python_version(),
         "python_modules": get_packages_info(build_root),
         "runtime_python_modules": get_runtime_modules(build_content_root),
@@ -659,7 +659,7 @@ def _create_windows_installer(
     installer_root,
     build_content_root,
     ayon_version,
-    os_distro,
+    _distro_short,
     pyside2_used,
 ):
     """Create Windows installer.
@@ -692,7 +692,7 @@ def _create_linux_installer(
     installer_root,
     build_content_root,
     ayon_version,
-    os_distro,
+    distro_short,
     pyside2_used,
 ):
     """Linux installer is just tar file.
@@ -702,7 +702,7 @@ def _create_linux_installer(
 
     """
     pyside2_suffix = "-pyside2" if pyside2_used else ""
-    basename = f"AYON-{ayon_version}-linux-{os_distro}{pyside2_suffix}"
+    basename = f"AYON-{ayon_version}-linux-{distro_short}{pyside2_suffix}"
     filename = f"{basename}.tar.gz"
     output_path = installer_root / filename
 
@@ -721,7 +721,7 @@ def _create_darwin_installer(
     installer_root,
     _build_content_root,
     ayon_version,
-    _os_distro,
+    _distro_short,
     pyside2_used,
 ):
     """Create MacOS installer (.dmg).
@@ -808,7 +808,7 @@ def store_installer_metadata(build_root, installer_root, installer_path):
 def create_installer(ayon_root, build_root):
     metadata = get_build_metadata(build_root)
     ayon_version = metadata["version"]
-    os_distro = metadata["distro"]
+    distro_short = metadata["distro_short"]
     pyside2_used = "PySide2" in metadata["runtime_python_modules"]
     build_content_root = get_build_content_root(build_root, ayon_version)
     installer_root = build_root / "installer"
@@ -822,7 +822,7 @@ def create_installer(ayon_root, build_root):
         installer_root,
         build_content_root,
         ayon_version,
-        os_distro,
+        distro_short,
         pyside2_used,
     )
     store_installer_metadata(
