@@ -367,6 +367,8 @@ class ServerLoginWindow(QtWidgets.QDialog):
         api_preview.setObjectName("LikeDisabledInput")
 
         show_password_btn = ShowPasswordButton(user_cred_widget)
+        # Cannot be focused, user has to click with mouse
+        show_password_btn.setFocusPolicy(QtCore.Qt.NoFocus)
 
         cred_msg_sep = QtWidgets.QFrame(login_bg_widget)
         cred_msg_sep.setObjectName("Separator")
@@ -376,6 +378,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         # --- Credentials inputs ---
         user_cred_layout = QtWidgets.QGridLayout(user_cred_widget)
         user_cred_layout.setContentsMargins(0, 0, 0, 0)
+        user_cred_layout.setSpacing(6)
         row = 0
 
         user_cred_layout.addWidget(url_label, row, 0, 1, 1)
@@ -429,8 +432,21 @@ class ServerLoginWindow(QtWidgets.QDialog):
         login_btn = QtWidgets.QPushButton("Login", footer_widget)
         confirm_btn = QtWidgets.QPushButton("Confirm", footer_widget)
 
+        # Disable default button behavior
+        # - it is handled based on current input state
+        for btn in (
+            show_password_btn,
+            login_ayon_btn,
+            logout_btn,
+            login_btn,
+            confirm_btn,
+        ):
+            btn.setDefault(False)
+            btn.setAutoDefault(False)
+
         footer_layout = QtWidgets.QHBoxLayout(footer_widget)
         footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(6)
         footer_layout.addWidget(logout_btn, 0)
         footer_layout.addWidget(user_message, 1)
         footer_layout.addWidget(login_btn, 0)
@@ -438,12 +454,15 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         login_bg_layout = QtWidgets.QVBoxLayout(login_bg_widget)
         login_bg_layout.setContentsMargins(0, 0, 0, 0)
+        login_bg_layout.setSpacing(6)
         login_bg_layout.addWidget(login_widget, 0)
         login_bg_layout.addWidget(message_label, 0)
         login_bg_layout.addStretch(1)
         login_bg_layout.addWidget(footer_widget, 0)
 
         main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(6)
         main_layout.addWidget(login_bg_widget, 1)
 
         # --- Overlay ---
@@ -736,7 +755,10 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._set_input_valid_state(self._password_input, valid)
 
     def _on_url_enter_press(self):
-        self._set_input_focus(self._username_input)
+        if self._login_ayon_btn.isVisible():
+            self._login_with_ayon_server()
+        else:
+            self._set_input_focus(self._username_input)
 
     def _on_user_change(self, username):
         self._username_preview.setText(username)
