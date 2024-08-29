@@ -52,6 +52,7 @@ class InstallerInfo:
     version: str
     platform: str
     filename: str
+    distro_short: Union[str, None]
     installer_path: str
     python_version: str
     checksum: str
