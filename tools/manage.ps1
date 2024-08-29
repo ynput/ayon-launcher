@@ -266,6 +266,7 @@ function Default-Func {
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
     Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "ubuntu", "', '", "debian", "', '", "rocky8", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "      --use-pyside2                 Use ", "PySide2", " instead of ", "PySide6", "." -Color White, Cyan, White, Cyan, White
     Write-Host ""
 }
 

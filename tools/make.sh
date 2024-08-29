@@ -434,6 +434,7 @@ default_help() {
   echo "  create-server-package         Create package ready for AYON server"
   echo "  run                           Run desktop application from code"
   echo "  docker-build [variant]        Build AYON using Docker. Variant can be 'debian', 'rocky8' or 'rocky9'"
+  echo "      --use-pyside2                 Use PySide2 instead of PySide6."
   echo ""
 }
 
