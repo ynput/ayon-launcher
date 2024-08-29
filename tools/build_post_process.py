@@ -35,7 +35,10 @@ from pathlib import Path
 
 import blessed
 import enlighten
-import distro
+if platform.system().lower() == "linux":
+    import distro
+else:
+    distro = None
 
 term = blessed.Terminal()
 manager = enlighten.get_manager()
