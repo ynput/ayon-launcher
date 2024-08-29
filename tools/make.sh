@@ -228,7 +228,7 @@ install_runtime_dependencies () {
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Installing runtime dependencies ..."
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py"
+  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py" "$@"
 }
 
 fix_macos_build () {
@@ -426,6 +426,7 @@ default_help() {
   echo "Runtime targets:"
   echo "  create-env                    Install Poetry and update venv by lock file"
   echo "  install-runtime-dependencies  Install runtime dependencies (Qt binding)"
+  echo "      --use-pyside2                 Install PySide2 instead of PySide6."
   echo "  install-runtime               Alias for 'install-runtime-dependencies'"
   echo "  build                         Build desktop application"
   echo "  make-installer                Make desktop application installer"
@@ -454,7 +455,7 @@ main() {
       exit $return_code
       ;;
     "installruntimedependencies"|"installruntime")
-      install_runtime_dependencies || return_code=$?
+      install_runtime_dependencies "${@:2}" || return_code=$?
       exit $return_code
       ;;
     "build"|"buildayon")

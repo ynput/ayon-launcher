@@ -259,6 +259,7 @@ function Default-Func {
     Write-Host "Runtime targets:"
     Write-Color -text "  create-env                    ", "Install Poetry and update venv by lock file" -Color White, Cyan
     Write-Color -text "  install-runtime-dependencies  ", "Install runtime dependencies (Qt binding)" -Color White, Cyan
+    Write-Color -text "      --use-pyside2                 Install ", "PySide2", " instead of ", "PySide6", "." -Color White, Cyan, White, Cyan, White
     Write-Color -text "  install-runtime               ", "Alias for '", "install-runtime-dependencies", "'" -Color White, Cyan, White, Cyan
     Write-Color -text "  build                         ", "Build desktop application" -Color White, Cyan
     Write-Color -text "  make-installer                ", "Make desktop application installer" -Color White, Cyan
@@ -463,7 +464,7 @@ function Install-Runtime-Dependencies() {
         Write-Color -Text "OK" -Color Green
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py" @args
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Dependencies downloaded", "All done in $( $endTime - $startTime ) secs."
@@ -486,7 +487,7 @@ function Main {
     } elseif ($FunctionName -eq "createenv") {
         Create-Env
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
-        Install-Runtime-Dependencies
+        Install-Runtime-Dependencies @arguments
     } elseif ($FunctionName -eq "build") {
         Build-Ayon
     } elseif ($FunctionName -eq "makeinstaller") {
