@@ -35,6 +35,7 @@ from pathlib import Path
 
 import blessed
 import enlighten
+import distro
 
 term = blessed.Terminal()
 manager = enlighten.get_manager()
@@ -582,10 +583,15 @@ def store_base_metadata(build_root, build_content_root, ayon_version):
         build_content_root (Path): Path build content directory.
         ayon_version (str): AYON version.
     """
+    platform_name = platform.system().lower()
 
+    os_distro = None
+    if platform_name == "linux":
+        os_distro = f"{distro.id()}{distro.major_version()}"
     metadata = {
         "version": ayon_version,
-        "platform": platform.system().lower(),
+        "platform": platform_name,
+        "distro": os_distro,
         "python_version": platform.python_version(),
         "python_modules": get_packages_info(build_root),
         "runtime_python_modules": get_runtime_modules(build_content_root),
@@ -649,7 +655,9 @@ def _create_windows_installer(
     _build_root,
     installer_root,
     build_content_root,
-    ayon_version
+    ayon_version,
+    os_distro,
+    pyside2_used,
 ):
     """Create Windows installer.
 
@@ -657,11 +665,12 @@ def _create_windows_installer(
         Path: Path to installer file.
     """
 
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
     iscc_executable = _find_iscc()
 
     inno_setup_path = ayon_root / "inno_setup.iss"
     env = os.environ.copy()
-    installer_basename = f"AYON-{ayon_version}-win-setup"
+    installer_basename = f"AYON-{ayon_version}-win{pyside2_suffix}-setup"
 
     env["BUILD_SRC_DIR"] = str(build_content_root.relative_to(ayon_root))
     env["BUILD_DST_DIR"] = str(installer_root.relative_to(ayon_root))
@@ -679,15 +688,18 @@ def _create_linux_installer(
     _build_root,
     installer_root,
     build_content_root,
-    ayon_version
+    ayon_version,
+    os_distro,
+    pyside2_used,
 ):
     """Linux installer is just tar file.
 
     Returns:
         Path: Path to installer file.
-    """
 
-    basename = f"AYON-{ayon_version}-linux"
+    """
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
+    basename = f"AYON-{ayon_version}-linux-{os_distro}{pyside2_suffix}"
     filename = f"{basename}.tar.gz"
     output_path = installer_root / filename
 
@@ -701,7 +713,13 @@ def _create_linux_installer(
 
 
 def _create_darwin_installer(
-    _ayon_root, build_root, installer_root, _build_content_root, ayon_version
+    _ayon_root,
+    build_root,
+    installer_root,
+    _build_content_root,
+    ayon_version,
+    _os_distro,
+    pyside2_used,
 ):
     """Create MacOS installer (.dmg).
 
@@ -710,10 +728,12 @@ def _create_darwin_installer(
 
     Raises:
         ValueError: If 'create-dmg' is not available.
-    """
 
+    """
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
     app_filepath = _get_darwin_output_path(build_root, ayon_version)
-    output_path = installer_root / f"AYON-{ayon_version}-macos.dmg"
+    filename = f"AYON-{ayon_version}-macos{pyside2_suffix}.dmg"
+    output_path = installer_root / filename
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
@@ -785,6 +805,8 @@ def store_installer_metadata(build_root, installer_root, installer_path):
 def create_installer(ayon_root, build_root):
     metadata = get_build_metadata(build_root)
     ayon_version = metadata["version"]
+    os_distro = metadata["distro"]
+    pyside2_used = "PySide2" in metadata["runtime_python_modules"]
     build_content_root = get_build_content_root(build_root, ayon_version)
     installer_root = build_root / "installer"
     if installer_root.exists():
@@ -796,7 +818,9 @@ def create_installer(ayon_root, build_root):
         build_root,
         installer_root,
         build_content_root,
-        ayon_version
+        ayon_version,
+        os_distro,
+        pyside2_used,
     )
     store_installer_metadata(
         build_root, installer_root, str(installer_path.absolute())
