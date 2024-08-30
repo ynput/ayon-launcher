@@ -833,6 +833,15 @@ def _deploy_shim_linux(installer_shim_root):
     # Add 'ayon.desktop' to applications
     desktop_filename = "ayon.desktop"
     apps_dir = os.path.expanduser("~/.local/share/applications")
+    # Skip if applications directory does not exist
+    # - e.g. on headless linux
+    if not os.path.exists(apps_dir):
+        print(
+            f"Applications directory '{apps_dir}' does not exist."
+            f" Deployment of '{desktop_filename}' was skipped."
+        )
+        return True
+
     src_desktop_executable = os.path.join(executable_root, desktop_filename)
     dst_desktop_executable = os.path.join(apps_dir, desktop_filename)
     shutil.copy(src_desktop_executable, apps_dir)
