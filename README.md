@@ -11,7 +11,58 @@ Desktop application launcher for AYON pipeline. You need AYON launcher to be abl
 
 The main purpose of application is to distribute updates based on current server state and to start main logic of core addon. At this moment core addon is `ayon_core`.
 
+Desktop application also deploys AYON shim, which acts as bridge for different versions of AYON launcher. More information [here](#shim).
+
 To get all the information about the project, go to [AYON.io](https://ayon.ynput.io)
+
+Shim
+------------
+
+AYON shim is a small executable that knows where to find "real" executable of AYON launcher.
+
+Usage of shim:
+1. Handle custom uri protocol scheme `ayon-launcher://` which is used for running web actions.
+2. Path to shim executable can be used for shortcuts and automations, so you don't need to worry about updating the path on AYON launcher update. This might be useful e.g. for Deadline plugin.
+
+Shim is installed with AYON launcher, or on first run of AYON launcher. It is installed to app data which is based on OS, or to `{AYON_LAUNCHER_LOCAL_DIR}/shim/` directory if `AYON_LAUNCHER_LOCAL_DIR` environment variable is set.
+
+Windows installation requires admin privileges, you'll be prompted for them on installation of AYON launcher.
+
+<details>
+
+<summary>Windows registry</summary>
+
+You can register custom uri protocol scheme `ayon-launcher://` by adding following registry keys:
+It uses default shim executable path `%LOCALAPPDATA%\Ynput\AYON\shim\ayon.exe`.
+
+```
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\ayon-launcher]
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\ayon-launcher\DefaultIcon]
+@=hex(2):25,00,4c,00,4f,00,43,00,41,00,4c,00,41,00,50,00,50,00,44,00,41,00,54,\
+  00,41,00,25,00,5c,00,59,00,6e,00,70,00,75,00,74,00,5c,00,41,00,59,00,4f,00,\
+  4e,00,5c,00,73,00,68,00,69,00,6d,00,5c,00,61,00,79,00,6f,00,6e,00,2e,00,65,\
+  00,78,00,65,00,00,00
+
+[HKEY_CLASSES_ROOT\ayon-launcher\shell]
+
+[HKEY_CLASSES_ROOT\ayon-launcher\shell\open]
+
+[HKEY_CLASSES_ROOT\ayon-launcher\shell\open\command]
+@=hex(2):25,00,4c,00,4f,00,43,00,41,00,4c,00,41,00,50,00,50,00,44,00,41,00,54,\
+  00,41,00,25,00,5c,00,59,00,6e,00,70,00,75,00,74,00,5c,00,41,00,59,00,4f,00,\
+  4e,00,5c,00,73,00,68,00,69,00,6d,00,5c,00,61,00,79,00,6f,00,6e,00,2e,00,65,\
+  00,78,00,65,00,20,00,22,00,25,00,31,00,22,00,00,00
+
+```
+
+</details>
+
+> [!CAUTION]
+> Shim on macOs is installed to `/Applications/AYON.app`. To be able to use it in automation which waits for AYON launcher to finish then you have to use full path to executable `/Applications/AYON.app/Contents/MacOS/ayon`.
 
 Building AYON Desktop application
 ------------

@@ -143,4 +143,4 @@ cython_debug/
 .github/
 vendor/
 docs/
-website/
+shim/dist/
