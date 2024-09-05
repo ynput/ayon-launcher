@@ -31,6 +31,7 @@ Unidecode = "^1.2.0"
 aiohttp = "^3.7"
 # local settings
 appdirs = { git = "https://github.com/ActiveState/appdirs.git", branch = "master" }
+platformdirs = "*"
 coolname = "*"
 keyring = "^22.0.1"
 # environment variables resolving
