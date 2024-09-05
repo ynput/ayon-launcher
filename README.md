@@ -198,7 +198,6 @@ Environment variables that are set during startup:
 
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
 
-
 ## Developer mode
 Developer mode enables to skip standard distribution process and use local sources of addon code. This is useful for development of addon. Developer mode must be enabled and configured on AYON server. To use it in AYON launcher create dev bundle and use `--use-dev` argument, or define bundle name `--bundle <dev bundle name>` in cli arguments.
 
@@ -206,3 +205,8 @@ Developer mode enables to skip standard distribution process and use local sourc
 - [Launcher Dev | AYON Docs](https://ayon.ynput.io/docs/dev_launcher)
 - [AYON Developer Mode – Guide | AYON Forums](https://community.ynput.io/t/ayon-developer-mode-guide/993)
 - [How to keep up with AYON updates? | AYON Forums](https://community.ynput.io/t/how-to-keep-up-with-ayon-updates/1066)
+
+
+## TODOs
+- [ ] Use 'platformdirs' instead of 'appdirs'.
+- [ ] Remove unused 'acre' dependency. Now has to be kept for ayon-core compatibility.
