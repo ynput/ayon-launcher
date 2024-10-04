@@ -30,9 +30,9 @@ Easy way of installing everything necessary is to use [Homebrew](https://brew.sh
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
 
-2) Install **cmake**:
+2) Install **cmake** and **create-dmg**:
    ```sh
-   brew install cmake
+   brew install cmake create-dmg
    ```
 
 3) Install [pyenv](https://github.com/pyenv/pyenv):
