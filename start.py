@@ -80,6 +80,7 @@ import site
 import time
 import traceback
 import subprocess
+from contextlib import contextmanager
 from urllib.parse import urlparse, parse_qs
 
 from version import __version__
@@ -306,6 +307,8 @@ from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
+    get_event,
+    update_event,
 )
 from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
@@ -746,6 +749,8 @@ def process_uri():
         os.environ[SERVER_API_ENV_KEY] = token
 
     _connect_to_ayon_server(username=username)
+
+    event_id = data["eventId"]
     variant = data["variant"]
 
     # Cleanup environemnt variables
@@ -768,6 +773,8 @@ def process_uri():
 
     # We're always in logic mode when running URI
     env["AYON_IN_LOGIN_MODE"] = "1"
+    # Pass event id to child AYON launcher process
+    env["AYON_WA_INTERNAL_EVENT_ID"] = event_id
 
     # Add executable to args
     uri_args = data["args"]
@@ -802,6 +809,47 @@ def process_uri():
             break
         time.sleep(0.1)
     return True
+
+
+@contextmanager
+def webaction_event_handler():
+    # Remove internal event id from environment and set it to
+    #  'AYON_WEBACTION_EVENT_ID' for addon who is handling it
+    # Reason: Environment 'AYON_WA_INTERNAL_EVENT_ID' is used to pass event id
+    #   from process uri to child launcher and 'AYON_WEBACTION_EVENT_ID' can
+    #   used in the logic triggered from webaction. Point is that
+    #   'AYON_WA_INTERNAL_EVENT_ID' is used only in single AYON launcher
+    #   process and is not handled by multiple different processes.
+    event_id = os.environ.pop("AYON_WA_INTERNAL_EVENT_ID", None)
+    if event_id:
+        os.environ["AYON_WEBACTION_EVENT_ID"] = event_id
+
+    def finish_event(success):
+        if not event_id:
+            return
+
+        try:
+            event = get_event(event_id)
+            if not event:
+                return
+            if event["status"] == "in_progress":
+                new_status = "finished" if success else "failed"
+                update_event(event_id, status=new_status)
+        except Exception:
+            # Silently ignore any exception, only print traceback
+            traceback.print_exception(*sys.exc_info())
+
+    try:
+        yield
+    except SystemExit as exc:
+        finish_event(exc.code == 0)
+        raise
+    except BaseException:
+        finish_event(False)
+        raise
+    else:
+        finish_event(True)
+
 
 
 def main_cli():
@@ -964,17 +1012,18 @@ def main():
     if process_uri():
         sys.exit(0)
 
-    if SKIP_BOOTSTRAP:
-        fill_pythonpath()
-        return script_cli()
+    with webaction_event_handler():
+        if SKIP_BOOTSTRAP:
+            fill_pythonpath()
+            return script_cli()
 
-    boot()
+        boot()
 
-    start_arg = StartArgScript.from_args(sys.argv)
-    if start_arg.is_valid:
-        script_cli(start_arg)
-    else:
-        main_cli()
+        start_arg = StartArgScript.from_args(sys.argv)
+        if start_arg.is_valid:
+            script_cli(start_arg)
+        else:
+            main_cli()
 
 
 if __name__ == "__main__":
