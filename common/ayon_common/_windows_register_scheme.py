@@ -5,7 +5,8 @@ import winreg
 
 SCRIPT_PATH = os.path.abspath(__file__)
 PROTOCOL_NAME = "ayon-launcher"
-PROTOCOL_PATH = "\\".join(["SOFTWARE", "Classes", PROTOCOL_NAME])
+USER_CLASSES_PATH = "\\".join(["SOFTWARE", "Classes"])
+PROTOCOL_PATH = "\\".join([USER_CLASSES_PATH, PROTOCOL_NAME])
 _REG_ICON_PATH = "\\".join([PROTOCOL_PATH, "DefaultIcon"])
 _REG_COMMAND_PATH = "\\".join([PROTOCOL_PATH, "shell", "open", "command"])
 
@@ -55,6 +56,12 @@ def _update_reg(shim_icon_path, shim_command):
 
 
 def _needs_update(shim_icon_path, shim_command):
+    # If 'USER_CLASSES_PATH' is not available, then the protocol
+    #   is not registered. Probably running as service.
+    # 'HKEY_CURRENT_USER\SOFTWARE\Classes'
+    if not _reg_exists(winreg.HKEY_CURRENT_USER, USER_CLASSES_PATH):
+        return False
+
     # Validate existence of all required registry keys
     if (
         not _reg_exists(winreg.HKEY_CURRENT_USER, PROTOCOL_PATH)
