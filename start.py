@@ -736,9 +736,9 @@ def process_uri():
     parsed_query = parse_qs(parsed_uri.query)
 
     server_url = parsed_query["server_url"][0]
-    token = parsed_query["token"][0]
+    uri_token = parsed_query["token"][0]
     # Use raw requests to get all necessary information from server
-    response = requests.get(f"{server_url}/api/actions/take/{token}")
+    response = requests.get(f"{server_url}/api/actions/take/{uri_token}")
     # TODO validate response
     data = response.json()
     username = data.get("userName")
@@ -753,11 +753,12 @@ def process_uri():
     except SystemExit:
         try:
             requests.post(
-                f"{server_url}/api/actions/abort/{token}",
-                message="User skipped login in AYON launcher."
+                f"{server_url}/api/actions/abort/{uri_token}",
+                json={"message": "User skipped login in AYON launcher."}
             )
         except Exception:
-            pass
+            # Silently ignore any exception, only print traceback
+            traceback.print_exception(*sys.exc_info())
         raise
 
     event_id = data["eventId"]
