@@ -748,7 +748,17 @@ def process_uri():
     if token:
         os.environ[SERVER_API_ENV_KEY] = token
 
-    _connect_to_ayon_server(username=username)
+    try:
+        _connect_to_ayon_server(username=username)
+    except SystemExit:
+        try:
+            requests.post(
+                f"{server_url}/api/actions/abort/{token}",
+                message="User skipped login in AYON launcher."
+            )
+        except Exception:
+            pass
+        raise
 
     event_id = data["eventId"]
     variant = data["variant"]
