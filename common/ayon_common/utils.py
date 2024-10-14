@@ -727,23 +727,23 @@ def validate_file_checksum(
 
 # --- SHIM information ---
 # Helpers to resolve registering shim as 'ayon-launcher' protocol handler
-def _is_windows_launcher_protocol_registered():
+def _is_windows_launcher_protocol_registered() -> bool:
     from ._windows_register_scheme import is_reg_set
 
     return is_reg_set(get_shim_executable_path())
 
 
-def _register_windows_launcher_protocol():
+def _register_windows_launcher_protocol() -> bool:
     from ._windows_register_scheme import set_reg
 
     return set_reg(get_shim_executable_path())
 
 
-def _get_linux_desktop_file_path():
+def _get_linux_desktop_file_path() -> str:
     return os.path.expanduser("~/.local/share/applications/ayon.desktop")
 
 
-def _get_linux_desktop_executable_content():
+def _get_linux_desktop_executable_content() -> str:
     dst_desktop_executable = _get_linux_desktop_file_path()
     executable_root = _get_shim_executable_root()
 
@@ -758,7 +758,7 @@ def _get_linux_desktop_executable_content():
     return content
 
 
-def _is_launcher_launcher_protocol_registered():
+def _is_launcher_launcher_protocol_registered() -> bool:
     # Add 'ayon.desktop' to applications
     desktop_file_path = _get_linux_desktop_file_path()
     # Skip if applications directory does not exist
@@ -773,7 +773,7 @@ def _is_launcher_launcher_protocol_registered():
     return old_content == new_content
 
 
-def _register_linux_launcher_protocol():
+def _register_linux_launcher_protocol() -> bool:
     # Add 'ayon.desktop' to applications
     dst_desktop_file_path = _get_linux_desktop_file_path()
     desktop_filename, apps_dir = os.path.split(dst_desktop_file_path)
@@ -817,7 +817,7 @@ def _register_linux_launcher_protocol():
     return True
 
 
-def is_ayon_launcher_protocol_registered():
+def is_ayon_launcher_protocol_registered() -> bool:
     platform_name = platform.system().lower()
     if platform_name == "windows":
         return _is_windows_launcher_protocol_registered()
@@ -827,7 +827,7 @@ def is_ayon_launcher_protocol_registered():
     return os.path.exists(get_shim_executable_path())
 
 
-def register_ayon_launcher_protocol():
+def register_ayon_launcher_protocol() -> bool:
     platform_name = platform.system().lower()
     if platform_name == "windows":
         return _register_windows_launcher_protocol()
@@ -837,7 +837,7 @@ def register_ayon_launcher_protocol():
     return True
 
 
-def _get_shim_executable_root():
+def _get_shim_executable_root() -> str:
     """Root to shim executable.
 
     Returns:
@@ -850,7 +850,7 @@ def _get_shim_executable_root():
     return "/Applications/AYON.app/Contents/MacOS"
 
 
-def get_shim_executable_path():
+def get_shim_executable_path() -> str:
     """Path to shim executable.
 
     It is not validated if shim exists.
@@ -865,7 +865,7 @@ def get_shim_executable_path():
     return os.path.join(_get_shim_executable_root(), filename)
 
 
-def _get_installed_shim_version():
+def _get_installed_shim_version() -> str:
     """Get installed shim version.
 
     Returns:
@@ -885,7 +885,10 @@ def _get_installed_shim_version():
     return dst_shim_version
 
 
-def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
+def _deploy_shim_windows(
+    installer_shim_root: str,
+    create_desktop_icons: bool
+) -> bool:
     """Deploy shim executable on Windows.
 
     Windows shim is deployed using exe installer.
@@ -911,7 +914,7 @@ def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
     return code == 0
 
 
-def _deploy_shim_linux(installer_shim_root):
+def _deploy_shim_linux(installer_shim_root: str) -> bool:
     """Deploy shim executable on Linux.
 
     Linux shim is deployed using zip file exported to appdirs.
@@ -929,7 +932,7 @@ def _deploy_shim_linux(installer_shim_root):
     return True
 
 
-def _deploy_shim_macos(installer_shim_root):
+def _deploy_shim_macos(installer_shim_root: str):
     """Deploy shim executable on macOS.
 
     MacOS shim is deployed using dmg file exported to '/Applications'.
@@ -975,8 +978,8 @@ def _deploy_shim_macos(installer_shim_root):
 
 
 def deploy_ayon_launcher_shims(
-    create_desktop_icons=False,
-    ensure_protocol_is_registered=False,
+    create_desktop_icons: Optional[bool] = False,
+    ensure_protocol_is_registered: Optional[bool] = False,
 ):
     """Deploy shim executables for AYON launcher.
 
