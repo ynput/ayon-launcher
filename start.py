@@ -752,7 +752,13 @@ def process_uri():
         _connect_to_ayon_server(username=username)
     except SystemExit:
         try:
-            response = requests.post(
+            # There is a bug in ayon-python-api 1.0.10
+            # abort_web_action_event(
+            #     server_url,
+            #     uri_token,
+            #     "User skipped login in AYON launcher.",
+            # )
+            requests.post(
                 f"{server_url}/api/actions/abort/{uri_token}",
                 json={"message": "User skipped login in AYON launcher."},
             )
