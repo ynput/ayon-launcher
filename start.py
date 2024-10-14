@@ -648,7 +648,7 @@ def _start_distribution():
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
-def init_launcher_executable():
+def init_launcher_executable(validate_windows_registers=False):
     """Initialize AYON launcher executable.
 
     Make sure current AYON launcher executable is stored to known executables
@@ -657,7 +657,10 @@ def init_launcher_executable():
     """
     create_desktop_icons = "--create-desktop-icons" in sys.argv
     store_current_executable_info()
-    deploy_ayon_launcher_shims(create_desktop_icons=create_desktop_icons)
+    deploy_ayon_launcher_shims(
+        create_desktop_icons=create_desktop_icons,
+        validate_windows_registers=validate_windows_registers,
+    )
 
 
 def fill_pythonpath():
@@ -1008,7 +1011,7 @@ def get_info(use_staging=None, use_dev=None) -> list:
 def main():
     # AYON launcher was started to initialize itself
     if "init-ayon-launcher" in sys.argv:
-        init_launcher_executable()
+        init_launcher_executable(validate_windows_registers=True)
         sys.exit(0)
 
     if SHOW_LOGIN_UI:

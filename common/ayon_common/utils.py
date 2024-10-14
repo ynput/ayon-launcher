@@ -910,12 +910,20 @@ def _deploy_shim_macos(installer_shim_root):
             subprocess.run(["hdiutil", "detach", hdi_mounted_volume])
 
 
-def deploy_ayon_launcher_shims(create_desktop_icons=False):
+def deploy_ayon_launcher_shims(
+    create_desktop_icons=False,
+    validate_windows_registers=False,
+):
     """Deploy shim executables for AYON launcher.
+
+    Argument 'validate_registers' is to fix registered protocol on Windows,
+        issue caused in v1.1.0, since 1.1.1 is used different registry path.
 
     Args:
         create_desktop_icons (Optional[bool]): Create desktop shortcuts. Used
             only on windows.
+        validate_windows_registers (Optional[bool]): Validate if protocol is
+            registered on windows.
 
     """
     if not IS_BUILT_APPLICATION:
@@ -939,6 +947,9 @@ def deploy_ayon_launcher_shims(create_desktop_icons=False):
 
     # Skip if shim is same or lower
     if src_shim_version <= semver.VersionInfo.parse(dst_shim_version):
+        # Make sure windows registers are correctly set for each user
+        if validate_windows_registers:
+            register_windows_launcher_protocol()
         return
 
     platform_name = platform.system().lower()
