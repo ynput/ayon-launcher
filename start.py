@@ -261,7 +261,6 @@ os.environ["AYON_MENU_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
-import requests  # noqa: E402
 
 
 if sys.__stdout__:
@@ -309,6 +308,8 @@ from ayon_api import (  # noqa E402
     get_addons_studio_settings,
     get_event,
     update_event,
+    take_web_action_event,
+    abort_web_action_event,
 )
 from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
@@ -738,9 +739,7 @@ def process_uri():
     server_url = parsed_query["server_url"][0]
     uri_token = parsed_query["token"][0]
     # Use raw requests to get all necessary information from server
-    response = requests.get(f"{server_url}/api/actions/take/{uri_token}")
-    # TODO validate response
-    data = response.json()
+    data = take_web_action_event(server_url, uri_token)
     username = data.get("userName")
 
     os.environ[SERVER_URL_ENV_KEY] = server_url
@@ -752,9 +751,10 @@ def process_uri():
         _connect_to_ayon_server(username=username)
     except SystemExit:
         try:
-            requests.post(
-                f"{server_url}/api/actions/abort/{uri_token}",
-                json={"message": "User skipped login in AYON launcher."}
+            abort_web_action_event(
+                server_url,
+                uri_token,
+                "User skipped login in AYON launcher.",
             )
         except Exception:
             # Silently ignore any exception, only print traceback
