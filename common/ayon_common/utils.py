@@ -726,19 +726,118 @@ def validate_file_checksum(
 
 
 # --- SHIM information ---
-def is_windows_launcher_protocol_registered():
+# Helpers to resolve registering shim as 'ayon-launcher' protocol handler
+def _is_windows_launcher_protocol_registered() -> bool:
     from ._windows_register_scheme import is_reg_set
 
     return is_reg_set(get_shim_executable_path())
 
 
-def register_windows_launcher_protocol():
+def _register_windows_launcher_protocol() -> bool:
     from ._windows_register_scheme import set_reg
 
     return set_reg(get_shim_executable_path())
 
 
-def _get_shim_executable_root():
+def _get_linux_desktop_file_path() -> str:
+    return os.path.expanduser("~/.local/share/applications/ayon.desktop")
+
+
+def _get_linux_desktop_executable_content() -> str:
+    dst_desktop_executable = _get_linux_desktop_file_path()
+    executable_root = _get_shim_executable_root()
+
+    desktop_filename = os.path.split(dst_desktop_executable)[-1]
+    src_desktop_executable = os.path.join(executable_root, desktop_filename)
+    with open(src_desktop_executable, "r") as stream:
+        content = (
+            stream
+            .read()
+            .replace("{ayon_exe_root}", executable_root)
+        )
+    return content
+
+
+def _is_launcher_launcher_protocol_registered() -> bool:
+    # Add 'ayon.desktop' to applications
+    desktop_file_path = _get_linux_desktop_file_path()
+    # Skip if applications directory does not exist
+    # - e.g. on headless linux
+    if not os.path.exists(desktop_file_path):
+        return False
+
+    new_content = _get_linux_desktop_executable_content()
+
+    with open(desktop_file_path, "r") as stream:
+        old_content = stream.read()
+    return old_content == new_content
+
+
+def _register_linux_launcher_protocol() -> bool:
+    # Add 'ayon.desktop' to applications
+    dst_desktop_file_path = _get_linux_desktop_file_path()
+    desktop_filename, apps_dir = os.path.split(dst_desktop_file_path)
+    # Skip if applications directory does not exist
+    # - e.g. on headless linux
+    if not os.path.exists(apps_dir):
+        return True
+
+    new_content = _get_linux_desktop_executable_content()
+
+    if os.path.exists(dst_desktop_file_path):
+        # Read content for comparison
+        with open(dst_desktop_file_path, "r") as stream:
+            old_content = stream.read()
+    else:
+        src_desktop_executable = os.path.join(
+            _get_shim_executable_root(), desktop_filename
+        )
+        # Copy 'ayon.desktop' to applications
+        shutil.copy(src_desktop_executable, apps_dir)
+        old_content = None
+
+    content_updated = False
+    if old_content != new_content:
+        content_updated = True
+        with open(dst_desktop_file_path, "w") as stream:
+            stream.write(new_content)
+
+    # Symlink to desktop if has desktop and does not yet exist
+    desktop_root = os.path.expanduser("~/Desktop")
+    if os.path.exists(desktop_root):
+        desktop_path = os.path.join(desktop_root, desktop_filename)
+        if not os.path.exists(desktop_path):
+            os.symlink(dst_desktop_file_path, desktop_path)
+
+    # Update desktop database
+    # TODO validate if desktop database is updated and somehow show to user?
+    # - the installation also happens on headless machines
+    if content_updated:
+        subprocess.run(["update-desktop-database", apps_dir])
+    return True
+
+
+def is_ayon_launcher_protocol_registered() -> bool:
+    platform_name = platform.system().lower()
+    if platform_name == "windows":
+        return _is_windows_launcher_protocol_registered()
+    elif platform_name == "linux":
+        return _is_launcher_launcher_protocol_registered()
+    # macOs have registered protocol by having AYON shim in '/Applications'
+    return os.path.exists(get_shim_executable_path())
+
+
+def register_ayon_launcher_protocol() -> bool:
+    platform_name = platform.system().lower()
+    if platform_name == "windows":
+        return _register_windows_launcher_protocol()
+    elif platform_name == "linux":
+        return _register_linux_launcher_protocol()
+    # macOs has registered protocol by having AYON shim in /Applications
+    return True
+
+
+def _get_shim_executable_root() -> str:
     """Root to shim executable.
 
     Returns:
@@ -751,7 +850,7 @@ def _get_shim_executable_root():
     return "/Applications/AYON.app/Contents/MacOS"
 
 
-def get_shim_executable_path():
+def get_shim_executable_path() -> str:
     """Path to shim executable.
 
     It is not validated if shim exists.
@@ -766,7 +865,7 @@ def get_shim_executable_path():
     return os.path.join(_get_shim_executable_root(), filename)
 
 
-def _get_installed_shim_version():
+def _get_installed_shim_version() -> str:
     """Get installed shim version.
 
     Returns:
@@ -786,7 +885,10 @@ def _get_installed_shim_version():
     return dst_shim_version
 
 
-def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
+def _deploy_shim_windows(
+    installer_shim_root: str,
+    create_desktop_icons: bool
+) -> bool:
     """Deploy shim executable on Windows.
 
     Windows shim is deployed using exe installer.
@@ -809,12 +911,10 @@ def _deploy_shim_windows(installer_shim_root, create_desktop_icons):
     if create_desktop_icons:
         args.append("/TASKS=desktopicon")
     code = subprocess.call(args)
-    if code != 0:
-        return False
-    return register_windows_launcher_protocol()
+    return code == 0
 
 
-def _deploy_shim_linux(installer_shim_root):
+def _deploy_shim_linux(installer_shim_root: str) -> bool:
     """Deploy shim executable on Linux.
 
     Linux shim is deployed using zip file exported to appdirs.
@@ -829,43 +929,10 @@ def _deploy_shim_linux(installer_shim_root):
         os.path.join(installer_shim_root, "shim.tar.gz"),
         executable_root
     )
-
-    # Add 'ayon.desktop' to applications
-    desktop_filename = "ayon.desktop"
-    apps_dir = os.path.expanduser("~/.local/share/applications")
-    # Skip if applications directory does not exist
-    # - e.g. on headless linux
-    if not os.path.exists(apps_dir):
-        print(
-            f"Applications directory '{apps_dir}' does not exist."
-            f" Deployment of '{desktop_filename}' was skipped."
-        )
-        return True
-
-    src_desktop_executable = os.path.join(executable_root, desktop_filename)
-    dst_desktop_executable = os.path.join(apps_dir, desktop_filename)
-    shutil.copy(src_desktop_executable, apps_dir)
-    with open(dst_desktop_executable, "r") as stream:
-        data = stream.read()
-    data = data.replace("{ayon_exe_root}", executable_root)
-    with open(dst_desktop_executable, "w") as stream:
-        stream.write(data)
-
-    # Symlink to desktop if has desktop and does not yet exist
-    desktop_root = os.path.expanduser("~/Desktop")
-    if os.path.exists(desktop_root):
-        desktop_path = os.path.join(desktop_root, desktop_filename)
-        if not os.path.exists(desktop_path):
-            os.symlink(dst_desktop_executable, desktop_path)
-
-    # Update desktop database
-    # TODO validate if desktop database is updated and somehow show to user?
-    # - the installation also happens on headless machines
-    subprocess.run(["update-desktop-database", apps_dir])
     return True
 
 
-def _deploy_shim_macos(installer_shim_root):
+def _deploy_shim_macos(installer_shim_root: str):
     """Deploy shim executable on macOS.
 
     MacOS shim is deployed using dmg file exported to '/Applications'.
@@ -910,12 +977,20 @@ def _deploy_shim_macos(installer_shim_root):
             subprocess.run(["hdiutil", "detach", hdi_mounted_volume])
 
 
-def deploy_ayon_launcher_shims(create_desktop_icons=False):
+def deploy_ayon_launcher_shims(
+    create_desktop_icons: Optional[bool] = False,
+    ensure_protocol_is_registered: Optional[bool] = False,
+):
     """Deploy shim executables for AYON launcher.
+
+    Argument 'validate_registers' is to fix registered protocol on Windows,
+        issue caused in v1.1.0, since 1.1.1 is used different registry path.
 
     Args:
         create_desktop_icons (Optional[bool]): Create desktop shortcuts. Used
             only on windows.
+        ensure_protocol_is_registered (Optional[bool]): Validate if protocol is
+            registered on windows.
 
     """
     if not IS_BUILT_APPLICATION:
@@ -939,6 +1014,9 @@ def deploy_ayon_launcher_shims(create_desktop_icons=False):
 
     # Skip if shim is same or lower
     if src_shim_version <= semver.VersionInfo.parse(dst_shim_version):
+        # Make sure windows registers are correctly set for each user
+        if ensure_protocol_is_registered:
+            register_ayon_launcher_protocol()
         return
 
     platform_name = platform.system().lower()
@@ -950,3 +1028,4 @@ def deploy_ayon_launcher_shims(create_desktop_icons=False):
 
     elif platform_name == "darwin":
         _deploy_shim_macos(installer_shim_root)
+    register_ayon_launcher_protocol()
