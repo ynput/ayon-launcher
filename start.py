@@ -237,8 +237,10 @@ else:
         os.path.join(AYON_ROOT, "dependencies")
     )
 # add stuff from `<frozen>/dependencies` to PYTHONPATH.
-sys.path.append(_dependencies_path)
-_python_paths.append(_dependencies_path)
+sys.path.insert(0, _dependencies_path)
+if _dependencies_path in _python_paths:
+    _python_paths.remove(_dependencies_path)
+_python_paths.insert(0, _dependencies_path)
 
 # Add common package to PYTHONPATH
 # - common contains common code and bootstrap logic (like connection
