@@ -630,9 +630,19 @@ def _start_distribution():
         args = list(ORIGINAL_ARGS)
         # Replace executable with new executable
         args[0] = executable
+
+        # Cleanup 'PYTHONPATH'
+        env = os.environ.copy()
+        python_paths = [
+            path
+            for path in env.get("PYTHONPATH", "").split(os.pathsep)
+            if path and not path.startswith(AYON_ROOT)
+        ]
+        env["PYTHONPATH"] = os.pathsep.join(python_paths)
+
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
-        sys.exit(subprocess.call(args))
+        sys.exit(subprocess.call(args, env=env))
 
     # TODO check failed distribution and inform user
     distribution.validate_distribution()
