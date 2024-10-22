@@ -220,7 +220,11 @@ HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 AYON_IN_LOGIN_MODE = os.environ["AYON_IN_LOGIN_MODE"] == "1"
 
 _pythonpath = os.getenv("PYTHONPATH", "")
-_python_paths = _pythonpath.split(os.pathsep)
+_python_paths = [
+    path
+    for path in _pythonpath.split(os.pathsep)
+    if path
+]
 if not IS_BUILT_APPLICATION:
     # Code root defined by `start.py` directory
     AYON_ROOT = os.path.dirname(os.path.abspath(__file__))
