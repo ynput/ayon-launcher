@@ -2,6 +2,7 @@
 """Setup info for building AYON Desktop application."""
 import os
 import platform
+import subprocess
 from pathlib import Path
 
 from cx_Freeze import setup, Executable
@@ -13,6 +14,8 @@ version_content = {}
 
 with open(ayon_root / "version.py") as fp:
     exec(fp.read(), version_content)
+
+include_dir = ayon_root / "vendor" / "include"
 
 __version__ = version_content["__version__"]
 
@@ -230,6 +233,17 @@ include_files = [
     "LICENSE",
     "README.md"
 ]
+if IS_LINUX:
+    subprocess.run(
+        [
+            "g++",
+            f"-I{include_dir.as_posix()}",
+            "app_launcher.cpp",
+            "-o", "app_launcher"
+        ],
+        cwd=ayon_root.as_posix(),
+    )
+    include_files.append("app_launcher")
 
 icon_path = None
 mac_icon_path = resources_dir / "AYON.icns"
@@ -278,14 +292,6 @@ if IS_WINDOWS:
     )
     build_exe_options["include_msvcr"] = True
 
-if IS_LINUX:
-    executables.append(
-        Executable(
-            "app_launcher.py",
-            base=None,
-            target_name="app_launcher",
-        )
-    )
 
 setup(
     name="AYON",
