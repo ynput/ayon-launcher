@@ -42,7 +42,7 @@ Temporary Items
 /shim/build.log
 /shim/dist
 
-/vendor/*
+/vendor/python/*
 /.venv
 /venv/
 
