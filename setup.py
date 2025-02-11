@@ -31,6 +31,7 @@ if IS_WINDOWS:
 
 install_requires = [
     "appdirs",
+    "platformdirs",
     "cx_Freeze",
     "keyring",
     "pkg_resources",
