@@ -155,7 +155,7 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
     }
     # We are supporting python 3.9 only
     if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
-      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  "is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
+      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  " is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
       Restore-Cwd
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {

@@ -1,6 +1,7 @@
 [project]
 name = "AYON"
 version = "1.1.2-dev.1"
+requires-python = "<3.10"
 package-mode = false
 description = "Open VFX and Animation pipeline with support."
 authors = [
@@ -22,7 +23,6 @@ packages = [
     {include = "pyproject.toml"},
     {include = "poetry.lock"}
 ]
-requires-python = ">=3.9.6"
 
 dependencies = [
     "ayon-python-api",
@@ -31,7 +31,7 @@ dependencies = [
     "aiohttp ~= 3.7",
     # local settings
     "appdirs @ git+https://github.com/ActiveState/appdirs.git",
-    "platformdirs"
+    "platformdirs",
     "coolname",
     "keyring ~= 22.0.1",
     # environment variables resolving
@@ -45,7 +45,8 @@ dependencies = [
     "urllib3 ~= 1.26.16",
     "semver ~= 2.13.0",
     "QtPy ~= 2.3.0",
-    "pip ~= 24.0"
+    "pip ~= 24.0",
+    "pre-commit"
 ]
 
 [project.optional-dependencies]
@@ -69,8 +70,11 @@ dev = [
     "wheel",
     "enlighten",  # cool terminal progress bars
     "toml ~= 0.10.2", # for parsing pyproject.toml
-    "pre-commit"
+
 ]
+
+[tool.uv]
+python-preference = "only-managed"
 
 [project.scripts]
 ayon = "start:boot"
