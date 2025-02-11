@@ -285,9 +285,7 @@ class BaseDistributionItem:
         return self._error_detail
 
     def _pre_source_process(self):
-        download_dirpath = self.download_dirpath
-        if not os.path.isdir(download_dirpath):
-            os.makedirs(download_dirpath)
+        os.makedirs(self.download_dirpath, exist_ok=True)
 
     def _receive_file(self, source_data, source_progress, downloader):
         """Receive source filepath using source data and downloader.
@@ -658,7 +656,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             self.log.error(log_output)
             raise InstallerDistributionError(
                 "Install process failed without known reason."
-                f" Try to install AYON manually."
+                " Try to install AYON manually."
             )
 
         executable = install_exe_path.strip() or None
@@ -679,8 +677,8 @@ class InstallerDistributionItem(BaseDistributionItem):
         install_root = os.path.dirname(os.path.dirname(sys.executable))
 
         self.log.info(f"Installing AYON launcher {filepath} into:\n{install_root}")
-        if not os.path.exists(install_root):
-            os.makedirs(install_root)
+
+        os.makedirs(install_root, exist_ok=True)
 
         try:
             extract_archive_file(filepath, install_root)
@@ -695,7 +693,6 @@ class InstallerDistributionItem(BaseDistributionItem):
         executable = os.path.join(install_root, installer_dir, "ayon")
         self.log.info(f"Setting executable to {executable}")
         self._executable = executable
-
 
     def _install_macos(self, filepath):
         """Install macOS AYON launcher.
@@ -761,6 +758,10 @@ class InstallerDistributionItem(BaseDistributionItem):
             self._install_linux(filepath)
         elif platform_name == "darwin":
             self._install_macos(filepath)
+        else:
+            raise InstallerDistributionError(
+                f"Unsupported platform: {platform_name}"
+            )
 
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
@@ -786,7 +787,7 @@ class InstallerDistributionItem(BaseDistributionItem):
                     exc_info=True
                 )
                 self._installer_error = (
-                    f"Distribution of AYON launcher"
+                    "Distribution of AYON launcher"
                     " failed with unexpected reason."
                 )
 
@@ -839,7 +840,7 @@ class DistributionItem(BaseDistributionItem):
             shutil.rmtree(unzip_dirpath)
 
         # Create directory
-        os.makedirs(unzip_dirpath)
+        os.makedirs(unzip_dirpath, exist_ok=True)
 
     def _post_source_process(
         self, filepath, source_data, source_progress, downloader
@@ -1420,6 +1421,7 @@ class AyonDistribution:
         """
 
         if self._addons_info is NOT_SET:
+            # Use details to get information about client.zip
             server_info = ayon_api.get_addons_info(details=True)
             self._addons_info = server_info["addons"]
         return self._addons_info
@@ -1730,12 +1732,9 @@ class AyonDistribution:
         Args:
             filepath (str): Path to json file.
             data (Union[Dict[str, Any], List[Any]]): Data to store into file.
-        """
 
-        if not os.path.exists(filepath):
-            dirpath = os.path.dirname(filepath)
-            if not os.path.exists(dirpath):
-                os.makedirs(dirpath)
+        """
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
 

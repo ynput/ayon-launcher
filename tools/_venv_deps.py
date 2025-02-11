@@ -32,7 +32,7 @@ def get_poetry_venv_root():
 
 site.addsitedir(str(get_poetry_venv_root()))
 
-from poetry.factory import Factory
+from poetry.factory import Factory  # noqa E402
 
 
 def main():

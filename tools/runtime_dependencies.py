@@ -5,6 +5,7 @@ Those should be defined in `pyproject.toml` in AYON sources root.
 """
 
 import os
+import shutil
 import sys
 import platform
 import hashlib
@@ -61,7 +62,7 @@ def _print(msg: str, message_type: int = 0) -> None:
     print(f"{header}{msg}")
 
 
-def _pip_install(runtime_dep_root, package, version=None):
+def _pip_install(python_vendor_dir, package, version=None):
     arg = None
     if package and version:
         arg = f"{package}=={version}"
@@ -74,7 +75,6 @@ def _pip_install(runtime_dep_root, package, version=None):
 
     _print(f"We'll install {arg}")
 
-    python_vendor_dir = runtime_dep_root / "python"
     try:
         subprocess.run(
             [
@@ -93,10 +93,15 @@ def _pip_install(runtime_dep_root, package, version=None):
         sys.exit(1)
 
 
-def install_qtbinding(pyproject, runtime_dep_root, platform_name):
+def install_qtbinding(
+    pyproject, python_vendor_dir, platform_name, use_pyside2
+):
     _print("Handling Qt binding framework ...")
 
     qt_variants = []
+    if use_pyside2:
+        qt_variants.append("pyside2")
+
     # Use QT_BINDING environment variable if set
     # - existence is not validate, if does not exists it is just skipped
     qt_package = os.getenv("QT_BINDING")
@@ -123,13 +128,12 @@ def install_qtbinding(pyproject, runtime_dep_root, platform_name):
     package = qtbinding_def["package"]
     version = qtbinding_def.get("version")
 
-    _pip_install(runtime_dep_root, package, version)
+    _pip_install(python_vendor_dir, package, version)
 
     # Remove libraries for QtSql which don't have available libraries
     #   by default and Postgre library would require to modify rpath of
     #   dependency
     if platform_name == "darwin":
-        python_vendor_dir = runtime_dep_root / "python"
         sqldrivers_dir = (
             python_vendor_dir / package / "Qt" / "plugins" / "sqldrivers"
         )
@@ -137,7 +141,7 @@ def install_qtbinding(pyproject, runtime_dep_root, platform_name):
             os.remove(str(filepath))
 
 
-def install_runtime_dependencies(pyproject, runtime_dep_root):
+def install_runtime_dependencies(pyproject, python_vendor_dir):
     runtime_deps = (
         pyproject
         .get("ayon", {})
@@ -145,17 +149,25 @@ def install_runtime_dependencies(pyproject, runtime_dep_root):
         .get("deps", {})
     )
     for package, version in runtime_deps.items():
-        _pip_install(runtime_dep_root, package, version)
+        _pip_install(python_vendor_dir, package, version)
 
 
 def main():
     start_time = time.time_ns()
     repo_root = Path(os.path.dirname(__file__)).parent
-    runtime_dep_root = repo_root / "vendor"
+    python_vendor_dir = repo_root / "vendor" / "python"
+    if python_vendor_dir.exists():
+        _print("Removing existing vendor directory")
+        shutil.rmtree(python_vendor_dir)
+    python_vendor_dir.mkdir(parents=True, exist_ok=True)
     pyproject = toml.load(repo_root / "pyproject.toml")
     platform_name = platform.system().lower()
-    install_qtbinding(pyproject, runtime_dep_root, platform_name)
-    install_runtime_dependencies(pyproject, runtime_dep_root)
+    use_pyside2 = "--use-pyside2" in sys.argv
+
+    install_qtbinding(
+        pyproject, python_vendor_dir, platform_name, use_pyside2
+    )
+    install_runtime_dependencies(pyproject, python_vendor_dir)
     end_time = time.time_ns()
     total_time = (end_time - start_time) / 1000000000
     _print(f"Downloading and extracting took {total_time} secs.")
