@@ -11,7 +11,7 @@ import shutil
 from uuid import UUID
 from typing import Optional, Iterable, List, Dict, Tuple, Any
 
-import appdirs
+import platformdirs
 import semver
 from ayon_api.constants import SITE_ID_ENV_KEY
 
@@ -39,7 +39,7 @@ def _get_ayon_appdirs(*args):
 
     """
     return os.path.join(
-        appdirs.user_data_dir("AYON", "Ynput"),
+        platformdirs.user_data_dir("AYON", "Ynput"),
         *args
     )
 
