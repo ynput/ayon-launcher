@@ -35,6 +35,10 @@ from pathlib import Path
 
 import blessed
 import enlighten
+if platform.system().lower() == "linux":
+    import distro
+else:
+    distro = None
 
 term = blessed.Terminal()
 manager = enlighten.get_manager()
@@ -114,6 +118,151 @@ def get_ayon_version(ayon_root):
         exec(fp.read(), content)
 
     return content["__version__"]
+
+
+def _build_shim_windows(
+    dst_shim_root: Path, dist_root: Path, version: str
+):
+    iscc_executable = _find_iscc()
+
+    shim_root = dist_root.parent
+    inno_setup_path = shim_root / "inno_setup.iss"
+    env = os.environ.copy()
+    installer_basename = "shim"
+    filename = installer_basename + ".exe"
+    src_installer_path = shim_root / filename
+    dst_installer_path = dst_shim_root / filename
+    if dst_installer_path.exists():
+        os.remove(str(dst_installer_path))
+
+    env["BUILD_SRC_DIR"] = str(dist_root.relative_to(shim_root))
+    env["BUILD_DST_DIR"] = str(shim_root.relative_to(shim_root))
+    env["BUILD_VERSION"] = version
+    env["BUILD_DST_FILENAME"] = installer_basename
+    subprocess.call(
+        [iscc_executable, inno_setup_path],
+        env=env,
+        cwd=str(shim_root)
+    )
+    if not src_installer_path.exists():
+        raise ValueError("Installer was not created")
+    shutil.move(src_installer_path, dst_shim_root)
+    return dst_installer_path
+
+
+def _build_shim_linux(
+    dst_shim_root: Path, dist_root: Path
+) -> Path:
+    tar_path = dst_shim_root / "shim.tar.gz"
+    # Open file in write mode to be sure that it exists
+    with open(tar_path, "w"):
+        pass
+
+    dist_root_str = os.path.normpath(str(dist_root))
+    with tarfile.open(tar_path, mode="w:gz") as tar:
+        dist_root_str_offset = len(dist_root_str) + 1
+        for root, _, filenames in os.walk(dist_root_str):
+            if not filenames:
+                continue
+
+            dst_root = None
+            if root != dist_root_str:
+                dst_root = root[dist_root_str_offset:]
+            for filename in filenames:
+                src_path = os.path.join(root, filename)
+                dst_path = filename
+                if dst_root:
+                    dst_path = os.path.join(dst_root, dst_path)
+                tar.add(src_path, arcname=dst_path)
+    return tar_path
+
+
+def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
+    import plistlib
+
+    # TODO check if 'create-dmg' is available
+    try:
+        subprocess.call(["create-dmg"])
+    except FileNotFoundError:
+        raise ValueError("create-dmg is not available")
+
+    dmg_path = dst_shim_root / "shim.dmg"
+    app_filepath = dist_root.parent / "build" / "AYON.app"
+    plist_path = app_filepath / "Contents" / "Info.plist"
+
+    with open(plist_path, "rb") as stream:
+        data = plistlib.load(stream)
+
+    data["CFBundleURLTypes"] = [
+        {
+            "CFBundleTypeRole": "Viewer",
+            "CFBundleURLName": "com.ayon.URLscheme",
+            "CFBundleURLSchemes": ["ayon-launcher"],
+        }
+    ]
+    with open(plist_path, "wb") as stream:
+        plistlib.dump(data, stream)
+
+    args = [
+        "create-dmg",
+        "--volname", "AYON-shim-installer",
+        "--window-pos", "200", "120",
+        "--window-size", "600", "300",
+        "--app-drop-link", "100", "50",
+        str(dmg_path),
+        str(app_filepath)
+    ]
+    if subprocess.call(args) != 0:
+        raise ValueError("Failed to create shim DMG image")
+    return dmg_path
+
+
+def copy_shim_to_build(ayon_root, build_content_root):
+    """Copy shim executables and add metadata file next to it.
+
+    Zip shim executable content and add metadata file with version and
+        hash of shim zip file.
+
+    Args:
+        ayon_root (Path): Path to AYON root.
+        build_content_root (Path): Path to build content directory.
+
+    """
+    dist_root = ayon_root / "shim" / "dist"
+    dst_shim_root = build_content_root / "shim"
+    os.makedirs(dst_shim_root, exist_ok=True)
+    dst_json_path = dst_shim_root / "shim.json"
+    with open(dist_root / "version", "r") as stream:
+        version = stream.read().strip()
+
+    platform_name = platform.system().lower()
+    if platform_name == "windows":
+        shim_installer_path = _build_shim_windows(
+            dst_shim_root, dist_root, version
+        )
+    elif platform_name == "linux":
+        shim_installer_path = _build_shim_linux(
+            dst_shim_root, dist_root
+        )
+    elif platform_name == "darwin":
+        shim_installer_path = _build_shim_darwin(
+            dst_shim_root, dist_root
+        )
+    else:
+        raise ValueError(f"Unknown platform '{platform_name}'")
+
+    hash_obj = hashlib.sha256()
+    with open(shim_installer_path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1000), b""):
+            hash_obj.update(chunk)
+
+    shim_data = {
+        "version": version,
+        "hash_type": "sha256",
+        "hash_value": hash_obj.hexdigest(),
+    }
+    with open(dst_json_path, "w") as stream:
+        json.dump(shim_data, stream)
 
 
 def _get_darwin_output_path(build_root, ayon_version):
@@ -437,10 +586,15 @@ def store_base_metadata(build_root, build_content_root, ayon_version):
         build_content_root (Path): Path build content directory.
         ayon_version (str): AYON version.
     """
+    platform_name = platform.system().lower()
 
+    distro_short = None
+    if platform_name == "linux":
+        distro_short = f"{distro.id()}{distro.major_version()}"
     metadata = {
         "version": ayon_version,
-        "platform": platform.system().lower(),
+        "platform": platform_name,
+        "distro_short": distro_short,
         "python_version": platform.python_version(),
         "python_modules": get_packages_info(build_root),
         "runtime_python_modules": get_runtime_modules(build_content_root),
@@ -456,6 +610,7 @@ def post_build_process(ayon_root, build_root):
 
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
+    copy_shim_to_build(ayon_root, build_content_root)
 
     dependency_cleanup(ayon_root, build_content_root)
     store_base_metadata(build_root, build_content_root, ayon_version)
@@ -503,7 +658,9 @@ def _create_windows_installer(
     _build_root,
     installer_root,
     build_content_root,
-    ayon_version
+    ayon_version,
+    _distro_short,
+    pyside2_used,
 ):
     """Create Windows installer.
 
@@ -511,11 +668,12 @@ def _create_windows_installer(
         Path: Path to installer file.
     """
 
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
     iscc_executable = _find_iscc()
 
     inno_setup_path = ayon_root / "inno_setup.iss"
     env = os.environ.copy()
-    installer_basename = f"AYON-{ayon_version}-win-setup"
+    installer_basename = f"AYON-{ayon_version}-win{pyside2_suffix}-setup"
 
     env["BUILD_SRC_DIR"] = str(build_content_root.relative_to(ayon_root))
     env["BUILD_DST_DIR"] = str(installer_root.relative_to(ayon_root))
@@ -533,15 +691,18 @@ def _create_linux_installer(
     _build_root,
     installer_root,
     build_content_root,
-    ayon_version
+    ayon_version,
+    distro_short,
+    pyside2_used,
 ):
     """Linux installer is just tar file.
 
     Returns:
         Path: Path to installer file.
-    """
 
-    basename = f"AYON-{ayon_version}-linux"
+    """
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
+    basename = f"AYON-{ayon_version}-linux-{distro_short}{pyside2_suffix}"
     filename = f"{basename}.tar.gz"
     output_path = installer_root / filename
 
@@ -555,7 +716,13 @@ def _create_linux_installer(
 
 
 def _create_darwin_installer(
-    _ayon_root, build_root, installer_root, _build_content_root, ayon_version
+    _ayon_root,
+    build_root,
+    installer_root,
+    _build_content_root,
+    ayon_version,
+    _distro_short,
+    pyside2_used,
 ):
     """Create MacOS installer (.dmg).
 
@@ -564,10 +731,12 @@ def _create_darwin_installer(
 
     Raises:
         ValueError: If 'create-dmg' is not available.
-    """
 
+    """
+    pyside2_suffix = "-pyside2" if pyside2_used else ""
     app_filepath = _get_darwin_output_path(build_root, ayon_version)
-    output_path = installer_root / f"AYON-{ayon_version}-macos.dmg"
+    filename = f"AYON-{ayon_version}-macos{pyside2_suffix}.dmg"
+    output_path = installer_root / filename
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
@@ -639,6 +808,8 @@ def store_installer_metadata(build_root, installer_root, installer_path):
 def create_installer(ayon_root, build_root):
     metadata = get_build_metadata(build_root)
     ayon_version = metadata["version"]
+    distro_short = metadata["distro_short"]
+    pyside2_used = "PySide2" in metadata["runtime_python_modules"]
     build_content_root = get_build_content_root(build_root, ayon_version)
     installer_root = build_root / "installer"
     if installer_root.exists():
@@ -650,7 +821,9 @@ def create_installer(ayon_root, build_root):
         build_root,
         installer_root,
         build_content_root,
-        ayon_version
+        ayon_version,
+        distro_short,
+        pyside2_used,
     )
     store_installer_metadata(
         build_root, installer_root, str(installer_path.absolute())

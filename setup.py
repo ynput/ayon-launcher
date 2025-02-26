@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Setup info for building AYON Desktop application."""
 import os
-import re
 import platform
 from pathlib import Path
 
@@ -32,6 +31,7 @@ if IS_WINDOWS:
 
 install_requires = [
     "appdirs",
+    "platformdirs",
     "cx_Freeze",
     "keyring",
     "pkg_resources",

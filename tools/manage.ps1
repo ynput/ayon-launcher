@@ -5,7 +5,7 @@
 .DESCRIPTION
   This script will detect Python installation, create venv with Poetry
   and install all necessary packages from `poetry.lock` or `pyproject.toml`
-  needed by OpenPype to be included during application freeze on Windows.
+  needed by AYON launcher to be included during application freeze on Windows.
 
 .EXAMPLE
 
@@ -36,6 +36,7 @@ $current_dir = Get-Location
 $script_dir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $repo_root = (Get-Item $script_dir).parent.FullName
 $app_logo = "$repo_root/common/ayon_common/resources/AYON.png"
+$poetry_home = "$repo_root\.poetry"
 
 & git submodule update --init --recursive
 # Install PSWriteColor to support colorized output to terminal
@@ -60,6 +61,10 @@ function Print-AsciiArt() {
 
 function Change-Cwd() {
     Set-Location -Path $repo_root
+}
+
+function Change-Shim-Cwd() {
+    Set-Location -Path "$($repo_root)\shim"
 }
 
 function Restore-Cwd() {
@@ -111,8 +116,8 @@ function Install-Poetry() {
 
     }
 
-    $env:POETRY_HOME="$repo_root\.poetry"
-    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) -
+    $env:POETRY_HOME=$poetry_home
+    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python)
 }
 
 
@@ -150,7 +155,7 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
         Write-Color -Text "WARNING Version ", "[ ",  $p, " ]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
-        Write-Color -Text "*** ", "OpenPype supports only Python 3.9" -Color Yellow, White
+        Write-Color -Text "*** ", "AYON launcher supports only Python 3.9" -Color Yellow, White
     } else {
         Write-Color "OK ", "[ ",  $p, " ]" -Color Green, Cyan, White, Cyan
     }
@@ -185,6 +190,7 @@ function Get-BuildLog {
 }
 
 function New-DockerBuild {
+    Change-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
     Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
     $variant = $args[0]
@@ -214,9 +220,14 @@ function New-DockerBuild {
         New-Item -ItemType Directory -Path $build_dir
     }
 
+    $qtbindingValue = ""
+    if ($arguments -contains "--use-pyside2") {
+        $qtbindingValue = "pyside2"
+    }
+
     Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
 
-    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
+    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Docker command failed.", $LASTEXITCODE -Color Red, Yellow, Red
         Restore-Cwd
@@ -248,19 +259,22 @@ function Default-Func {
     Write-Host "Runtime targets:"
     Write-Color -text "  create-env                    ", "Install Poetry and update venv by lock file" -Color White, Cyan
     Write-Color -text "  install-runtime-dependencies  ", "Install runtime dependencies (Qt binding)" -Color White, Cyan
+    Write-Color -text "      --use-pyside2                 Install ", "PySide2", " instead of ", "PySide6", "." -Color White, Cyan, White, Cyan, White
     Write-Color -text "  install-runtime               ", "Alias for '", "install-runtime-dependencies", "'" -Color White, Cyan, White, Cyan
     Write-Color -text "  build                         ", "Build desktop application" -Color White, Cyan
     Write-Color -text "  make-installer                ", "Make desktop application installer" -Color White, Cyan
     Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
-    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "centos7", "', '", "ubuntu","', '", "debian", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "ubuntu", "', '", "debian", "', '", "rocky8", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
+    Write-Color -text "      --use-pyside2                 Use ", "PySide2", " instead of ", "PySide6", "." -Color White, Cyan, White, Cyan, White
     Write-Host ""
 }
 
 function Create-Env {
+    Change-Cwd
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$poetry_home\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Install-Poetry
         Write-Color -Text "INSTALLED" -Color Cyan
@@ -274,9 +288,9 @@ function Create-Env {
         Write-Color -Text ">>> ", "Installing virtual environment from lock." -Color Green, Gray
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.in-project true --local
-    & "$env:POETRY_HOME\bin\poetry" config virtualenvs.create true --local
-    & "$env:POETRY_HOME\bin\poetry" install --no-root $poetry_verbosity --ansi
+    & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
+    & "$poetry_home\bin\poetry" config virtualenvs.create true --local
+    & "$poetry_home\bin\poetry" install --no-root $poetry_verbosity --ansi
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
         Restore-Cwd
@@ -284,11 +298,21 @@ function Create-Env {
     }
     if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
         Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-        & "$env:POETRY_HOME\bin\poetry" run pre-commit install
+        & "$poetry_home\bin\poetry" run pre-commit install
         if ($LASTEXITCODE -ne 0)
         {
             Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
         }
+    }
+
+    Change-Shim-Cwd
+    & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
+    & "$poetry_home\bin\poetry" config virtualenvs.create true --local
+    & "$poetry_home\bin\poetry" install --no-root $poetry_verbosity --ansi
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode 1
     }
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
@@ -302,14 +326,17 @@ function Create-Env {
 
 
 function Build-Ayon($MakeInstaller = $false) {
+    Change-Cwd
     $ayon_version = Get-Ayon-Version
     if (-not $ayon_version) {
         Exit-WithCode 1
     }
-
     # Create build directory if not exist
     if (-not (Test-Path -PathType Container -Path "$($repo_root)\build")) {
         New-Item -ItemType Directory -Force -Path "$($repo_root)\build"
+    }
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\dist")) {
+        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\dist"
     }
 
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
@@ -321,17 +348,25 @@ function Build-Ayon($MakeInstaller = $false) {
         Write-Color -Text $_.Exception.Message -Color Red
         Exit-WithCode 1
     }
+    try {
+        Remove-Item -Recurse -Force "$($repo_root)\shim\dist\*"
+    }
+    catch {
+        Write-Color -Text "!!! ", "Cannot clean shim directory, possibly because process is using it." -Color Red, Gray
+        Write-Color -Text $_.Exception.Message -Color Red
+        Exit-WithCode 1
+    }
+
     if (-not $disable_submodule_update) {
         Write-Color -Text ">>> ", "Making sure submodules are up-to-date ..." -Color Green, Gray
         & git submodule update --init --recursive
     } else {
         Write-Color -Text "*** ", "Not updating submodules ..." -Color Green, Gray
     }
-    $ayon_version = Get-Ayon-Version
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
         Create-Env
@@ -345,16 +380,31 @@ function Build-Ayon($MakeInstaller = $false) {
     Get-ChildItem $repo_root -Filter "__pycache__" -Force -Recurse | Where-Object { $_.FullName -inotmatch 'build' } | Remove-Item -Force -Recurse
     Write-Color -Text "OK" -Color green
 
-    Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    $FreezeContent = & "$($env:POETRY_HOME)\bin\poetry" run python -m pip --no-color freeze
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
+    Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
+    Change-Shim-Cwd
+    $out = & "$($poetry_home)\bin\poetry" run python setup.py build 2>&1
+    Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Color -Text "------------------------------------------" -Color Red
+        Get-Content "$($repo_root)\shim\build.log"
+        Write-Color -Text "------------------------------------------" -Color Yellow
+        Write-Color -Text "!!! ", "Build failed. Check the log: ", ".\shim\build.log" -Color Red, Yellow, White
+        Exit-WithCode $LASTEXITCODE
+    }
+
+    Change-Cwd
+    Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
+    $FreezeContent = & "$($poetry_home)\bin\poetry" run python -m pip --no-color freeze
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
+
     # Make sure output is UTF-8 without BOM
     $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
     [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
 
-    $out = & "$($env:POETRY_HOME)\bin\poetry" run python setup.py build 2>&1
+    $out = & "$($poetry_home)\bin\poetry" run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
@@ -366,7 +416,7 @@ function Build-Ayon($MakeInstaller = $false) {
     }
 
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
         Make-Ayon-Installer-Raw
@@ -382,15 +432,17 @@ function Build-Ayon($MakeInstaller = $false) {
 }
 
 function Installer-Post-Process() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
+    Change-Cwd
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function Make-Ayon-Installer-Raw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
 }
 
 function Make-Ayon-Installer() {
+    Change-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     Make-Ayon-Installer-Raw
@@ -404,7 +456,7 @@ function Make-Ayon-Installer() {
 
 function Install-Runtime-Dependencies() {
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($env:POETRY_HOME)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
         Create-Env
@@ -412,7 +464,7 @@ function Install-Runtime-Dependencies() {
         Write-Color -Text "OK" -Color Green
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py"
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py" @args
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Dependencies downloaded", "All done in $( $endTime - $startTime ) secs."
@@ -420,7 +472,8 @@ function Install-Runtime-Dependencies() {
 }
 
 function Run-From-Code() {
-    & "$($env:POETRY_HOME)\bin\poetry" run python "$($repo_root)\start.py" @arguments
+    Change-Cwd
+    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\start.py" @arguments
 }
 
 function Main {
@@ -430,28 +483,20 @@ function Main {
     }
     $FunctionName = $FunctionName.ToLower() -replace "\W"
     if ($FunctionName -eq "run") {
-        Change-Cwd
         Run-From-Code
     } elseif ($FunctionName -eq "createenv") {
-        Change-Cwd
         Create-Env
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
-        Change-Cwd
-        Install-Runtime-Dependencies
+        Install-Runtime-Dependencies @arguments
     } elseif ($FunctionName -eq "build") {
-        Change-Cwd
         Build-Ayon
     } elseif ($FunctionName -eq "makeinstaller") {
-        Change-Cwd
         Make-Ayon-Installer
     } elseif ($FunctionName -eq "buildmakeinstaller") {
-        Change-Cwd
         Build-Ayon -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
-        Change-Cwd
         Installer-Post-Process "upload" @arguments
     } elseif ($FunctionName -eq "dockerbuild") {
-        Change-Cwd
         New-DockerBuild @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
@@ -459,15 +504,13 @@ function Main {
     }
 }
 
-if (-not (Test-Path 'env:POETRY_HOME')) {
-    $env:POETRY_HOME = "$repo_root\.poetry"
-}
-
 # Enable if PS 7.x is needed.
 # Show-PSWarning
 
 Print-AsciiArt
 Test-Python
-Main
-
-Restore-Cwd
+try {
+    Main
+} finally {
+    Restore-Cwd
+}

@@ -52,6 +52,7 @@ class InstallerInfo:
     version: str
     platform: str
     filename: str
+    distro_short: Union[str, None]
     installer_path: str
     python_version: str
     checksum: str
@@ -166,6 +167,7 @@ def _find_matching_installer(
                 version=server_installer.get("version"),
                 platform=server_installer.get("platform"),
                 filename=server_installer.get("filename"),
+                distro_short=server_installer.get("distro_short"),
                 installer_path=installer_info.installer_path,
                 python_version=server_installer.get("pythonVersion"),
                 checksum=server_installer.get("checksum"),

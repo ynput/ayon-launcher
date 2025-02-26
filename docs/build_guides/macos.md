@@ -1,9 +1,13 @@
 # Build AYON launcher on macOS
 
-**WARNING:** macOS is not fully supported. The build process may not work on some machines.
+> [!WARNING]
+> macOS is not fully supported. The build process may not work on some machines.
+> We try to upload pre-build installer in each release.
 
 ## Requirements
 ---
+> [!IMPORTANT]
+> If you're on M1 or newer mac, you also have to enable Rosetta virtualization on Terminal application. That has to be done before you start the build process or install dependencies. You might have to reinstall dependencies if you've already had installed them.
 
 To build AYON you will need some tools and libraries. We do not provide any of these tools. You have to install them yourself.
 - **Terminal**
@@ -15,7 +19,8 @@ To build AYON you will need some tools and libraries. We do not provide any of t
 
 Python 3.9.0 is not supported because of [this bug](https://github.com/python/cpython/pull/22670).
 
-It is recommended to use [**pyenv**](https://github.com/pyenv/pyenv) for python version control.
+> [!TIP]
+> It is recommended to use [**pyenv**](https://github.com/pyenv/pyenv) for python version control.
 
 ### Prepare requirements
 Easy way of installing everything necessary is to use [Homebrew](https://brew.sh).
@@ -25,9 +30,9 @@ Easy way of installing everything necessary is to use [Homebrew](https://brew.sh
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
 
-2) Install **cmake**:
+2) Install **cmake** and **create-dmg**:
    ```sh
-   brew install cmake
+   brew install cmake create-dmg
    ```
 
 3) Install [pyenv](https://github.com/pyenv/pyenv):

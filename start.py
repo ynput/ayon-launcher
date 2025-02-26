@@ -4,7 +4,7 @@
 Bootstrapping process of AYON.
 
 This script is responsible for setting up the environment and
-bootstraping AYON. It is also responsible for updating AYON
+bootstrapping AYON. It is also responsible for updating AYON
 from AYON server.
 
 Arguments that are always handled by AYON launcher:
@@ -40,7 +40,7 @@ In all other cases AYON launcher will start in 'production' mode.
 Headless mode is not guaranteed after bootstrap process. It is possible that
 some addon won't handle headless mode and will try to use UIs.
 
-After bootstrap process AYON launcher will start 'openpype' addon. This addon
+After bootstrap process AYON launcher will start 'ayon_core' addon. This addon
 is responsible for handling all other addons and their logic.
 
 Environment variables set during bootstrap:
@@ -57,27 +57,18 @@ Environment variables set during bootstrap:
     - AYON_EXECUTABLE - path to AYON executable
     - AYON_ROOT - path to AYON root directory
     - AYON_MENU_LABEL - label for AYON integrations menu
+    - AYON_LAUNCHER_STORAGE_DIR - dir where addons, dependency packages,
+        shim etc. are stored
+    - AYON_LAUNCHER_LOCAL_DIR - dir where machine specific files are stored
     - AYON_ADDONS_DIR - path to AYON addons directory
     - AYON_DEPENDENCIES_DIR - path to AYON dependencies directory
-
-OpenPype environment variables set during bootstrap
-for backward compatibility:
-    - PYBLISH_GUI - default pyblish UI tool - will be removed in future
-    - USE_AYON_SERVER - tells openpype addon to run in AYON mode
-    - AVALON_LABEL - label for AYON menu
-    - OPENPYPE_VERSION - version of OpenPype addon
-    - OPENPYPE_USE_STAGING - set to '1' if staging mode is enabled
-    - OPENPYPE_DEBUG - set to '1' if debug mode is enabled
-    - OPENPYPE_HEADLESS_MODE - set to '1' if headless mode is enabled
-    - OPENPYPE_EXECUTABLE - path to OpenPype executable
-    - OPENPYPE_ROOT - path to OpenPype root directory
-    - OPENPYPE_REPOS_ROOT - path to OpenPype repos root directory
-    - OPENPYPE_LOG_LEVEL - log level for OpenPype
 
 Some of the environment variables are not in this script but in 'ayon_common'
 module.
 - Function 'create_global_connection' can change 'AYON_USE_DEV' and
     'AYON_USE_STAGING'.
+- Bootstrap will set 'AYON_LAUNCHER_STORAGE_DIR' and 'AYON_LAUNCHER_LOCAL_DIR'
+    if are not set yet.
 - Distribution logic can set 'AYON_ADDONS_DIR' and 'AYON_DEPENDENCIES_DIR'
     if are not set yet.
 """
@@ -86,9 +77,11 @@ import os
 import platform
 import sys
 import site
+import time
 import traceback
-import contextlib
 import subprocess
+from contextlib import contextmanager
+from urllib.parse import urlparse, parse_qs
 
 from version import __version__
 
@@ -145,14 +138,12 @@ if "--verbose" in sys.argv:
             f"argument \"{value}\". {expected_values}"
         ))
 
-    os.environ["OPENPYPE_LOG_LEVEL"] = str(log_level)
     os.environ["AYON_LOG_LEVEL"] = str(log_level)
 
 # Enable debug mode, may affect log level if log level is not defined
 if "--debug" in sys.argv:
     sys.argv.remove("--debug")
     os.environ["AYON_DEBUG"] = "1"
-    os.environ["OPENPYPE_DEBUG"] = "1"
 
 SKIP_HEADERS = False
 if "--skip-headers" in sys.argv:
@@ -167,7 +158,6 @@ if "--skip-bootstrap" in sys.argv:
 if "--use-staging" in sys.argv:
     sys.argv.remove("--use-staging")
     os.environ["AYON_USE_STAGING"] = "1"
-    os.environ["OPENPYPE_USE_STAGING"] = "1"
 
 if "--use-dev" in sys.argv:
     sys.argv.remove("--use-dev")
@@ -183,7 +173,7 @@ def _is_in_login_mode():
     # Handle cases when source AYON launcher has version before '1.0.1'
     # - When user launcher an executable of AYON launcher it will run correct
     #   version of AYON launcher by bundle, but older launcher versions
-    #   will not set 'AYON_IN_LOGIN_MODE' environment variable. Therefore
+    #   will not set 'AYON_IN_LOGIN_MODE' environment variable. Therefore,
     #   we need to check 'PREVIOUS_AYON_VERSION' and set 'AYON_IN_LOGIN_MODE'
     #   to 'True' when version is before '1.0.1'.
     # - this would be `return "AYON_API_KEY" not in os.environ` otherwise
@@ -198,9 +188,9 @@ def _is_in_login_mode():
     try:
         # Keep only first 3 version parts which should be integers
         new_version_parts = [
-            int(value)
-            for idx, value in enumerate(version_parts)
-            if idx < 3
+            int(part_value)
+            for part_idx, part_value in enumerate(version_parts)
+            if part_idx < 3
         ]
     except ValueError:
         return False
@@ -220,23 +210,10 @@ elif "AYON_IN_LOGIN_MODE" not in os.environ:
 
 if "--headless" in sys.argv:
     os.environ["AYON_HEADLESS_MODE"] = "1"
-    os.environ["OPENPYPE_HEADLESS_MODE"] = "1"
     sys.argv.remove("--headless")
 
-elif (
-    os.getenv("AYON_HEADLESS_MODE") != "1"
-    or os.getenv("OPENPYPE_HEADLESS_MODE") != "1"
-):
+elif os.getenv("AYON_HEADLESS_MODE") != "1":
     os.environ.pop("AYON_HEADLESS_MODE", None)
-    os.environ.pop("OPENPYPE_HEADLESS_MODE", None)
-
-elif (
-    os.getenv("AYON_HEADLESS_MODE")
-    != os.getenv("OPENPYPE_HEADLESS_MODE")
-):
-    os.environ["OPENPYPE_HEADLESS_MODE"] = (
-        os.environ["AYON_HEADLESS_MODE"]
-    )
 
 IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
@@ -260,7 +237,8 @@ sys.path.append(_dependencies_path)
 _python_paths.append(_dependencies_path)
 
 # Add common package to PYTHONPATH
-# - common contains common code and bootstrap logic (like connection and bootstrap)
+# - common contains common code and bootstrap logic (like connection
+#   and distribution)
 common_path = os.path.join(AYON_ROOT, "common")
 sys.path.insert(0, common_path)
 if common_path in _python_paths:
@@ -268,7 +246,7 @@ if common_path in _python_paths:
 _python_paths.insert(0, common_path)
 
 # Vendored python modules that must not be in PYTHONPATH environment but
-#   are required for OpenPype processes
+#   are required for AYON launcher processes
 sys.path.insert(0, os.path.join(AYON_ROOT, "vendor", "python"))
 
 os.environ["PYTHONPATH"] = os.pathsep.join(_python_paths)
@@ -278,15 +256,12 @@ os.environ["USE_AYON_SERVER"] = "1"
 # Set this to point either to `python` from venv in case of live code
 #    or to `ayon` or `ayon_console` in case of frozen code
 os.environ["AYON_EXECUTABLE"] = sys.executable
-os.environ["OPENPYPE_EXECUTABLE"] = sys.executable
 os.environ["AYON_ROOT"] = AYON_ROOT
-os.environ["OPENPYPE_ROOT"] = AYON_ROOT
-os.environ["OPENPYPE_REPOS_ROOT"] = AYON_ROOT
 os.environ["AYON_MENU_LABEL"] = "AYON"
-os.environ["AVALON_LABEL"] = "AYON"
 
 import blessed  # noqa: E402
 import certifi  # noqa: E402
+import requests  # noqa: E402
 
 
 if sys.__stdout__:
@@ -320,36 +295,41 @@ else:
         print(message)
 
 
-# if SSL_CERT_FILE is not set prior to OpenPype launch, we set it to point
-# to certifi bundle to make sure we have reasonably new CA certificates.
+# if SSL_CERT_FILE is not set prior to AYON launcher launch, we set it to
+#   point to certifi bundle to make sure we have reasonably
+#       new CA certificates.
 if not os.getenv("SSL_CERT_FILE"):
     os.environ["SSL_CERT_FILE"] = certifi.where()
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-from ayon_api import (
+from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
     get_addons_studio_settings,
+    get_event,
+    update_event,
+    take_web_action_event,
+    abort_web_action_event,
 )
-from ayon_api.constants import (
+from ayon_api.constants import (  # noqa E402
     SERVER_URL_ENV_KEY,
     SERVER_API_ENV_KEY,
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
 )
-from ayon_common import is_staging_enabled, is_dev_mode_enabled
-from ayon_common.connection.credentials import (
+from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
+from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
     add_server,
+    load_token,
     need_server_or_login,
     load_environments,
-    set_environments,
     create_global_connection,
     confirm_server_login,
     show_invalid_credentials_ui,
 )
-from ayon_common.distribution import (
+from ayon_common.distribution import (  # noqa E402
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
@@ -357,62 +337,17 @@ from ayon_common.distribution import (
     UpdateWindowManager,
 )
 
-from ayon_common.utils import (
+from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
+    deploy_ayon_launcher_shims,
     get_local_site_id,
+    get_launcher_local_dir,
+    get_launcher_storage_dir,
 )
-from ayon_common.startup import show_startup_error
+from ayon_common.startup import show_startup_error  # noqa E402
 
 
-def set_global_environments() -> None:
-    """Set global OpenPype's environments."""
-    import acre
-
-    from openpype.settings import get_general_environments
-
-    general_env = get_general_environments()
-
-    # first resolve general environment because merge doesn't expect
-    # values to be list.
-    # TODO: switch to OpenPype environment functions
-    merged_env = acre.merge(
-        acre.compute(acre.parse(general_env), cleanup=False),
-        dict(os.environ)
-    )
-    env = acre.compute(
-        merged_env,
-        cleanup=False
-    )
-    os.environ.clear()
-    os.environ.update(env)
-
-    # Hardcoded default values
-    os.environ["PYBLISH_GUI"] = "pyblish_pype"
-    # Change scale factor only if is not set
-    if "QT_AUTO_SCREEN_SCALE_FACTOR" not in os.environ:
-        os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
-
-
-def set_addons_environments():
-    """Set global environments for OpenPype modules.
-
-    This requires to have OpenPype in `sys.path`.
-    """
-
-    import acre
-    from openpype.modules import ModulesManager
-
-    modules_manager = ModulesManager()
-
-    # Merge environments with current environments and update values
-    if module_envs := modules_manager.collect_global_environments():
-        parsed_envs = acre.parse(module_envs)
-        env = acre.merge(parsed_envs, dict(os.environ))
-        os.environ.clear()
-        os.environ.update(env)
-
-
-def _connect_to_ayon_server(force=False):
+def _connect_to_ayon_server(force=False, username=None):
     """Connect to AYON server.
 
     Load existing credentials to AYON server, and show login dialog if are not
@@ -425,8 +360,9 @@ def _connect_to_ayon_server(force=False):
 
     Args:
         force (Optional[bool]): Force login to server.
-    """
+        username (Optional[str]): Username that will be forced to use.
 
+    """
     if force and HEADLESS_MODE_ENABLED:
         _print("!!! Login UI was requested in headless mode.")
         sys.exit(1)
@@ -434,7 +370,7 @@ def _connect_to_ayon_server(force=False):
     load_environments()
     need_server = need_api_key = True
     if not force:
-        need_server, need_api_key = need_server_or_login()
+        need_server, need_api_key = need_server_or_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
     if not need_server and not need_api_key:
@@ -470,7 +406,12 @@ def _connect_to_ayon_server(force=False):
         sys.exit(1)
 
     # Show login dialog
-    url, token, username = ask_to_login_ui(current_url, always_on_top=True)
+    url, token, username = ask_to_login_ui(
+        current_url,
+        always_on_top=False,
+        username=username,
+        force_username=bool(username)
+    )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
         return
@@ -511,7 +452,6 @@ def _set_default_settings_variant(use_dev, use_staging, bundle_name):
     # Make sure staging is unset when 'dev' should be used
     if not use_staging:
         os.environ.pop("AYON_USE_STAGING", None)
-        os.environ.pop("OPENPYPE_USE_STAGING", None)
     set_default_settings_variant(variant)
 
 
@@ -549,7 +489,6 @@ def _prepare_disk_mapping_args(src_path, dst_path):
 
         return ["osascript", "-e", scr]
     return []
-
 
 
 def _run_disk_mapping(bundle_name):
@@ -643,7 +582,6 @@ def _start_distribution():
                 f" as \"{mode}\" on the AYON server '{url}'."
             )
 
-
         if not HEADLESS_MODE_ENABLED:
             show_missing_bundle_information(url, bundle_name, username)
 
@@ -712,8 +650,33 @@ def _start_distribution():
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
 
+def init_launcher_executable(ensure_protocol_is_registered=False):
+    """Initialize AYON launcher executable.
+
+    Make sure current AYON launcher executable is stored to known executables
+        and shim is deployed.
+
+    """
+    create_desktop_icons = "--create-desktop-icons" in sys.argv
+    store_current_executable_info()
+    deploy_ayon_launcher_shims(
+        create_desktop_icons=create_desktop_icons,
+        ensure_protocol_is_registered=ensure_protocol_is_registered,
+    )
+
+
+def fill_pythonpath():
+    """Fill 'sys.path' with paths from PYTHONPATH environment variable."""
+    lookup_set = set(sys.path)
+    for path in (os.getenv("PYTHONPATH") or "").split(os.pathsep):
+        if path not in lookup_set:
+            sys.path.append(path)
+            lookup_set.add(path)
+
+
 def boot():
-    """Bootstrap AYON."""
+    """Bootstrap AYON launcher."""
+    init_launcher_executable()
 
     # Setup site id in environment variable for all possible subprocesses
     if SITE_ID_ENV_KEY not in os.environ:
@@ -722,7 +685,12 @@ def boot():
     _connect_to_ayon_server()
     create_global_connection()
     _start_distribution()
-    store_current_executable_info()
+    fill_pythonpath()
+
+    # Call launcher storage dir getters to make sure their
+    #   env variables are set
+    get_launcher_local_dir()
+    get_launcher_storage_dir()
 
 
 def _on_main_addon_missing():
@@ -758,64 +726,150 @@ def _on_main_addon_import_error(exception):
     sys.exit(1)
 
 
-def _main_cli_openpype():
-    try:
-        from openpype import PACKAGE_DIR
-    except ImportError:
-        _on_main_addon_missing()
+def process_uri():
+    if len(sys.argv) <= 1:
+        return False
+
+    uri = sys.argv[-1].strip('"')
+
+    parsed_uri = urlparse(uri)
+    if parsed_uri.scheme != "ayon-launcher":
+        return False
+
+    # NOTE This is expecting only single option of ayon-launcher launch option
+    #   which is ayon-launcher://action/?server_url=...&token=...
+    parsed_query = parse_qs(parsed_uri.query)
+
+    server_url = parsed_query["server_url"][0]
+    uri_token = parsed_query["token"][0]
+    # Use raw requests to get all necessary information from server
+    data = take_web_action_event(server_url, uri_token)
+    username = data.get("userName")
+
+    os.environ[SERVER_URL_ENV_KEY] = server_url
+    token = load_token(server_url)
+    if token:
+        os.environ[SERVER_API_ENV_KEY] = token
 
     try:
-        from openpype import cli
-    except ImportError as exc:
-        traceback.print_exception(*sys.exc_info())
-        _on_main_addon_import_error(exc)
+        _connect_to_ayon_server(username=username)
+    except SystemExit:
+        try:
+            # There is a bug in ayon-python-api 1.0.10
+            # abort_web_action_event(
+            #     server_url,
+            #     uri_token,
+            #     "User skipped login in AYON launcher.",
+            # )
+            requests.post(
+                f"{server_url}/api/actions/abort/{uri_token}",
+                json={"message": "User skipped login in AYON launcher."},
+            )
+        except Exception:
+            # Silently ignore any exception, only print traceback
+            traceback.print_exception(*sys.exc_info())
+        raise
 
-    python_path = os.getenv("PYTHONPATH", "")
-    split_paths = python_path.split(os.pathsep)
+    event_id = data["eventId"]
+    variant = data["variant"]
 
-    # TODO move to ayon core import
-    additional_paths = [
-        # add OpenPype tools
-        os.path.join(PACKAGE_DIR, "tools"),
-        # add common OpenPype vendor
-        # (common for multiple Python interpreter versions)
-        os.path.join(PACKAGE_DIR, "vendor", "python", "common")
-    ]
-    for path in additional_paths:
-        if path not in split_paths:
-            split_paths.insert(0, path)
-        if path not in sys.path:
-            sys.path.insert(0, path)
-    os.environ["PYTHONPATH"] = os.pathsep.join(split_paths)
+    # Cleanup environemnt variables
+    env = os.environ.copy()
+    # Remove all possible clash env keys
+    for key in {
+        "AYON_API_KEY",
+        "AYON_USE_STAGING",
+        "AYON_USE_DEV",
+    }:
+        env.pop(key, None)
 
-    _print(">>> loading environments ...")
-    _print("  - global AYON ...")
-    set_global_environments()
-    _print("  - for addons ...")
-    set_addons_environments()
+    # Set new environment variables based on information from server
+    if variant == "staging":
+        env["AYON_USE_STAGING"] = "1"
 
-    # print info when not running scripts defined in 'silent commands'
-    if not SKIP_HEADERS:
-        info = get_info(is_staging_enabled(), is_dev_mode_enabled())
-        info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
+    elif variant != "production":
+        env["AYON_USE_DEV"] = "1"
+        env["AYON_BUNDLE_NAME"] = variant
 
-        t_width = 20
-        with contextlib.suppress(ValueError, OSError):
-            t_width = os.get_terminal_size().columns - 2
+    # We're always in logic mode when running URI
+    env["AYON_IN_LOGIN_MODE"] = "1"
+    # Pass event id to child AYON launcher process
+    env["AYON_WA_INTERNAL_EVENT_ID"] = event_id
 
-        _header = f"*** AYON [{__version__}] "
-        info.insert(0, _header + "-" * (t_width - len(_header)))
+    # Add executable to args
+    uri_args = data["args"]
+    args = [sys.executable]
+    if not IS_BUILT_APPLICATION:
+        args.append(os.path.abspath(__file__))
+    args += uri_args
 
-        for i in info:
-            _print(i)
+    kwargs = {"env": env}
+    low_platform = platform.system().lower()
+    if low_platform == "darwin":
+        new_args = ["open", "-na", args.pop(0), "--args"]
+        new_args.extend(args)
+        args = new_args
+
+    elif low_platform == "windows":
+        flags = (
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS
+        )
+        kwargs["creationflags"] = flags
+
+        if not sys.stdout:
+            kwargs["stdout"] = subprocess.DEVNULL
+            kwargs["stderr"] = subprocess.DEVNULL
+
+    process = subprocess.Popen(args, **kwargs)
+    # Make sure process is running
+    # NOTE there might be a better way to do it?
+    for _ in range(5):
+        if process.pid is not None:
+            break
+        time.sleep(0.1)
+    return True
+
+
+@contextmanager
+def webaction_event_handler():
+    # Remove internal event id from environment and set it to
+    #  'AYON_WEBACTION_EVENT_ID' for addon who is handling it
+    # Reason: Environment 'AYON_WA_INTERNAL_EVENT_ID' is used to pass event id
+    #   from process uri to child launcher and 'AYON_WEBACTION_EVENT_ID' can
+    #   used in the logic triggered from webaction. Point is that
+    #   'AYON_WA_INTERNAL_EVENT_ID' is used only in single AYON launcher
+    #   process and is not handled by multiple different processes.
+    event_id = os.environ.pop("AYON_WA_INTERNAL_EVENT_ID", None)
+    if event_id:
+        os.environ["AYON_WEBACTION_EVENT_ID"] = event_id
+
+    def finish_event(success):
+        if not event_id:
+            return
+
+        try:
+            event = get_event(event_id)
+            if not event:
+                return
+            if event["status"] == "in_progress":
+                new_status = "finished" if success else "failed"
+                update_event(event_id, status=new_status)
+        except Exception:
+            # Silently ignore any exception, only print traceback
+            traceback.print_exception(*sys.exc_info())
 
     try:
-        cli.main(obj={}, prog_name="ayon")
-    except Exception:  # noqa
-        exc_info = sys.exc_info()
-        _print("!!! AYON crashed:")
-        traceback.print_exception(*exc_info)
-        sys.exit(1)
+        yield
+    except SystemExit as exc:
+        finish_event(exc.code == 0)
+        raise
+    except BaseException:
+        finish_event(False)
+        raise
+    else:
+        finish_event(True)
+
 
 
 def main_cli():
@@ -825,15 +879,10 @@ def main_cli():
     moment is fully dependent on 'ayon_core' addon. Which means it
     contains more logic than it should.
     """
-
     try:
-        import ayon_core
-        ayon_core_used = True
-    except ImportError:
-        ayon_core_used = False
-
-    if not ayon_core_used:
-        return _main_cli_openpype()
+        import ayon_core  # noqa F401
+    except ModuleNotFoundError:
+        _on_main_addon_missing()
 
     try:
         from ayon_core import cli
@@ -846,9 +895,10 @@ def main_cli():
         info = get_info(is_staging_enabled(), is_dev_mode_enabled())
         info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
 
-        t_width = 20
-        with contextlib.suppress(ValueError, OSError):
+        try:
             t_width = os.get_terminal_size().columns - 2
+        except (ValueError, OSError):
+            t_width = 20
 
         _header = f"*** AYON [{__version__}] "
         info.insert(0, _header + "-" * (t_width - len(_header)))
@@ -882,7 +932,7 @@ class StartArgScript:
 
     @classmethod
     def from_args(cls, args):
-        """Get path argument from args and check if can be started.
+        """Get path argument from args and check if they can be started.
 
         Args:
             args (Iterable[str]): Arguments passed to AYON.
@@ -913,7 +963,7 @@ def script_cli(start_arg=None):
         start_arg = StartArgScript.from_args(sys.argv)
 
     # Remove first argument from sys.argv
-    # - start.py when running from code 
+    # - start.py when running from code
     # - ayon executable when running from build
     sys.argv.pop(0)
 
@@ -965,6 +1015,11 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 
 def main():
+    # AYON launcher was started to initialize itself
+    if "init-ayon-launcher" in sys.argv:
+        init_launcher_executable(ensure_protocol_is_registered=True)
+        sys.exit(0)
+
     if SHOW_LOGIN_UI:
         if HEADLESS_MODE_ENABLED:
             _print((
@@ -974,16 +1029,21 @@ def main():
             sys.exit(1)
         _connect_to_ayon_server(True)
 
-    if SKIP_BOOTSTRAP:
-        return script_cli()
+    if process_uri():
+        sys.exit(0)
 
-    boot()
+    with webaction_event_handler():
+        if SKIP_BOOTSTRAP:
+            fill_pythonpath()
+            return script_cli()
 
-    start_arg = StartArgScript.from_args(sys.argv)
-    if start_arg.is_valid:
-        script_cli(start_arg)
-    else:
-        main_cli()
+        boot()
+
+        start_arg = StartArgScript.from_args(sys.argv)
+        if start_arg.is_valid:
+            script_cli(start_arg)
+        else:
+            main_cli()
 
 
 if __name__ == "__main__":
