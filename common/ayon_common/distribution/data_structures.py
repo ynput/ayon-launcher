@@ -1,8 +1,11 @@
 import sys
 import traceback
-
-import attr
+from dataclasses import dataclass, field
 from enum import Enum
+
+from typing import Any, Literal, Union, Optional
+
+PlatformName = Literal["windows", "linux", "darwin"]
 
 
 class UrlType(Enum):
@@ -12,47 +15,48 @@ class UrlType(Enum):
     SERVER = "server"
 
 
-@attr.s
-class MultiPlatformValue(object):
-    windows = attr.ib(default=None)
-    linux = attr.ib(default=None)
-    darwin = attr.ib(default=None)
+@dataclass
+class MultiPlatformValue:
+    windows: Union[str, None]
+    linux: Union[str, None]
+    darwin: Union[str, None]
 
 
-@attr.s
-class SourceInfo(object):
-    type = attr.ib()
+# TODO use single class for all types of sources
+@dataclass
+class SourceInfo:
+    type: UrlType
 
 
-@attr.s
+@dataclass
 class LocalSourceInfo(SourceInfo):
-    path = attr.ib(default=attr.Factory(MultiPlatformValue))
+    path: MultiPlatformValue = field(default_factory=MultiPlatformValue)
 
 
-@attr.s
+@dataclass
 class WebSourceInfo(SourceInfo):
-    url = attr.ib(default=None)
-    headers = attr.ib(default=None)
-    filename = attr.ib(default=None)
+    url: str
+    headers: Union[dict[str, str], None]
+    filename: Union[str, None]
 
 
-@attr.s
+@dataclass
 class ServerSourceInfo(SourceInfo):
-    filename = attr.ib(default=None)
-    path = attr.ib(default=None)
+    filename: Union[str, None]
+    path: Union[str, None]
 
 
-def convert_source(source):
+def convert_source(source: dict[str, Any]) -> Optional[SourceInfo]:
     """Create source object from data information.
 
     Args:
         source (Dict[str, any]): Information about source.
 
     Returns:
-        Union[None, SourceInfo]: Object with source information if type is
+        Optional[SourceInfo]: Object with source information if type is
             known.
-    """
 
+    """
     source_type = source.get("type")
     if not source_type:
         return None
@@ -60,7 +64,7 @@ def convert_source(source):
     if source_type == UrlType.FILESYSTEM.value:
         return LocalSourceInfo(
             type=source_type,
-            path=source["path"]
+            path=MultiPlatformValue(**source["path"])
         )
 
     if source_type == UrlType.HTTP.value:
@@ -79,7 +83,9 @@ def convert_source(source):
         )
 
 
-def prepare_sources(src_sources, title):
+def prepare_sources(
+    src_sources: list[dict[str, Any]], title: str
+) -> tuple[list[SourceInfo], list[dict[str, Any]]]:
     sources = []
     unknown_sources = []
     for source in (src_sources or []):
@@ -99,26 +105,25 @@ def prepare_sources(src_sources, title):
     return sources, unknown_sources
 
 
-@attr.s
-class VersionData(object):
-    version_data = attr.ib(default=None)
-
-
-@attr.s
-class AddonVersionInfo(object):
-    version = attr.ib()
-    full_name = attr.ib()
-    title = attr.ib(default=None)
-    require_distribution = attr.ib(default=False)
-    sources = attr.ib(default=attr.Factory(list))
-    unknown_sources = attr.ib(default=attr.Factory(list))
-    checksum = attr.ib(default=None)
-    checksum_algorithm = attr.ib(default=None)
+@dataclass
+class AddonVersionInfo:
+    version: str
+    full_name: str
+    title: str = None
+    require_distribution: bool = False
+    sources: list[SourceInfo] = field(default_factory=list)
+    unknown_sources: list[dict[str, Any]] = field(default_factory=list)
+    checksum: Union[str, None] = None
+    checksum_algorithm: Union[str, None] = None
 
     @classmethod
     def from_dict(
-        cls, addon_name, addon_title, addon_version, version_data
-    ):
+        cls,
+        addon_name: str,
+        addon_title: str,
+        addon_version: str,
+        version_data: dict[str, Any],
+    ) -> "AddonVersionInfo":
         """Addon version info.
 
         Args:
@@ -130,8 +135,8 @@ class AddonVersionInfo(object):
 
         Returns:
             AddonVersionInfo: Addon version info.
-        """
 
+        """
         full_name = f"{addon_name}_{addon_version}"
         title = f"{addon_title} {addon_version}"
 
@@ -155,18 +160,18 @@ class AddonVersionInfo(object):
         )
 
 
-@attr.s
-class AddonInfo(object):
+@dataclass
+class AddonInfo:
     """Object matching json payload from Server"""
-    name = attr.ib()
-    versions = attr.ib(default=attr.Factory(dict))
-    title = attr.ib(default=None)
-    description = attr.ib(default=None)
-    license = attr.ib(default=None)
-    authors = attr.ib(default=None)
+    name: str
+    title: str
+    versions: dict[str, AddonVersionInfo]
+    description: Union[str, None] = None
+    license: Union[str, None] = None
+    authors: Union[str, None] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: dict[str, Any]) -> "AddonInfo":
         """Addon info by available versions.
 
         Args:
@@ -175,8 +180,8 @@ class AddonInfo(object):
 
         Returns:
             AddonInfo: Addon info with available versions.
-        """
 
+        """
         # server payload contains info about all versions
         addon_name = data["name"]
         title = data.get("title") or addon_name
@@ -190,28 +195,28 @@ class AddonInfo(object):
         }
         return cls(
             name=addon_name,
+            title=title,
             versions=dst_versions,
             description=data.get("description"),
-            title=data.get("title") or addon_name,
             license=data.get("license"),
             authors=data.get("authors")
         )
 
 
-@attr.s
-class DependencyItem(object):
+@dataclass
+class DependencyItem:
     """Object matching payload from Server about single dependency package"""
-    filename = attr.ib()
-    platform_name = attr.ib()
-    checksum = attr.ib()
-    checksum_algorithm = attr.ib(default=None)
-    sources = attr.ib(default=attr.Factory(list))
-    unknown_sources = attr.ib(default=attr.Factory(list))
-    source_addons = attr.ib(default=attr.Factory(dict))
-    python_modules = attr.ib(default=attr.Factory(dict))
+    filename: str
+    platform_name: str
+    checksum: str
+    checksum_algorithm: str
+    sources: list[SourceInfo]
+    unknown_sources: list[dict[str, Any]]
+    source_addons: dict[str, str]
+    python_modules: dict[str, str]
 
     @classmethod
-    def from_dict(cls, package):
+    def from_dict(cls, package: dict[str, Any]) -> "DependencyItem":
         filename = package["filename"]
         src_sources = package.get("sources") or []
         for source in src_sources:
@@ -234,21 +239,22 @@ class DependencyItem(object):
         )
 
 
-@attr.s
+@dataclass
 class Installer:
-    version = attr.ib()
-    filename = attr.ib()
-    platform_name = attr.ib()
-    size = attr.ib()
-    checksum = attr.ib()
-    checksum_algorithm = attr.ib()
-    python_version = attr.ib()
-    python_modules = attr.ib()
-    sources = attr.ib(default=attr.Factory(list))
-    unknown_sources = attr.ib(default=attr.Factory(list))
+    version: str
+    filename: str
+    platform_name: PlatformName
+    size: int
+    checksum: str
+    checksum_algorithm: str
+    python_version: str
+    python_modules: dict[str, str]
+    runtime_python_modules = dict[str, str]
+    sources: list[SourceInfo]
+    unknown_sources: list[dict[str, Any]]
 
     @classmethod
-    def from_dict(cls, installer_info):
+    def from_dict(cls, installer_info: dict[str, Any]) -> "Installer":
         src_sources = installer_info.get("sources") or []
         for source in src_sources:
             if source.get("type") == "server" and not source.get("filename"):
@@ -256,38 +262,53 @@ class Installer:
 
         filename = installer_info["filename"]
         sources, unknown_sources = prepare_sources(
-            src_sources, f"Installer '{filename}'")
+            src_sources, f"Installer '{filename}'"
+        )
 
+        runtime_python_modules = installer_info.get(
+            "runtimePythonModules", {}
+        )
         return cls(
             version=installer_info["version"],
             filename=installer_info["filename"],
             platform_name=installer_info["platform"],
             size=installer_info["size"],
-            sources=sources,
-            unknown_sources=unknown_sources,
             checksum=installer_info["checksum"],
             checksum_algorithm=installer_info.get("checksumAlgorithm", "md5"),
             python_version=installer_info["pythonVersion"],
-            python_modules=installer_info["pythonModules"]
+            python_modules=installer_info["pythonModules"],
+            runtime_python_modules=runtime_python_modules,
+            sources=sources,
+            unknown_sources=unknown_sources,
         )
 
 
-@attr.s
+@dataclass
+class AddonDevInfo:
+    enabled: bool
+    path: Union[str, None]
+
+
+@dataclass
 class Bundle:
     """Class representing bundle information."""
 
-    name = attr.ib()
-    installer_version = attr.ib()
-    addon_versions = attr.ib(default=attr.Factory(dict))
-    dependency_packages = attr.ib(default=attr.Factory(dict))
-    is_production = attr.ib(default=False)
-    is_staging = attr.ib(default=False)
-    is_dev = attr.ib(default=False)
-    active_dev_user = attr.ib(default=None)
-    addons_dev_info = attr.ib(default=attr.Factory(dict))
+    name: str
+    installer_version: Union[str, None]
+    addon_versions: dict[str, str]
+    dependency_packages: dict[PlatformName, Union[str, None]]
+    is_production: bool
+    is_staging: bool
+    is_dev: bool
+    active_dev_user: Union[str, None]
+    addons_dev_info: dict[str, AddonDevInfo]
 
     @classmethod
     def from_dict(cls, data):
+        addons_dev_info = {
+            addon_name: AddonDevInfo(info["enabled"], info["path"])
+            for addon_name, info in data.get("addonDevelopment", {}).items()
+        }
         return cls(
             name=data["name"],
             installer_version=data.get("installerVersion"),
@@ -297,5 +318,5 @@ class Bundle:
             is_staging=data["isStaging"],
             is_dev=data.get("isDev", False),
             active_dev_user=data.get("activeUser"),
-            addons_dev_info=data.get("addonDevelopment", {}),
+            addons_dev_info=addons_dev_info,
         )

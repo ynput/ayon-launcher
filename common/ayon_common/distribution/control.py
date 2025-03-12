@@ -12,9 +12,10 @@ import shutil
 import threading
 import platform
 import subprocess
+import dataclasses
 from enum import Enum
+from typing import Optional, Any
 
-import attr
 import ayon_api
 
 from ayon_common.utils import (
@@ -27,16 +28,21 @@ from ayon_common.utils import (
 )
 
 from .exceptions import BundleNotFoundError, InstallerDistributionError
-from .utils import (
-    get_addons_dir,
-    get_dependencies_dir,
-)
-from .downloaders import get_default_download_factory
 from .data_structures import (
+    SourceInfo,
     Installer,
     AddonInfo,
     DependencyItem,
     Bundle,
+)
+from .utils import (
+    get_addons_dir,
+    get_dependencies_dir,
+)
+from .downloaders import (
+    SourceDownloader,
+    get_default_download_factory,
+    DownloadFactory,
 )
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
@@ -71,13 +77,13 @@ class DistributeTransferProgress:
 
         self._started = True
 
-    def set_failed(self, reason):
+    def set_failed(self, reason: str):
         """Set source distribution as failed.
 
         Args:
             reason (str): Error message why the transfer failed.
-        """
 
+        """
         self._failed = True
         self._fail_reason = reason
 
@@ -102,7 +108,7 @@ class DistributeTransferProgress:
         self._unzip_finished = True
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         """Source distribution is in progress.
 
         Returns:
@@ -116,41 +122,41 @@ class DistributeTransferProgress:
         )
 
     @property
-    def transfer_progress(self):
+    def transfer_progress(self) -> ayon_api.TransferProgress:
         """Source file 'download' progress tracker.
 
         Returns:
-            ayon_api.TransferProgress.: Content download progress.
-        """
+            ayon_api.TransferProgress: Content download progress.
 
+        """
         return self._transfer_progress
 
     @property
-    def started(self):
+    def started(self) -> bool:
         return self._started
 
     @property
-    def hash_check_started(self):
+    def hash_check_started(self) -> bool:
         return self._hash_check_started
 
     @property
-    def hash_check_finished(self):
+    def hash_check_finished(self) -> bool:
         return self._hash_check_finished
 
     @property
-    def unzip_started(self):
+    def unzip_started(self) -> bool:
         return self._unzip_started
 
     @property
-    def unzip_finished(self):
+    def unzip_finished(self) -> bool:
         return self._unzip_finished
 
     @property
-    def failed(self):
+    def failed(self) -> bool:
         return self._failed or self._transfer_progress.failed
 
     @property
-    def fail_reason(self):
+    def fail_reason(self) -> Optional[str]:
         return self._fail_reason or self._transfer_progress.fail_reason
 
 
@@ -181,32 +187,32 @@ class BaseDistributionItem:
             distribution item.
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
-        logger (logging.Logger): Logger object.
-    """
+        logger (Optional[logging.Logger]): Logger object.
 
+    """
     def __init__(
         self,
-        download_dirpath,
-        state,
-        checksum,
-        checksum_algorithm,
-        factory,
-        sources,
-        downloader_data,
-        item_label,
-        logger=None,
+        download_dirpath: str,
+        state: UpdateState,
+        checksum: str,
+        checksum_algorithm: str,
+        factory: DownloadFactory,
+        sources: list[SourceInfo],
+        downloader_data: dict[str, Any],
+        item_label: str,
+        logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
             logger = logging.getLogger(self.__class__.__name__)
-        self.log = logger
-        self.state = state
-        self.download_dirpath = download_dirpath
-        self.checksum = checksum
-        self.checksum_algorithm = checksum_algorithm
-        self.factory = factory
+        self.log: logging.Logger = logger
+        self.state: UpdateState = state
+        self.download_dirpath: str = download_dirpath
+        self.checksum: str = checksum
+        self.checksum_algorithm: str = checksum_algorithm
+        self.factory: DownloadFactory = factory
         self.sources = self._prepare_sources(sources)
-        self.downloader_data = downloader_data
-        self.item_label = item_label
+        self.downloader_data: dict[str, Any] = downloader_data
+        self.item_label: str = item_label
 
         self._need_distribution = state != UpdateState.UPDATED
         self._current_source_progress = None
@@ -218,68 +224,69 @@ class BaseDistributionItem:
         self._error_msg = None
         self._error_detail = None
 
-    def _prepare_sources(self, sources):
+    @staticmethod
+    def _prepare_sources(sources: list[SourceInfo]):
         return [
             (source, DistributeTransferProgress())
             for source in sources
         ]
 
     @property
-    def need_distribution(self):
+    def need_distribution(self) -> bool:
         """Need distribution based on initial state.
 
         Returns:
             bool: Need distribution.
-        """
 
+        """
         return self._need_distribution
 
     @property
-    def current_source_progress(self):
+    def current_source_progress(self) -> Optional[DistributeTransferProgress]:
         """Currently processed source progress object.
 
         Returns:
-            Union[DistributeTransferProgress, None]: Transfer progress or None.
-        """
+            Optional[DistributeTransferProgress]: Transfer progress or None.
 
+        """
         return self._current_source_progress
 
     @property
-    def used_source_progress(self):
+    def used_source_progress(self) -> Optional[DistributeTransferProgress]:
         """Transfer progress that successfully distributed the item.
 
         Returns:
-            Union[DistributeTransferProgress, None]: Transfer progress or None.
-        """
+            Optional[DistributeTransferProgress]: Transfer progress or None.
 
+        """
         return self._used_source_progress
 
     @property
-    def used_source(self):
+    def used_source(self) -> Optional[dict[str, Any]]:
         """Data of source item.
 
         Returns:
-            Union[Dict[str, Any], None]: SourceInfo data or None.
-        """
+            Optional[dict[str, Any]]: SourceInfo data or None.
 
+        """
         return self._used_source
 
     @property
-    def error_message(self):
+    def error_message(self) -> Optional[str]:
         """Reason why distribution item failed.
 
         Returns:
-            Union[str, None]: Error message.
+            Optional[str]: Error message.
         """
 
         return self._error_msg
 
     @property
-    def error_detail(self):
+    def error_detail(self) -> Optional[str]:
         """Detailed reason why distribution item failed.
 
         Returns:
-            Union[str, None]: Detailed information (maybe traceback).
+            Optional[str]: Detailed information (maybe traceback).
         """
 
         return self._error_detail
@@ -287,7 +294,12 @@ class BaseDistributionItem:
     def _pre_source_process(self):
         os.makedirs(self.download_dirpath, exist_ok=True)
 
-    def _receive_file(self, source_data, source_progress, downloader):
+    def _receive_file(
+        self,
+        source_data: dict[str, Any],
+        source_progress: DistributeTransferProgress,
+        downloader: SourceDownloader,
+    ) -> Optional[str]:
         """Receive source filepath using source data and downloader.
 
         Args:
@@ -298,9 +310,9 @@ class BaseDistributionItem:
                 about receiving file from source.
 
         Returns:
-            Union[str, None]: Filepath to received file from source.
-        """
+            Optional[str]: Filepath to received file from source.
 
+        """
         download_dirpath = self.download_dirpath
 
         try:
@@ -328,6 +340,7 @@ class BaseDistributionItem:
                 downloader.check_hash(
                     filepath, self.checksum, self.checksum_algorithm
                 )
+
         except Exception:
             message = "File hash does not match"
             source_progress.set_failed(message)
@@ -340,8 +353,12 @@ class BaseDistributionItem:
         return filepath
 
     def _post_source_process(
-        self, filepath, source_data, source_progress, downloader
-    ):
+        self,
+        filepath: str,
+        source_data: dict[str, Any],
+        source_progress: DistributeTransferProgress,
+        downloader: SourceDownloader,
+    ) -> bool:
         """Process source after it is downloaded and validated.
 
         Override this method if downloaded file needs more logic to do, like
@@ -353,6 +370,7 @@ class BaseDistributionItem:
         Args:
             filepath (str): Path to a downloaded source.
             source_data (dict[str, Any]): Source information data.
+            source_progress (DistributeTransferProgress): Source progress.
             downloader (SourceDownloader): Object which cared about download
                 of file.
 
@@ -360,8 +378,8 @@ class BaseDistributionItem:
             bool: Post processing finished in a way that it is not needed to
                 process other possible sources. Does not mean that it was
                 successful.
-        """
 
+        """
         if filepath:
             self.state = UpdateState.UPDATED
             self._used_source = source_data
@@ -373,7 +391,11 @@ class BaseDistributionItem:
         )
         return bool(filepath)
 
-    def _process_source(self, source, source_progress):
+    def _process_source(
+        self,
+        source: SourceInfo,
+        source_progress: DistributeTransferProgress,
+    ) -> bool:
         """Process single source item.
 
         Cares about download, validate and process source.
@@ -381,13 +403,13 @@ class BaseDistributionItem:
         Args:
             source (SourceInfo): Source information.
             source_progress (DistributeTransferProgress): Object to keep track
-                about process of an source.
+                about process of a source.
 
         Returns:
             bool: Source was processed so any other sources can be skipped.
                 Does not have to be successfull.
-        """
 
+        """
         self._current_source_progress = source_progress
         source_progress.set_started()
 
@@ -401,7 +423,7 @@ class BaseDistributionItem:
             return False
 
         try:
-            source_data = attr.asdict(source)
+            source_data = dataclasses.asdict(source)
             filepath = self._receive_file(
                 source_data,
                 source_progress,
@@ -479,7 +501,10 @@ class BaseDistributionItem:
             self._post_distribute()
 
 
-def create_tmp_file(suffix=None, prefix=None):
+def create_tmp_file(
+    suffix: Optional[str] = None,
+    prefix: Optional[str] = None
+) -> str:
     with tempfile.NamedTemporaryFile(
         suffix=suffix, prefix=prefix, delete=False
     ) as tmp:
@@ -490,7 +515,7 @@ def create_tmp_file(suffix=None, prefix=None):
 class InstallerDistributionItem(BaseDistributionItem):
     """Distribution of new version of AYON launcher/Installer."""
 
-    def __init__(self, cleanup_on_fail, *args, **kwargs):
+    def __init__(self, cleanup_on_fail: bool, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cleanup_on_fail = cleanup_on_fail
         self._executable = None
@@ -498,40 +523,40 @@ class InstallerDistributionItem(BaseDistributionItem):
         self._installer_error = None
 
     @property
-    def executable(self):
+    def executable(self) -> Optional[str]:
         """Path to distributed ayon executable.
 
         Returns:
-            Union[str, None]: Path to executable path which was distributed.
-        """
+            Optional[str]: Path to executable path which was distributed.
 
+        """
         return self._executable
 
     @property
-    def installer_path(self):
+    def installer_path(self) -> Optional[str]:
         """Path to a distribution package/installer.
 
         This can be used as reference for user where to find downloaded
             installer on disk and distribute it manually.
 
         Returns:
-            Union[str, None]: Path to installer.
-        """
+            Optional[str]: Path to installer.
 
+        """
         return self._installer_path
 
     @property
-    def installer_error(self):
+    def installer_error(self) -> Optional[str]:
         """Known installer error that happened during distribution.
 
         Returns:
-            Union[str, None]: Message that will be shown to user and logged
+            Optional[str]: Message that will be shown to user and logged
                 out.
-        """
 
+        """
         return self._installer_error
 
-    def _find_windows_executable(self, log_output):
+    def _find_windows_executable(self, log_output: str):
         """Find executable path in log output.
 
         Setup exe should print out log output to a file where are described
@@ -543,8 +568,8 @@ class InstallerDistributionItem(BaseDistributionItem):
 
         Args:
             log_output (str): Output from installer log.
-        """
 
+        """
         exe_name = "ayon.exe"
         for line in log_output.splitlines():
             idx = line.find(exe_name)
@@ -577,7 +602,7 @@ class InstallerDistributionItem(BaseDistributionItem):
             if os.path.exists(executable_path):
                 return executable_path
 
-    def _windows_root_require_permissions(self, dirpath):
+    def _windows_root_require_permissions(self, dirpath: str) -> bool:
         while not os.path.exists(dirpath):
             _dirpath = os.path.dirname(dirpath)
             if _dirpath == dirpath:
@@ -599,19 +624,19 @@ class InstallerDistributionItem(BaseDistributionItem):
             return True
 
         except BaseException as exc:
-            print((
+            print(
                 "Failed to determine if root requires permissions."
-                "Unexpected error: {}"
-            ).format(exc))
+                f" Unexpected error: {exc}"
+            )
             return False
 
-    def _install_windows(self, filepath):
+    def _install_windows(self, filepath: str):
         """Install windows AYON launcher.
 
         Args:
-            filepath (str): Path to setup .exe file.
-        """
+            filepath (str): Path to setup.exe file.
 
+        """
         install_root = os.path.dirname(os.path.dirname(sys.executable))
 
         # A file where installer may store log output
@@ -665,18 +690,21 @@ class InstallerDistributionItem(BaseDistributionItem):
 
         self._executable = executable
 
-    def _install_linux(self, filepath):
+    def _install_linux(self, filepath: str):
         """Install linux AYON launcher.
 
-        Linux installations are just an archive file, so we attempt to unzip the new
-        installation one level up of the one being run.
+        Linux installations are just an archive file, so we attempt to unzip
+            the new installation one level up of the one being run.
 
         Args:
             filepath (str): Path to a .tar.gz file.
+
         """
         install_root = os.path.dirname(os.path.dirname(sys.executable))
 
-        self.log.info(f"Installing AYON launcher {filepath} into:\n{install_root}")
+        self.log.info(
+            f"Installing AYON launcher {filepath} into:\n{install_root}"
+        )
 
         os.makedirs(install_root, exist_ok=True)
 
@@ -694,29 +722,30 @@ class InstallerDistributionItem(BaseDistributionItem):
         self.log.info(f"Setting executable to {executable}")
         self._executable = executable
 
-    def _install_macos(self, filepath):
+    def _install_macos(self, filepath: str):
         """Install macOS AYON launcher.
 
         Args:
             filepath (str): Path to a .dmg file.
-        """
 
+        """
         import plistlib
 
         # Attach dmg file and read plist output (bytes)
         stdout = subprocess.check_output([
             "hdiutil", "attach", filepath, "-plist", "-nobrowse"
         ])
+        mounted_volumes = []
         try:
             # Parse plist output and find mounted volume
             attach_info = plistlib.loads(stdout)
-            mounted_volumes = []
             for entity in attach_info["system-entities"]:
                 mounted_volume = entity.get("mount-point")
                 if mounted_volume:
                     mounted_volumes.append(mounted_volume)
 
             # We do expect there is only one .app in .dmg file
+            src_path = None
             src_filename = None
             for mounted_volume in mounted_volumes:
                 for filename in os.listdir(mounted_volume):
@@ -725,14 +754,16 @@ class InstallerDistributionItem(BaseDistributionItem):
                         src_path = os.path.join(mounted_volume, src_filename)
                         break
 
-            # Copy the .app file to /Applications
-            dst_dir = "/Applications"
-            dst_path = os.path.join(dst_dir, src_filename)
-            subprocess.run(["cp", "-rf", src_path, dst_dir])
+            if src_path is not None:
+                # Copy the .app file to /Applications
+                dst_dir = "/Applications"
+                dst_path = os.path.join(dst_dir, src_filename)
+                subprocess.run(["cp", "-rf", src_path, dst_dir])
 
         finally:
             # Detach mounted volume
-            subprocess.run(["hdiutil", "detach", mounted_volume])
+            for mounted_volume in mounted_volumes:
+                subprocess.run(["hdiutil", "detach", mounted_volume])
 
         # Find executable inside .app file and return its path
         contents_dir = os.path.join(dst_path, "Contents")
@@ -751,6 +782,8 @@ class InstallerDistributionItem(BaseDistributionItem):
     def _install_file(self, filepath):
         """Trigger installation installer file based on platform."""
 
+        # TODO consider using platform name in target folder
+        #  - for windows and linux
         platform_name = platform.system().lower()
         if platform_name == "windows":
             self._install_windows(filepath)
@@ -764,8 +797,12 @@ class InstallerDistributionItem(BaseDistributionItem):
             )
 
     def _post_source_process(
-        self, filepath, source_data, source_progress, downloader
-    ):
+        self,
+        filepath: str,
+        source_data: dict[str, Any],
+        source_progress: DistributeTransferProgress,
+        downloader: SourceDownloader,
+    ) -> bool:
         self._installer_path = filepath
         success = False
         try:
@@ -824,9 +861,9 @@ class DistributionItem(BaseDistributionItem):
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
         logger (logging.Logger): Logger object.
-    """
 
-    def __init__(self,unzip_dirpath, *args, **kwargs):
+    """
+    def __init__(self, unzip_dirpath: str, *args, **kwargs):
         self.unzip_dirpath = unzip_dirpath
         super().__init__(*args, **kwargs)
 
@@ -843,8 +880,12 @@ class DistributionItem(BaseDistributionItem):
         os.makedirs(unzip_dirpath, exist_ok=True)
 
     def _post_source_process(
-        self, filepath, source_data, source_progress, downloader
-    ):
+        self,
+        filepath: str,
+        source_data: dict[str, Any],
+        source_progress: DistributeTransferProgress,
+        downloader: SourceDownloader,
+    ) -> bool:
         source_progress.set_unzip_started()
         try:
             downloader.unzip(filepath, self.unzip_dirpath)
@@ -885,11 +926,13 @@ class AyonDistribution:
         dependency_dirpath (Optional[str]): Where dependencies will be stored.
         dist_factory (Optional[DownloadFactory]): Factory which cares about
             downloading of items based on source type.
-        addons_info (Optional[list[dict[str, Any]]): List of prepared
+        installers_info (Optional[list[dict[str, Any]]]): List of prepared
+            installers' info.
+        addons_info (Optional[list[dict[str, Any]]]): List of prepared
             addons' info.
-        dependency_packages_info (Optional[list[dict[str, Any]]): Info
+        dependency_packages_info (Optional[list[dict[str, Any]]]): Info
             about packages from server.
-        bundles_info (Optional[Dict[str, Any]]): Info about
+        bundles_info (Optional[dict[str, Any]]): Info about
             bundles.
         bundle_name (Optional[str]): Name of bundle to use. If not passed
             an environment variable 'AYON_BUNDLE_NAME' is checked for value.
@@ -899,24 +942,24 @@ class AyonDistribution:
             If not passed, 'is_staging_enabled' is used as default value.
         use_dev (Optional[bool]): Use develop versions of an addon.
             If not passed, 'is_dev_mode_enabled' is used as default value.
-        skip_installer_dist (Optional[bool]): Skip installer distribution. This
+        skip_installer_dist (bool): Skip installer distribution. This
             is for testing purposes and for running from code.
-    """
 
+    """
     def __init__(
         self,
-        addon_dirpath=None,
-        dependency_dirpath=None,
-        dist_factory=None,
-        installers_info=NOT_SET,
-        addons_info=NOT_SET,
-        dependency_packages_info=NOT_SET,
-        bundles_info=NOT_SET,
-        bundle_name=NOT_SET,
-        use_staging=None,
-        use_dev=None,
-        active_user=None,
-        skip_installer_dist=False,
+        addon_dirpath: Optional[str] = None,
+        dependency_dirpath: Optional[str] = None,
+        dist_factory: Optional[DownloadFactory] = None,
+        installers_info: Optional[list[dict[str, Any]]] = NOT_SET,
+        addons_info: Optional[list[dict[str, Any]]] = NOT_SET,
+        dependency_packages_info: Optional[list[dict[str, Any]]] = NOT_SET,
+        bundles_info: Optional[list[dict[str, Any]]] = NOT_SET,
+        bundle_name: Optional[str] = NOT_SET,
+        use_staging: Optional[bool] = None,
+        use_dev: Optional[bool] = None,
+        active_user: Optional[bool] = None,
+        skip_installer_dist: bool = False,
     ):
         self._log = None
 
@@ -980,14 +1023,14 @@ class AyonDistribution:
         self._bundle = NOT_SET
 
     @property
-    def active_user(self):
+    def active_user(self) -> str:
         if self._active_user is None:
             user = ayon_api.get_user()
             self._active_user = user["name"]
         return self._active_user
 
     @property
-    def use_staging(self):
+    def use_staging(self) -> bool:
         """Staging version of a bundle should be used.
 
         This value is completely ignored if specific bundle name should
@@ -995,8 +1038,8 @@ class AyonDistribution:
 
         Returns:
             bool: True if staging version should be used.
-        """
 
+        """
         if self._use_staging is None:
             self._use_staging = is_staging_enabled()
 
@@ -1005,7 +1048,7 @@ class AyonDistribution:
         return self._use_staging
 
     @property
-    def use_dev(self):
+    def use_dev(self) -> bool:
         """Develop version of a bundle should be used.
 
         This value is completely ignored if specific bundle name should
@@ -1013,8 +1056,8 @@ class AyonDistribution:
 
         Returns:
             bool: True if staging version should be used.
-        """
 
+        """
         if self._use_dev is None:
             if self._bundle_name is NOT_SET:
                 self._use_dev = is_dev_mode_enabled()
@@ -1034,95 +1077,96 @@ class AyonDistribution:
         return self._use_dev
 
     @property
-    def log(self):
+    def log(self) -> logging.Logger:
         """Helper to access logger.
 
         Returns:
              logging.Logger: Logger instance.
+
         """
         if self._log is None:
             self._log = logging.getLogger(self.__class__.__name__)
         return self._log
 
     @property
-    def bundles_info(self):
+    def bundles_info(self) -> list[dict[str, Any]]:
         """
 
         Returns:
-            dict[str, dict[str, Any]]: Bundles information from server.
-        """
+            list[dict[str, Any]]: Bundles information from server.
 
+        """
         if self._bundles_info is NOT_SET:
-            self._bundles_info = ayon_api.get_bundles()
+            self._bundles_info = ayon_api.get_bundles()["bundles"]
         return self._bundles_info
 
     @property
-    def bundle_items(self):
+    def bundle_items(self) -> list[Bundle]:
         """
 
         Returns:
             list[Bundle]: List of bundles info.
-        """
 
+        """
         if self._bundle_items is NOT_SET:
             self._bundle_items = [
                 Bundle.from_dict(info)
-                for info in self.bundles_info["bundles"]
+                for info in self.bundles_info
             ]
         return self._bundle_items
 
     @property
-    def production_bundle(self):
+    def production_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
-            Union[Bundle, None]: Bundle that should be used in production.
-        """
+            Optional[Bundle]: Bundle that should be used in production.
 
+        """
         if self._production_bundle is NOT_SET:
             self._prepare_bundles()
         return self._production_bundle
 
     @property
-    def staging_bundle(self):
+    def staging_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
-            Union[Bundle, None]: Bundle that should be used in staging.
-        """
+            Optional[Bundle]: Bundle that should be used in staging.
 
+        """
         if self._staging_bundle is NOT_SET:
             self._prepare_bundles()
         return self._staging_bundle
 
     @property
-    def dev_bundle(self):
+    def dev_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
-            Union[Bundle, None]: Bundle that should be used in dev.
-        """
+            Optional[Bundle]: Bundle that should be used in dev.
 
+        """
         if self._dev_bundle is NOT_SET:
             self._prepare_bundles()
         return self._dev_bundle
 
     @property
-    def bundle_to_use(self):
+    def bundle_to_use(self) -> Optional[Bundle]:
         """Bundle that will be used for distribution.
 
         Bundle that should be used can be affected by 'bundle_name'
             or 'use_staging'.
 
         Returns:
-            Union[Bundle, None]: Bundle that will be used for distribution
+            Optional[Bundle]: Bundle that will be used for distribution
                 or None.
 
         Raises:
             BundleNotFoundError: When bundle name to use is defined
                 but is not available on server.
-        """
 
+        """
         if self._bundle is not NOT_SET:
             return self._bundle
 
@@ -1152,37 +1196,37 @@ class AyonDistribution:
         return self._bundle
 
     @property
-    def bundle_name_to_use(self):
+    def bundle_name_to_use(self) -> Optional[str]:
         """Name of bundle that will be used for distribution.
 
         Returns:
-            Union[str, None]: Name of bundle that will be used for
+            Optional[str]: Name of bundle that will be used for
                 distribution.
-        """
 
+        """
         bundle = self.bundle_to_use
         return None if bundle is None else bundle.name
 
     @property
-    def installers_info(self):
+    def installers_info(self) -> list[dict[str, Any]]:
         """Installers information from server.
 
         Returns:
             list[dict[str, Any]]: Installers information from server.
-        """
 
+        """
         if self._installers_info is NOT_SET:
             self._installers_info = ayon_api.get_installers()["installers"]
         return self._installers_info
 
     @property
-    def installer_items(self):
+    def installer_items(self) -> list[Installer]:
         """Installers as objects.
 
         Returns:
             list[Installer]: List of installers info from server.
-        """
 
+        """
         if self._installer_items is NOT_SET:
             self._installer_items = [
                 Installer.from_dict(info)
@@ -1191,14 +1235,14 @@ class AyonDistribution:
         return self._installer_items
 
     @property
-    def expected_installer_version(self):
+    def expected_installer_version(self) -> Optional[str]:
         """Excepted installer version.
 
         Returns:
-            Union[str, None]: Expected installer version or None defined by
+            Optional[str]: Expected installer version or None defined by
                 bundle that should be used.
-        """
 
+        """
         if self._expected_installer_version is not NOT_SET:
             return self._expected_installer_version
 
@@ -1208,7 +1252,7 @@ class AyonDistribution:
         return version
 
     @property
-    def need_installer_change(self):
+    def need_installer_change(self) -> bool:
         """Installer should be changed.
 
         Current installer is using different version than what is expected
@@ -1216,8 +1260,8 @@ class AyonDistribution:
 
         Returns:
             bool: True if installer should be changed.
-        """
 
+        """
         if self._skip_installer_dist:
             return False
 
@@ -1225,7 +1269,7 @@ class AyonDistribution:
         return version != self.expected_installer_version
 
     @property
-    def need_installer_distribution(self):
+    def need_installer_distribution(self) -> bool:
         """Installer distribution is needed.
 
         Todos:
@@ -1233,39 +1277,39 @@ class AyonDistribution:
 
         Returns:
             bool: True if installer distribution is needed.
-        """
 
+        """
         if not self.need_installer_change:
             return False
 
         return self.installer_executable is None
 
     @property
-    def installer_dist_error(self):
+    def installer_dist_error(self) -> Optional[str]:
         """Installer distribution error message.
 
         Returns:
-              Union[str, None]: Error that happened during installer
+              Optional[str]: Error that happened during installer
                 distribution.
-        """
 
+        """
         return self._installer_dist_error
 
     @property
-    def installer_filepath(self):
+    def installer_filepath(self) -> Optional[str]:
         """Path to a distribution package/installer.
 
         This can be used as reference for user where to find downloaded
             installer on disk and distribute it manually.
 
         Returns:
-            Union[str, None]: Path to installer.
-        """
+            Optional[str]: Path to installer.
 
+        """
         return self._installer_filepath
 
     @property
-    def installer_executable(self):
+    def installer_executable(self) -> Optional[str]:
         """Path to installer executable that should be used.
 
         Notes:
@@ -1273,11 +1317,11 @@ class AyonDistribution:
                 called 'ayon_executable'?
 
         Returns:
-            Union[str, None]: Path to installer executable that should be
+            Optional[str]: Path to installer executable that should be
                 used. None if executable is not found and must be distributed
                 or bundle does not have defined an installer to use.
-        """
 
+        """
         if self._installer_executable is not NOT_SET:
             return self._installer_executable
 
@@ -1293,6 +1337,7 @@ class AyonDistribution:
             if filename == "ayon_console.exe":
                 current_executable = os.path.join(root, "ayon.exe")
 
+            # TODO look to expected target install directory too
             executables_info = get_executables_info_by_version(
                 self.expected_installer_version)
             for executable_info in executables_info:
@@ -1318,8 +1363,8 @@ class AyonDistribution:
 
         Returns:
             Union[Installer, None]: Installer information item.
-        """
 
+        """
         if self._installer_item is not NOT_SET:
             return self._installer_item
 
@@ -1413,13 +1458,13 @@ class AyonDistribution:
                 shutil.rmtree(downloads_dir)
 
     @property
-    def addons_info(self):
+    def addons_info(self) -> dict[str, dict[str, Any]]:
         """Server information about available addons.
 
         Returns:
-            Dict[str, dict[str, Any]: Addon info by addon name.
-        """
+            dict[str, dict[str, Any]]: Addon info by addon name.
 
+        """
         if self._addons_info is NOT_SET:
             # Use details to get information about client.zip
             server_info = ayon_api.get_addons_info(details=True)
@@ -1427,16 +1472,16 @@ class AyonDistribution:
         return self._addons_info
 
     @property
-    def addon_items(self):
+    def addon_items(self) -> dict[str, AddonInfo]:
         """Information about available addons on server.
 
         Addons may require distribution of files. For those addons will be
         created 'DistributionItem' handling distribution itself.
 
         Returns:
-            Dict[str, AddonInfo]: Addon info object by addon name.
-        """
+            dict[str, AddonInfo]: Addon info object by addon name.
 
+        """
         if self._addon_items is NOT_SET:
             addons_info = {}
             for addon in self.addons_info:
@@ -1446,7 +1491,7 @@ class AyonDistribution:
         return self._addon_items
 
     @property
-    def dependency_packages_info(self):
+    def dependency_packages_info(self) -> list[dict[str, Any]]:
         """Server information about available dependency packages.
 
         Notes:
@@ -1455,21 +1500,21 @@ class AyonDistribution:
 
         Returns:
             list[dict[str, Any]]: Dependency packages information.
-        """
 
+        """
         if self._dependency_packages_info is NOT_SET:
             self._dependency_packages_info = (
                 ayon_api.get_dependency_packages())["packages"]
         return self._dependency_packages_info
 
     @property
-    def dependency_packages_items(self):
+    def dependency_packages_items(self) -> dict[str, DependencyItem]:
         """Dependency packages as objects.
 
         Returns:
             dict[str, DependencyItem]: Dependency packages as objects by name.
-        """
 
+        """
         if self._dependency_packages_items is NOT_SET:
             dependenc_package_items = {}
             for item in self.dependency_packages_info:
@@ -1479,14 +1524,14 @@ class AyonDistribution:
         return self._dependency_packages_items
 
     @property
-    def dependency_package_item(self):
+    def dependency_package_item(self) -> Optional[DependencyItem]:
         """Dependency package item that should be used by bundle.
 
         Returns:
-            Union[None, Dict[str, Any]]: None if bundle does not have
+            Optional[DependencyItem]: None if bundle does not have
                 specified dependency package.
-        """
 
+        """
         if self._dependency_package_item is NOT_SET:
             dependency_package_item = None
             bundle = self.bundle_to_use
@@ -1514,7 +1559,7 @@ class AyonDistribution:
         self._staging_bundle = staging_bundle
         self._dev_bundle = dev_bundle
 
-    def _prepare_current_addon_dist_items(self):
+    def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
         addons_metadata = self.get_addons_metadata()
         output = []
         addon_versions = {}
@@ -1527,8 +1572,8 @@ class AyonDistribution:
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
             if self.use_dev:
-                dev_addon_info = dev_addons.get(addon_name) or {}
-                if dev_addon_info.get("enabled") is True:
+                dev_addon_info = dev_addons.get(addon_name)
+                if dev_addon_info is None or dev_addon_info.enabled is True:
                     continue
 
             addon_version = addon_versions.get(addon_name)
@@ -1591,7 +1636,7 @@ class AyonDistribution:
             })
         return output
 
-    def _prepare_dependency_progress(self):
+    def _prepare_dependency_progress(self) -> Optional[DistributionItem]:
         package = self.dependency_package_item
         if package is None:
             return None
@@ -1625,7 +1670,7 @@ class AyonDistribution:
             logger=self.log,
         )
 
-    def get_addon_dist_items(self):
+    def get_addon_dist_items(self) -> list[dict[str, Any]]:
         """Addon distribution items.
 
         These items describe source files required by addon to be available on
@@ -1647,14 +1692,14 @@ class AyonDistribution:
 
         Returns:
              list[dict[str, Any]]: Distribution items with addon version item.
-        """
 
+        """
         if self._addon_dist_items is NOT_SET:
             self._addon_dist_items = (
                 self._prepare_current_addon_dist_items())
         return self._addon_dist_items
 
-    def get_dependency_dist_item(self):
+    def get_dependency_dist_item(self) -> Optional[DistributionItem]:
         """Dependency package distribution item.
 
         Item describe source files required by server to be available on
@@ -1665,15 +1710,15 @@ class AyonDistribution:
         package.
 
         Returns:
-            Union[None, DistributionItem]: Dependency item or None if server
+            Optional[DistributionItem]: Dependency item or None if server
                 does not have specified any dependency package.
-        """
 
+        """
         if self._dependency_dist_item is NOT_SET:
             self._dependency_dist_item = self._prepare_dependency_progress()
         return self._dependency_dist_item
 
-    def get_dependency_metadata_filepath(self):
+    def get_dependency_metadata_filepath(self) -> str:
         """Path to distribution metadata file.
 
         Metadata contain information about distributed packages, used source,
@@ -1681,11 +1726,11 @@ class AyonDistribution:
 
         Returns:
             str: Path to a file where dependency package metadata are stored.
-        """
 
+        """
         return os.path.join(self._dependency_dirpath, "dependency.json")
 
-    def get_addons_metadata_filepath(self):
+    def get_addons_metadata_filepath(self) -> str:
         """Path to addons metadata file.
 
         Metadata contain information about distributed addons, used sources,
@@ -1693,11 +1738,15 @@ class AyonDistribution:
 
         Returns:
             str: Path to a file where addons metadata are stored.
-        """
 
+        """
         return os.path.join(self._addons_dirpath, "addons.json")
 
-    def read_metadata_file(self, filepath, default_value=None):
+    @staticmethod
+    def read_metadata_file(
+        filepath: str,
+        default_value: Optional[Any] = None,
+    ) -> dict[str, Any]:
         """Read json file from path.
 
         Method creates the file when does not exist with default value.
@@ -1724,35 +1773,38 @@ class AyonDistribution:
             data = default_value
         return data
 
-    def save_metadata_file(self, filepath, data):
+    @staticmethod
+    def save_metadata_file(filepath: str, data: dict[str, Any]):
         """Store data to json file.
 
         Method creates the file when does not exist.
 
         Args:
             filepath (str): Path to json file.
-            data (Union[Dict[str, Any], List[Any]]): Data to store into file.
+            data (dict[str, Any]): Data to store into file.
 
         """
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
 
-    def get_dependency_metadata(self):
+    def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
         return self.read_metadata_file(filepath, {})
 
-    def update_dependency_metadata(self, package_name, data):
+    def update_dependency_metadata(
+        self, package_name: str, data: dict[str, Any]
+    ):
         dependency_metadata = self.get_dependency_metadata()
         dependency_metadata[package_name] = data
         filepath = self.get_dependency_metadata_filepath()
         self.save_metadata_file(filepath, dependency_metadata)
 
-    def get_addons_metadata(self):
+    def get_addons_metadata(self) -> dict[str, Any]:
         filepath = self.get_addons_metadata_filepath()
         return self.read_metadata_file(filepath, {})
 
-    def update_addons_metadata(self, addons_information):
+    def update_addons_metadata(self, addons_information: dict[str, Any]):
         if not addons_information:
             return
         addons_metadata = self.get_addons_metadata()
@@ -1770,6 +1822,10 @@ class AyonDistribution:
 
         self._dist_finished = True
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # TODO store dependencies info inside dependencies folder instead
+        #   of having one file
+        # - the file can be used to track progress and find out if other
+        #   process is already working on distribution
         dependency_dist_item = self.get_dependency_dist_item()
         if (
             dependency_dist_item is not None
@@ -1788,6 +1844,10 @@ class AyonDistribution:
                 }
                 self.update_dependency_metadata(package.filename, data)
 
+        # TODO store addon info inside addon folder instead of having one
+        #   of having one file
+        # - the file can be used to track progress and find out if other
+        #   process is already working on distribution
         addons_info = {}
         for item in self.get_addon_dist_items():
             dist_item = item["dist_item"]
@@ -1813,7 +1873,7 @@ class AyonDistribution:
 
         self.update_addons_metadata(addons_info)
 
-    def get_all_distribution_items(self):
+    def get_all_distribution_items(self) -> list[DistributionItem]:
         """Distribution items required by server.
 
         Items contain dependency package item and all addons that are enabled
@@ -1822,9 +1882,9 @@ class AyonDistribution:
         Items can be already available on machine.
 
         Returns:
-            List[DistributionItem]: Distribution items required by server.
-        """
+            list[DistributionItem]: Distribution items required by server.
 
+        """
         output = [
             item["dist_item"]
             for item in self.get_addon_dist_items()
@@ -1836,13 +1896,13 @@ class AyonDistribution:
         return output
 
     @property
-    def need_distribution(self):
+    def need_distribution(self) -> bool:
         """Distribution is needed.
 
         Returns:
             bool: True if any distribution is needed.
-        """
 
+        """
         if self.need_installer_change:
             if self.need_installer_distribution:
                 return True
@@ -1853,7 +1913,7 @@ class AyonDistribution:
                 return True
         return False
 
-    def distribute(self, threaded=False):
+    def distribute(self, threaded: bool = False):
         """Distribute all missing items.
 
         Method will try to distribute all items that are required by server.
@@ -1863,8 +1923,8 @@ class AyonDistribution:
 
         Args:
             threaded (bool): Distribute items in threads.
-        """
 
+        """
         if self._dist_started:
             raise RuntimeError("Distribution already started")
         self._dist_started = True
@@ -1895,8 +1955,8 @@ class AyonDistribution:
 
         Raises:
             RuntimeError: Any of items is not available.
-        """
 
+        """
         invalid = []
         dependency_package = self.get_dependency_dist_item()
         if (
@@ -1917,7 +1977,7 @@ class AyonDistribution:
             ", ".join([f'"{item}"' for item in invalid])
         ))
 
-    def get_sys_paths(self):
+    def get_sys_paths(self) -> list[str]:
         """Get all paths to python packages that should be added to path.
 
         These packages will be added only to 'sys.path' and not into
@@ -1929,9 +1989,9 @@ class AyonDistribution:
                 dependencies (OpenTimelineIO, Pillow, etc.).
 
         Returns:
-            List[str]: Paths that should be added to 'sys.path'.
-        """
+            list[str]: Paths that should be added to 'sys.path'.
 
+        """
         output = []
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
@@ -1944,7 +2004,7 @@ class AyonDistribution:
                 output.append(runtime_dir)
         return output
 
-    def get_python_paths(self):
+    def get_python_paths(self) -> list[str]:
         """Get all paths to python packages that should be added to python.
 
         These paths lead to addon directories and python dependencies in
@@ -1953,8 +2013,8 @@ class AyonDistribution:
         Returns:
             List[str]: Paths that should be added to 'sys.path' and
                 'PYTHONPATH'.
-        """
 
+        """
         output = []
         for item in self.get_addon_dist_items():
             dist_item = item["dist_item"]
@@ -1977,7 +2037,7 @@ class AyonDistribution:
                 output.append(dependencies_dir)
         return output
 
-    def _get_dev_sys_paths(self):
+    def _get_dev_sys_paths(self) -> list[str]:
         output = []
         if not self.use_dev:
             return output
@@ -1995,9 +2055,9 @@ class AyonDistribution:
             if addon_version is None:
                 continue
 
-            dev_addon_info = dev_addons.get(addon_name) or {}
-            if dev_addon_info.get("enabled") is True:
-                output.append(dev_addon_info["path"])
+            dev_addon_info = dev_addons.get(addon_name)
+            if dev_addon_info is not None and dev_addon_info.enabled:
+                output.append(dev_addon_info.path)
 
         return output
 
