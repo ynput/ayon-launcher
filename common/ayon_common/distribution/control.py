@@ -46,7 +46,12 @@ from .downloaders import (
     DownloadFactory,
 )
 
-NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
+
+def _unknown_bool(self):
+    return False
+
+
+NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
 
 
 def _windows_dir_requires_permissions(dirpath: str) -> bool:
