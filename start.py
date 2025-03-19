@@ -607,6 +607,10 @@ def _start_distribution():
     )
     _run_disk_mapping(bundle_name)
 
+    if distribution.is_missing_permissions:
+        show_missing_permissions()
+        sys.exit(1)
+
     # Start distribution
     update_window_manager = UpdateWindowManager()
     if not HEADLESS_MODE_ENABLED:
