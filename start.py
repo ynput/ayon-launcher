@@ -25,6 +25,8 @@ To start in dev mode use one of following options:
     - by setting 'AYON_USE_DEV' environment variable to '1'
     - by passing '--bundle <dev bundle name>'
     - by setting 'AYON_BUNDLE_NAME' environment variable to dev bundle name
+    - by passing '--studio-bundle <dev bundle name>'
+    - by setting 'AYON_STUDIO_BUNDLE_NAME' environment variable to dev bundle name
 
 NOTE: By using bundle name you can start any dev bundle, even if is not
     assigned to current user.
@@ -91,7 +93,7 @@ PREVIOUS_AYON_VERSION = os.getenv("AYON_VERSION", "")
 
 os.environ["AYON_VERSION"] = __version__
 
-# Define which bundle is used
+# Define which bundles are used
 if "--bundle" in sys.argv:
     idx = sys.argv.index("--bundle")
     sys.argv.pop(idx)
@@ -100,6 +102,23 @@ if "--bundle" in sys.argv:
             "Expect value after \"--bundle\" argument."
         ))
     os.environ["AYON_BUNDLE_NAME"] = sys.argv.pop(idx)
+
+if "--studio-bundle" in sys.argv:
+    idx = sys.argv.index("----studio-bundle")
+    sys.argv.pop(idx)
+    if idx >= len(sys.argv):
+        raise RuntimeError((
+            "Expect value after \"----studio-bundle\" argument."
+        ))
+    os.environ["AYON_STUDIO_BUNDLE_NAME"] = sys.argv.pop(idx)
+
+if "--project" in sys.argv:
+    idx = sys.argv.index("--project") + 1
+    if idx >= len(sys.argv):
+        raise RuntimeError((
+            "Expect value after \"--project\" argument."
+        ))
+    os.environ["AYON_PROJECT_NAME"] = sys.argv.pop(idx)
 
 # Enabled logging debug mode when "--debug" is passed
 if "--verbose" in sys.argv:
@@ -555,46 +574,63 @@ def _start_distribution():
             show_missing_permissions()
         sys.exit(1)
 
-    bundle = None
-    bundle_name = None
+
+    project_bundle = studio_bundle = None
+    project_bundle_name = studio_bundle_name = None
+
     # Try to find required bundle and handle missing one
     try:
-        bundle = distribution.bundle_to_use
-        if bundle is not None:
-            bundle_name = bundle.name
+        studio_bundle = distribution.studio_bundle_to_use
+        if studio_bundle is not None:
+            studio_bundle_name = studio_bundle.name
     except BundleNotFoundError as exc:
-        bundle_name = exc.bundle_name
+        studio_bundle_name = exc.bundle_name
 
-    if bundle is None:
+    try:
+        project_bundle = distribution.project_bundle_to_use
+        if project_bundle is not None:
+            project_bundle_name = project_bundle.name
+    except BundleNotFoundError as exc:
+        project_bundle_name = exc.bundle_name
+
+    if studio_bundle is None or project_bundle is None:
         url = get_base_url()
         username = distribution.active_user
-        if bundle_name:
-            _print((
-                f"!!! Requested release bundle '{bundle_name}'"
-                " is not available on server."
-            ))
-            _print(
-                "!!! Check if selected release bundle"
-                f" is available on the server '{url}'."
-            )
+        mode = "production"
+        if distribution.use_dev:
+            mode = f"dev for user '{username}'"
+        elif distribution.use_staging:
+            mode = "staging"
+        for bundle, bundle_name, bundle_type in (
+            (studio_bundle, studio_bundle_name, "studio"),
+            (project_bundle, project_bundle_name, "project")
+        ):
+            if bundle is not None:
+                pass
+            elif bundle_name:
+                _print((
+                    f"!!! Requested {bundle_type} bundle '{bundle_name}'"
+                    " is not available on server."
+                ))
+                _print(
+                    "!!! Check if is the bundle"
+                    f" available on the server '{url}'."
+                )
 
-        else:
-            mode = "production"
-            if distribution.use_dev:
-                mode = f"dev for user '{username}'"
-            elif distribution.use_staging:
-                mode = "staging"
-
-            _print(
-                f"!!! No release bundle is set as {mode} on the AYON server."
-            )
-            _print(
-                "!!! Make sure there is a release bundle set"
-                f" as \"{mode}\" on the AYON server '{url}'."
-            )
+            else:
+                _print(
+                    f"!!! No {bundle_type} bundle is set as {mode}"
+                    f" on the AYON server."
+                )
+                _print(
+                    "!!! Make sure there is a bundle set"
+                    f" as \"{mode}\" on the AYON server '{url}'."
+                )
 
         if not HEADLESS_MODE_ENABLED:
-            show_missing_bundle_information(url, bundle_name, username)
+            show_missing_bundle_information(
+                url, project_bundle_name, username
+            )
 
         sys.exit(1)
 
@@ -603,9 +639,9 @@ def _start_distribution():
     _set_default_settings_variant(
         distribution.use_dev,
         distribution.use_staging,
-        bundle_name
+        project_bundle_name
     )
-    _run_disk_mapping(bundle_name)
+    _run_disk_mapping(project_bundle_name)
 
     if distribution.is_missing_permissions:
         show_missing_permissions()
@@ -645,7 +681,8 @@ def _start_distribution():
 
     # TODO check failed distribution and inform user
     distribution.validate_distribution()
-    os.environ["AYON_BUNDLE_NAME"] = bundle_name
+    os.environ["AYON_BUNDLE_NAME"] = project_bundle_name
+    os.environ["AYON_STUDIO_BUNDLE_NAME"] = studio_bundle_name
 
     # TODO probably remove paths to other addons?
     python_paths = [
@@ -1009,15 +1046,17 @@ def get_info(use_staging=None, use_dev=None) -> list:
     """Print additional information to console."""
 
     inf = []
-    bundle_name = os.getenv("AYON_BUNDLE_NAME")
+    project_bundle_name = os.getenv("AYON_BUNDLE_NAME")
+    studio_bundle_name = os.getenv("AYON_STUDIO_BUNDLE_NAME")
 
     variant = "production"
     if use_dev:
-        variant = "dev ({})".format(bundle_name)
+        variant = "dev ({})".format(project_bundle_name)
     elif use_staging:
         variant = "staging"
     inf.append(("AYON variant", variant))
-    inf.append(("AYON bundle", bundle_name))
+    inf.append(("AYON project bundle", project_bundle_name))
+    inf.append(("AYON studio bundle", studio_bundle_name))
 
     # NOTE add addons information
 
