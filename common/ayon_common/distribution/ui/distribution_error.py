@@ -16,14 +16,14 @@ class MessageWindow(QtWidgets.QDialog):
     default_height = 170
 
     def __init__(
-        self, message, installer_path, parent=None
+        self, title, message, sub_message, parent=None
     ):
         super().__init__(parent)
 
         icon_path = get_icon_path()
         icon = QtGui.QIcon(icon_path)
         self.setWindowIcon(icon)
-        self.setWindowTitle("AYON-launcher distribution")
+        self.setWindowTitle(title)
 
         self._first_show = True
 
@@ -40,22 +40,16 @@ class MessageWindow(QtWidgets.QDialog):
         info_label = QtWidgets.QLabel(message, info_widget)
         info_label.setWordWrap(True)
 
-        installer_path_label = None
-        if installer_path and os.path.exists(installer_path):
-            installer_path_label = QtWidgets.QLabel(
-                (
-                    "NOTE: Install file can be found here:"
-                    f"<br/><b>{installer_path}</b>"
-                ),
-                info_widget
-            )
+        sub_message_label = None
+        if sub_message:
+            sub_message_label = QtWidgets.QLabel(sub_message, info_widget)
 
         info_layout = QtWidgets.QVBoxLayout(info_widget)
         info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.addWidget(info_label, 0)
         info_layout.addStretch(1)
-        if installer_path_label:
-            info_layout.addWidget(installer_path_label, 0)
+        if sub_message_label:
+            info_layout.addWidget(sub_message_label, 0)
 
         body_layout = QtWidgets.QHBoxLayout(body_widget)
         body_layout.setContentsMargins(0, 0, 0, 0)
@@ -126,7 +120,11 @@ def main():
         data = json.load(stream)
 
     app = get_qt_app()
-    window = MessageWindow(data["message"], data["installer_path"])
+    window = MessageWindow(
+        data["title"],
+        data["message"],
+        data["sub_message"],
+    )
     window.show()
     app.exec_()
 

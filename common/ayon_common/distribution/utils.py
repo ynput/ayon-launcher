@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 import tempfile
+from typing import Optional
 
 from ayon_common.utils import get_launcher_storage_dir, get_ayon_launch_args
 
@@ -90,18 +91,40 @@ def show_installer_issue_information(message, installer_path=None):
         message (str): Error message with description of an issue.
         installer_path (Optional[str]): Path to installer file so user can
             try to install it manually.
+
     """
+    sub_message = None
+    if installer_path and os.path.exists(installer_path):
+        sub_message = (
+            "NOTE: Install file can be found here:"
+            f"<br/><b>{installer_path}</b>"
+        )
+    _show_message_dialog(
+        "AYON-launcher distribution",
+        message,
+        sub_message,
+    )
 
+
+def _show_message_dialog(
+    title: str,
+    message: str,
+    sub_message: Optional[str] = None,
+):
     ui_dir = os.path.join(os.path.dirname(__file__), "ui")
-    script_path = os.path.join(ui_dir, "installer_distribution_error.py")
-
+    script_path = os.path.join(ui_dir, "distribution_error.py")
     with tempfile.NamedTemporaryFile(
         suffix=".json", delete=False
     ) as tmp:
         filepath = tmp.name
+
     with open(filepath, "w") as stream:
         json.dump(
-            {"message": message, "installer_path": installer_path},
+            {
+                "title": title,
+                "message": message,
+                "sub_message": sub_message,
+            },
             stream
         )
 
