@@ -50,6 +50,10 @@ def get_dependencies_dir():
     return dependencies_dir
 
 
+def show_missing_permissions():
+    print("TODO implement 'show_missing_permissions' function")
+
+
 def show_missing_bundle_information(url, bundle_name=None, username=None):
     """Show missing bundle information window.
 
