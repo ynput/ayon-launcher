@@ -43,6 +43,7 @@ class MessageWindow(QtWidgets.QDialog):
         sub_message_label = None
         if sub_message:
             sub_message_label = QtWidgets.QLabel(sub_message, info_widget)
+            sub_message_label.setWordWrap(True)
 
         info_layout = QtWidgets.QVBoxLayout(info_widget)
         info_layout.setContentsMargins(0, 0, 0, 0)
