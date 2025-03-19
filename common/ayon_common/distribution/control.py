@@ -1385,7 +1385,8 @@ class AyonDistribution:
             self._installer_dist_error = (
                 "Your user does not have required permissions to update"
                 " AYON launcher."
-                " Please contact your admin or use user with permissions."
+                " Please contact your administrator, or use user"
+                " with permissions."
             )
             return
 
