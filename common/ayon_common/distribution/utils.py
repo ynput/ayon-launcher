@@ -52,7 +52,15 @@ def get_dependencies_dir():
 
 
 def show_missing_permissions():
-    print("TODO implement 'show_missing_permissions' function")
+    _show_message_dialog(
+        "AYON distribution - Permissions issues",
+        "Your user does not have permissions to distribute updates.",
+        (
+            "Please contact your system administrator, or use user with"
+            " permissions to distribute AYON addons and"
+            " dependency package."
+        ),
+    )
 
 
 def show_missing_bundle_information(url, bundle_name=None, username=None):
