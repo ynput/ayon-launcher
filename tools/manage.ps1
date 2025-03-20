@@ -120,6 +120,11 @@ function Install-Poetry() {
     (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python)
 }
 
+function Install-Uv() {
+    Write-Color -Text ">>> ", "Installing uv ... " -Color Green, Gray
+    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+}
+
 
 function Test-Python() {
     Write-Color -Text ">>> ", "Detecting host Python ... " -Color Green, Gray -NoNewline
@@ -150,7 +155,7 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
     }
     # We are supporting python 3.9 only
     if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
-      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  "is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
+      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  " is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
       Restore-Cwd
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
@@ -199,11 +204,13 @@ function New-DockerBuild {
     } else {
         $dockerfile = "$($repo_root)\Dockerfile.$variant"
     }
+
     if (-not (Test-Path -PathType Leaf -Path $dockerfile)) {
         Write-Color -Text "!!! ", "Dockerfile for specifed platform ", "[", $variant, "]", "doesn't exist." -Color Red, Yellow, Cyan, White, Cyan, Yellow
         Restore-Cwd
         Exit-WithCode 1
     }
+
     Write-Color -Text ">>> ", "Using Dockerfile for ", "[ ", $variant, " ]" -Color Green, Gray, White, Cyan, White
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
     $build_dir = "$($repo_root)\build"
@@ -271,6 +278,44 @@ function Default-Func {
     Write-Host ""
 }
 
+function Create-UvEnv {
+    Change-Cwd
+    Write-Color -Text ">>> ", "Test if UV is installed ... " -Color Green, Gray -NoNewline
+    if (Get-Command "uv" -ErrorAction SilentlyContinue)
+    {
+        Write-Color -Text "OK" -Color Green
+    } else {
+        if (Test-Path -PathType Leaf -Path "$($USERPROFILE)/.cargo/bin/uv") {
+            $env:PATH += ";$($env:USERPROFILE)/.cargo/bin"
+            Write-Color -Text "OK" -Color Green
+        } else {
+            Write-Color -Text "NOT FOUND" -Color Yellow
+            Install-Uv
+            Write-Color -Text "INSTALLED" -Color Cyan
+        }
+    }
+    $python_arg = ""
+    $startTime = [int][double]::Parse((Get-Date -UFormat %s))
+
+    # note that uv venv can use .python-version marker file to determine what python version to use
+    # so you can safely use pyenv to manage python versions
+    Write-Color -Text ">>> ", "Creating and activating venv ... " -Color Green, Gray
+    uv venv --allow-existing .venv
+    Write-Color -Text ">>> ", "Compiling dependencies ... " -Color Green, Gray
+    uv pip compile pyproject.toml windows-requirements.in -o requirements.txt
+    Write-Color -Text ">>> ", "Installing dependencies ... " -Color Green, Gray
+    uv pip install -r requirements.txt
+    Install-PrecommitHook
+    $endTime = [int][double]::Parse((Get-Date -UFormat %s))
+    Restore-Cwd
+    try
+    {
+        New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
+    } catch {}
+    Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
+}
+
+
 function Create-Env {
     Change-Cwd
     Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
@@ -296,14 +341,7 @@ function Create-Env {
         Restore-Cwd
         Exit-WithCode 1
     }
-    if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
-        Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-        & "$poetry_home\bin\poetry" run pre-commit install
-        if ($LASTEXITCODE -ne 0)
-        {
-            Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
-        }
-    }
+    Install-PrecommitHook
 
     Change-Shim-Cwd
     & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
@@ -323,6 +361,19 @@ function Create-Env {
     } catch {}
     Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
 }
+
+
+    function Install-PrecommitHook {
+        if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
+            Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
+            & $repo_root\.venv\Scripts\pre-commit install
+            if ($LASTEXITCODE -ne 0)
+            {
+                Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
+            }
+        }
+
+    }
 
 
 function Build-Ayon($MakeInstaller = $false) {
@@ -363,13 +414,14 @@ function Build-Ayon($MakeInstaller = $false) {
     } else {
         Write-Color -Text "*** ", "Not updating submodules ..." -Color Green, Gray
     }
+    $ayon_version = Get-Ayon-Version
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
-    Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
+    Write-Color -Text ">>> ", "Testing venv presence ... " -Color Green, Gray -NoNewline
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
-        Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        Create-Env
+        Write-Color -Text "*** ", "We need to create virtual env first ..." -Color Yellow, Gray
+        Create-UvEnv
     } else {
         Write-Color -Text "OK" -Color Green
     }
@@ -397,14 +449,15 @@ function Build-Ayon($MakeInstaller = $false) {
 
     Change-Cwd
     Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
-    $FreezeContent = & "$($poetry_home)\bin\poetry" run python -m pip --no-color freeze
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\_venv_deps.py"
+    $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
+    $FreezeContent = & uv --no-color pip freeze
+    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\_venv_deps.py"
     # Make sure output is UTF-8 without BOM
     $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
     [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
 
-    $out = & "$($poetry_home)\bin\poetry" run python setup.py build 2>&1
+    $out = & $repo_root\.venv\Scripts\python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
@@ -416,7 +469,7 @@ function Build-Ayon($MakeInstaller = $false) {
     }
 
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "build"
+    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
         Make-Ayon-Installer-Raw
@@ -432,13 +485,12 @@ function Build-Ayon($MakeInstaller = $false) {
 }
 
 function Installer-Post-Process() {
-    Change-Cwd
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\installer_post_process.py" @args
+    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function Make-Ayon-Installer-Raw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\build_post_process.py" "make-installer"
 }
 
 function Make-Ayon-Installer() {
@@ -455,16 +507,16 @@ function Make-Ayon-Installer() {
 }
 
 function Install-Runtime-Dependencies() {
-    Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($poetry_home)\bin")) {
+    Write-Color -Text ">>> ", "Testing venv ... " -Color Green, Gray -NoNewline
+    if (-not (Test-Path -PathType Container -Path "$repo_root\.venv")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
-        Write-Color -Text "*** ", "We need to install Poetry create virtual env first ..." -Color Yellow, Gray
-        Create-Env
+        Write-Color -Text "*** ", "We need to  create virtual env first ..." -Color Yellow, Gray
+        Create-UvEnv
     } else {
         Write-Color -Text "OK" -Color Green
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\tools\runtime_dependencies.py" @args
+    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\runtime_dependencies.py" @args
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Dependencies downloaded", "All done in $( $endTime - $startTime ) secs."
@@ -473,7 +525,7 @@ function Install-Runtime-Dependencies() {
 
 function Run-From-Code() {
     Change-Cwd
-    & "$($poetry_home)\bin\poetry" run python "$($repo_root)\start.py" @arguments
+    & $repo_root\.venv\Scripts\python "$($repo_root)\start.py" @arguments
 }
 
 function Main {
@@ -485,7 +537,7 @@ function Main {
     if ($FunctionName -eq "run") {
         Run-From-Code
     } elseif ($FunctionName -eq "createenv") {
-        Create-Env
+        Create-UvEnv
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
         Install-Runtime-Dependencies @arguments
     } elseif ($FunctionName -eq "build") {
