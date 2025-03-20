@@ -7,7 +7,7 @@ import subprocess
 
 # Copyright (c) 2004 Bob Ippolito.
 # Copyright (c) 2010-2024 Ronald Oussoren
-# macOs process initialization sourced from https://github.com/ronaldoussoren/py2app/blob/master/src/py2app/bootstrap/_argv_emulator.py  noqa: E501
+# macOs process initialization sourced from https://github.com/ronaldoussoren/py2app/blob/master/src/py2app/bootstrap/_argv_emulator.py  # noqa: E501
 class AEDesc(ctypes.Structure):
     _fields_ = [
         ("descKey", ctypes.c_int),
@@ -89,7 +89,9 @@ def _ctypes_setup() -> ctypes.CDLL:
     ]
 
     carbon.FSRefMakePath.restype = ctypes.c_int
-    carbon.FSRefMakePath.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
+    carbon.FSRefMakePath.argtypes = [
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint
+    ]
 
     return carbon
 
@@ -170,7 +172,9 @@ def _run_argvemulator(timeout: float = 60.0):
                 ctypes.byref(listdesc), i + 1, typeFSRef, 0, ctypes.byref(desc)
             )
             if sts != 0:
-                print("argvemulator warning: cannot unpack open document event")
+                print(
+                    "argvemulator warning: cannot unpack open document event"
+                )
                 running = False
                 return ctypes.c_void_p(0)
 
@@ -178,7 +182,9 @@ def _run_argvemulator(timeout: float = 60.0):
             buf = ctypes.create_string_buffer(sz)
             sts = carbon.AEGetDescData(ctypes.byref(desc), buf, sz)
             if sts != 0:
-                print("argvemulator warning: cannot extract open document event")
+                print(
+                    "argvemulator warning: cannot extract open document event"
+                )
                 continue
 
             fsref = buf
@@ -186,7 +192,9 @@ def _run_argvemulator(timeout: float = 60.0):
             buf = ctypes.create_string_buffer(1024)
             sts = carbon.FSRefMakePath(ctypes.byref(fsref), buf, 1023)
             if sts != 0:
-                print("argvemulator warning: cannot extract open document event")
+                print(
+                    "argvemulator warning: cannot extract open document event"
+                )
                 continue
 
             sys.argv.append(buf.value.decode("utf-8"))
@@ -210,7 +218,9 @@ def _run_argvemulator(timeout: float = 60.0):
             return ctypes.c_void_p(0)
 
         item_count = ctypes.c_long()
-        sts = carbon.AECountItems(ctypes.byref(listdesc), ctypes.byref(item_count))
+        sts = carbon.AECountItems(
+            ctypes.byref(listdesc), ctypes.byref(item_count)
+        )
         if sts != 0:
             print("argvemulator warning: cannot unpack open url event")
             running = False
