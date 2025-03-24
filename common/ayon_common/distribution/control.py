@@ -1381,15 +1381,6 @@ class AyonDistribution:
             )
             return
 
-        if installer_item.is_missing_permissions:
-            self._installer_dist_error = (
-                "Your user does not have required permissions to update"
-                " AYON launcher."
-                " Please contact your administrator, or use user"
-                " with permissions."
-            )
-            return
-
         downloader_data = {
             "type": "installer",
             "version": installer_item.version,
@@ -1415,6 +1406,15 @@ class AyonDistribution:
                 downloader_data,
                 f"Installer {installer_item.version}"
             )
+            if dist_item.is_missing_permissions:
+                self._installer_dist_error = (
+                    "Your user does not have required permissions to update"
+                    " AYON launcher."
+                    " Please contact your administrator, or use user"
+                    " with permissions."
+                )
+                return
+
             dist_item.distribute()
             self._installer_executable = dist_item.executable
             if dist_item.installer_error is not None:
