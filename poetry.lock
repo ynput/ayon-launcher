@@ -1196,7 +1196,6 @@ description = "Library to instrument executable formats"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
-markers = "sys_platform == \"win32\""
 files = [
     {file = "lief-0.13.2-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:0390cfaaf0e9aed46bebf26f00f34852768f76bc7f90abf7ceb384566200e5f5"},
     {file = "lief-0.13.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5581bf0072c1e7a9ea2fb2e2252b8582016e8b298804b5461e552b402c9cd4e9"},
@@ -2508,4 +2507,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9.1,<3.10"
-content-hash = "13c774f6fa732fca441e529f8b502a8c7de211d665c84ba1ef310e96f4472989"
+content-hash = "be753d04333492fced945faff75134ab5970b632a7b0de619f26c74dd52d774e"

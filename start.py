@@ -333,6 +333,7 @@ from ayon_common.distribution import (  # noqa E402
     AyonDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
+    show_missing_permissions,
     show_installer_issue_information,
     UpdateWindowManager,
 )
@@ -541,9 +542,19 @@ def _start_distribution():
     """
 
     # Create distribution object
-    distribution = AyonDistribution(
-        skip_installer_dist=not IS_BUILT_APPLICATION
-    )
+    try:
+        distribution = AyonDistribution(
+            skip_installer_dist=not IS_BUILT_APPLICATION
+        )
+    except PermissionError:
+        _print(
+            "!!! Failed to initialize distribution"
+            " because of permissions error."
+        )
+        if not HEADLESS_MODE_ENABLED:
+            show_missing_permissions()
+        sys.exit(1)
+
     bundle = None
     bundle_name = None
     # Try to find required bundle and handle missing one
@@ -595,6 +606,10 @@ def _start_distribution():
         bundle_name
     )
     _run_disk_mapping(bundle_name)
+
+    if distribution.is_missing_permissions:
+        show_missing_permissions()
+        sys.exit(1)
 
     # Start distribution
     update_window_manager = UpdateWindowManager()

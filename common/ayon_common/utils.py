@@ -98,7 +98,7 @@ def get_launcher_storage_dir(
         os.environ["AYON_LAUNCHER_STORAGE_DIR"] = storage_dir
 
     path = os.path.join(storage_dir, *subdirs)
-    if create:
+    if create and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
     return path
 
