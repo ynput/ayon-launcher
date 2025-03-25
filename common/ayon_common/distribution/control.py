@@ -14,6 +14,7 @@ import platform
 import subprocess
 import dataclasses
 from enum import Enum
+from abc import ABC, abstractmethod
 from typing import Optional, Any
 
 import ayon_api
@@ -46,6 +47,47 @@ from .downloaders import (
 )
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
+
+
+def _windows_dir_requires_permissions(dirpath: str) -> bool:
+    try:
+        # Attempt to create a temporary file in the folder
+        temp_file_path = os.path.join(dirpath, uuid.uuid4().hex)
+        with open(temp_file_path, "w"):
+            pass
+        os.remove(temp_file_path)  # Clean up temporary file
+        return False
+
+    except PermissionError:
+        return True
+
+    except BaseException as exc:
+        print((
+                  "Failed to determine if root requires permissions."
+                  "Unexpected error: {}"
+              ).format(exc))
+        return False
+
+
+def _has_write_permissions(dirpath: str) -> bool:
+    platform_name = platform.system().lower()
+    while not os.path.exists(dirpath):
+        _dirpath = os.path.dirname(dirpath)
+        if _dirpath == dirpath:
+            print((
+                "Failed to determine if root requires permissions."
+                " The disk is probably not mounted."
+            ))
+            return False
+        dirpath = _dirpath
+
+    if platform_name == "windows":
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            return True
+
+        return not _windows_dir_requires_permissions(dirpath)
+
+    return os.access(dirpath, os.W_OK)
 
 
 class UpdateState(Enum):
@@ -160,7 +202,7 @@ class DistributeTransferProgress:
         return self._fail_reason or self._transfer_progress.fail_reason
 
 
-class BaseDistributionItem:
+class BaseDistributionItem(ABC):
     """Distribution item with sources and target directories.
 
     Distribution item can be an installer, addon or dependency package.
@@ -290,6 +332,11 @@ class BaseDistributionItem:
         """
 
         return self._error_detail
+
+    @property
+    @abstractmethod
+    def is_missing_permissions(self) -> bool:
+        pass
 
     def _pre_source_process(self):
         os.makedirs(self.download_dirpath, exist_ok=True)
@@ -556,6 +603,12 @@ class InstallerDistributionItem(BaseDistributionItem):
         """
         return self._installer_error
 
+    @property
+    def is_missing_permissions(self) -> bool:
+        return not _has_write_permissions(
+            os.path.dirname(os.path.dirname(sys.executable))
+        )
+
     def _find_windows_executable(self, log_output: str):
         """Find executable path in log output.
 
@@ -602,34 +655,6 @@ class InstallerDistributionItem(BaseDistributionItem):
             if os.path.exists(executable_path):
                 return executable_path
 
-    def _windows_root_require_permissions(self, dirpath: str) -> bool:
-        while not os.path.exists(dirpath):
-            _dirpath = os.path.dirname(dirpath)
-            if _dirpath == dirpath:
-                print((
-                    "Failed to determine if root requires permissions."
-                    " The disk is probably not mounted."
-                ))
-                return False
-            dirpath = _dirpath
-        try:
-            # Attempt to create a temporary file in the folder
-            temp_file_path = os.path.join(dirpath, uuid.uuid4().hex)
-            with open(temp_file_path, "w"):
-                pass
-            os.remove(temp_file_path)  # Clean up temporary file
-            return False
-
-        except PermissionError:
-            return True
-
-        except BaseException as exc:
-            print(
-                "Failed to determine if root requires permissions."
-                f" Unexpected error: {exc}"
-            )
-            return False
-
     def _install_windows(self, filepath: str):
         """Install windows AYON launcher.
 
@@ -645,10 +670,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         install_exe_tmp = create_tmp_file(suffix="ayon_install_dir")
         user_arg = "/CURRENTUSER"
         # Ask for admin permissions if user is not admin and
-        if (
-            not ctypes.windll.shell32.IsUserAnAdmin()
-            and self._windows_root_require_permissions(install_root)
-        ):
+        if not _has_write_permissions(install_root):
             if HEADLESS_MODE_ENABLED:
                 raise InstallerDistributionError((
                     "Installation requires administration permissions, which"
@@ -866,6 +888,10 @@ class DistributionItem(BaseDistributionItem):
     def __init__(self, unzip_dirpath: str, *args, **kwargs):
         self.unzip_dirpath = unzip_dirpath
         super().__init__(*args, **kwargs)
+
+    @property
+    def is_missing_permissions(self) -> bool:
+        return not _has_write_permissions(self.unzip_dirpath)
 
     def _pre_source_process(self):
         super()._pre_source_process()
@@ -1423,6 +1449,15 @@ class AyonDistribution:
                 downloader_data,
                 f"Installer {installer_item.version}"
             )
+            if dist_item.is_missing_permissions:
+                self._installer_dist_error = (
+                    "Your user does not have required permissions to update"
+                    " AYON launcher."
+                    " Please contact your administrator, or use user"
+                    " with permissions."
+                )
+                return
+
             dist_item.distribute()
             self._installer_executable = dist_item.executable
             if dist_item.installer_error is not None:
@@ -1910,6 +1945,15 @@ class AyonDistribution:
 
         for item in self.get_all_distribution_items():
             if item.need_distribution:
+                return True
+        return False
+
+    @property
+    def is_missing_permissions(self):
+        # Do not validate installer (launcher) distribution as that is
+        #   reported with '_installer_dist_error'
+        for item in self.get_all_distribution_items():
+            if item.need_distribution and item.is_missing_permissions:
                 return True
         return False
 
