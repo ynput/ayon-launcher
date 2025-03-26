@@ -118,7 +118,7 @@ if "--project" in sys.argv:
         raise RuntimeError((
             "Expect value after \"--project\" argument."
         ))
-    os.environ["AYON_PROJECT_NAME"] = sys.argv.pop(idx)
+    os.environ["AYON_PROJECT_NAME"] = sys.argv[idx]
 
 # Enabled logging debug mode when "--debug" is passed
 if "--verbose" in sys.argv:
