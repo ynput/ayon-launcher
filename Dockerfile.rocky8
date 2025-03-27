@@ -30,6 +30,7 @@ RUN dnf -y install \
         cmake \
         wget \
         gcc \
+        gcc-c++ \
         zlib-devel \
         bzip2 \
         bzip2-devel \
