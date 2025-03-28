@@ -1406,7 +1406,11 @@ class AyonDistribution:
                 downloader_data,
                 f"Installer {installer_item.version}"
             )
-            if dist_item.is_missing_permissions:
+
+            if (
+                platform.system().lower() != "windows"
+                and dist_item.is_missing_permissions
+            ):
                 self._installer_dist_error = (
                     "Your user does not have required permissions to update"
                     " AYON launcher."
