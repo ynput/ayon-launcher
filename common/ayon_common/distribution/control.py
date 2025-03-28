@@ -768,7 +768,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         else:
             parsed_plist = plistlib.readPlist(plist_filepath)
         executable_filename = parsed_plist.get("CFBundleExecutable")
-        return os.path.join(
+        self._executable = os.path.join(
             contents_dir, "MacOS", executable_filename
         )
 
