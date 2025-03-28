@@ -2,6 +2,7 @@ import os
 import logging
 import platform
 from abc import ABCMeta, abstractmethod
+from typing import Any
 
 import ayon_api
 
@@ -18,7 +19,13 @@ class SourceDownloader(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def download(cls, source, destination_dir, data, transfer_progress):
+    def download(
+        cls,
+        source: dict[str, Any],
+        destination_dir: str,
+        data: dict[str, Any],
+        transfer_progress: ayon_api.TransferProgress,
+    ):
         """Returns url of downloaded addon zip file.
 
         Tranfer progress can be ignored, in that case file transfer won't
@@ -41,7 +48,12 @@ class SourceDownloader(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def cleanup(cls, source, destination_dir, data):
+    def cleanup(
+        cls,
+        source: dict[str, Any],
+        destination_dir: str,
+        data: dict[str, Any]
+    ):
         """Cleanup files when distribution finishes or crashes.
 
         Cleanup e.g. temporary files (downloaded zip) or other related stuff
@@ -51,7 +63,12 @@ class SourceDownloader(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def check_hash(cls, filepath, checksum, checksum_algorithm="sha256"):
+    def check_hash(
+        cls,
+        filepath: str,
+        checksum: str,
+        checksum_algorithm: str="sha256",
+    ):
         """Compares 'hash' of downloaded 'addon_url' file.
 
         Args:
@@ -67,7 +84,7 @@ class SourceDownloader(metaclass=ABCMeta):
             raise ValueError(f"{filepath} doesn't match expected hash.")
 
     @classmethod
-    def unzip(cls, filepath, destination_dir):
+    def unzip(cls, filepath: str, destination_dir: str):
         """Unzips local 'addon_zip_path' to 'destination'.
 
         Args:

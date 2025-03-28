@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import urllib.request
 import urllib.error
 import itertools
+from typing import Optional
 
 import requests
 
@@ -16,11 +17,11 @@ class RemoteFileHandler:
 
     @staticmethod
     def download_url(
-        url,
-        root,
-        filename=None,
-        max_redirect_hops=3,
-        headers=None
+        url: str,
+        root: str,
+        filename: Optional[str] = None,
+        max_redirect_hops: int = 3,
+        headers: Optional[dict[str, str]] = None,
     ):
         """Download a file from url and place it in root.
 
@@ -33,14 +34,15 @@ class RemoteFileHandler:
                 hops allowed
             headers (Optional[dict[str, str]]): Additional required headers
                 - Authentication etc..
-        """
 
+        """
         root = os.path.expanduser(root)
         if not filename:
             filename = os.path.basename(url)
         fpath = os.path.join(root, filename)
 
-        os.makedirs(root, exist_ok=True)
+        if not os.path.exists(root):
+            os.makedirs(root, exist_ok=True)
 
         # expand redirect chain if needed
         url = RemoteFileHandler._get_redirect_url(
@@ -68,13 +70,18 @@ class RemoteFileHandler:
             RemoteFileHandler._urlretrieve(url, fpath, headers=headers)
 
     @staticmethod
-    def download_file_from_google_drive(file_id, root, filename=None):
+    def download_file_from_google_drive(
+        file_id: str,
+        root: str,
+        filename: Optional[str] = None,
+    ):
         """Download a Google Drive file from  and place it in root.
         Args:
             file_id (str): id of file to be downloaded
             root (str): Directory to place downloaded file in
-            filename (str, optional): Name to save the file under.
+            filename (Optional[str]): Name to save the file under.
                 If None, use the id of the file.
+
         """
         # Based on https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url # noqa
 
@@ -85,7 +92,8 @@ class RemoteFileHandler:
             filename = file_id
         fpath = os.path.join(root, filename)
 
-        os.makedirs(root, exist_ok=True)
+        if not os.path.exists(root):
+            os.makedirs(root, exist_ok=True)
 
         # TODO validate checksum of existing file and download
         #   only if incomplete.
@@ -116,8 +124,11 @@ class RemoteFileHandler:
             raise RuntimeError(msg)
 
         RemoteFileHandler._save_response_content(
-            itertools.chain((first_chunk, ),
-                            response_content_generator), fpath)
+            itertools.chain(
+                (first_chunk, ), response_content_generator
+            ),
+            fpath
+        )
         response.close()
 
     @staticmethod
