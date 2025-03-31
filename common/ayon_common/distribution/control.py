@@ -1612,7 +1612,7 @@ class AyonDistribution:
             # Dev mode can redirect addon directory elsewhere
             if self.use_dev:
                 dev_addon_info = dev_addons.get(addon_name)
-                if dev_addon_info is None or dev_addon_info.enabled is True:
+                if dev_addon_info is not None and dev_addon_info.enabled:
                     continue
 
             addon_version = addon_versions.get(addon_name)
