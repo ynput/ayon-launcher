@@ -805,7 +805,7 @@ class BaseDistributionItem(ABC):
                 self._distribute()
             except DistributionProgressInterupted:
                 if _wait_for_other_process(
-                    self._progress_path, self._progress_id, self.log
+                    self._progress_dir, self._progress_id, self.log
                 ):
                     self.state = UpdateState.UPDATED
                 else:
