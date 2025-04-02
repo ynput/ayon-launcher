@@ -617,7 +617,7 @@ def _start_distribution():
         update_window_manager.start()
 
     try:
-        distribution.distribute()
+        distribution.distribute(threaded=True)
     finally:
         update_window_manager.stop()
 
