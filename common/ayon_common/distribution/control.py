@@ -26,6 +26,7 @@ from ayon_common.utils import (
     is_dev_mode_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
+    calculate_file_checksum,
 )
 
 from .exceptions import BundleNotFoundError, InstallerDistributionError
@@ -222,8 +223,8 @@ class BaseDistributionItem(ABC):
         download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
-        checksum (str): Hash of file for validation.
-        checksum_algorithm (str): Algorithm used to generate the hash.
+        checksum (Optional[str]): Hash of file for validation.
+        checksum_algorithm (Optional[str]): Algorithm used to generate the hash.
         factory (DownloadFactory): Downloaders factory object.
         sources (List[SourceInfo]): Possible sources to receive the
             distribution item.
@@ -236,8 +237,8 @@ class BaseDistributionItem(ABC):
         self,
         download_dirpath: str,
         state: UpdateState,
-        checksum: str,
-        checksum_algorithm: str,
+        checksum: Optional[str],
+        checksum_algorithm: Optional[str],
         factory: DownloadFactory,
         sources: list[SourceInfo],
         downloader_data: dict[str, Any],
@@ -249,8 +250,8 @@ class BaseDistributionItem(ABC):
         self.log: logging.Logger = logger
         self.state: UpdateState = state
         self.download_dirpath: str = download_dirpath
-        self.checksum: str = checksum
-        self.checksum_algorithm: str = checksum_algorithm
+        self.checksum: Optional[str] = checksum
+        self.checksum_algorithm: Optional[str] = checksum_algorithm
         self.factory: DownloadFactory = factory
         self.sources = self._prepare_sources(sources)
         self.downloader_data: dict[str, Any] = downloader_data
@@ -386,6 +387,14 @@ class BaseDistributionItem(ABC):
             if self.checksum:
                 downloader.check_hash(
                     filepath, self.checksum, self.checksum_algorithm
+                )
+            else:
+                # Fill checksum automatically based on downloaded file
+                # - still better than nothing
+                if not self.checksum_algorithm:
+                    self.checksum_algorithm = "sha256"
+                self.checksum = calculate_file_checksum(
+                    filepath, self.checksum_algorithm
                 )
 
         except Exception:
