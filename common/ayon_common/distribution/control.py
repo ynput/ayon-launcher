@@ -71,10 +71,10 @@ def _windows_dir_requires_permissions(dirpath: str) -> bool:
         return True
 
     except BaseException as exc:
-        print((
-                  "Failed to determine if root requires permissions."
-                  "Unexpected error: {}"
-              ).format(exc))
+        print(
+            "Failed to determine if root requires permissions."
+            f"Unexpected error: {exc}"
+        )
         return False
 
 
