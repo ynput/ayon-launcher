@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AYON"
-version = "1.2.1-dev.1"
+version = "1.2.0"
 package-mode = false
 description = "Open VFX and Animation pipeline with support."
 authors = ["Ynput s.r.o. <info@ynput.io>"]
@@ -78,6 +78,18 @@ wheel = "*"
 enlighten = "*"  # cool terminal progress bars
 toml = "^0.10.2" # for parsing pyproject.toml
 pre-commit = "*"
+tomlkit = "^0.13.2"
+requests = "^2.32.3"
+mkdocs-material = "^9.6.7"
+mkdocs-autoapi = "^0.4.0"
+mkdocstrings-python = "^1.16.2"
+mkdocstrings-shell = "^1.0.2"
+mkdocs-click = "^0.8.1"
+mkdocs-minify-plugin = "^0.8.0"
+markdown-checklist = "^0.4.4"
+mdx-gh-links = "^0.4"
+pymdown-extensions = "^10.14.3"
+mike = "^2.1.3"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"
