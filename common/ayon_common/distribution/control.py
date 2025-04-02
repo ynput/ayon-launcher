@@ -2321,12 +2321,16 @@ class AYONDistribution:
             else:
                 item.distribute()
 
+        for thread in threads:
+            thread.start()
+
         while threads:
             thread = threads.popleft()
             if thread.is_alive():
                 threads.append(thread)
             else:
                 thread.join()
+            time.sleep(0.01)
 
         self.finish_distribution()
 
