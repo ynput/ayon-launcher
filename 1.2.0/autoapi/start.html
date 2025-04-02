@@ -1,0 +1,383 @@
+<!doctype html><html lang=en class=no-js> <head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><link rel=prev href=shim/shim_start.html><link rel=next href=version.html><link rel=icon href=../img/favicon.ico><meta name=generator content="mkdocs-1.6.1, mkdocs-material-9.6.11"><title>start - ayon-launcher</title><link rel=stylesheet href=../assets/stylesheets/main.4af4bdda.min.css><link rel=stylesheet href=../assets/stylesheets/palette.06af60db.min.css><script src=https://unpkg.com/iframe-worker/shim></script><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=stylesheet href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback"><style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style><link rel=stylesheet href=../assets/_mkdocstrings.css><link rel=stylesheet href=../css/custom.css><script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script></head> <body dir=ltr data-md-color-scheme=slate data-md-color-primary=indigo data-md-color-accent=indigo> <input class=md-toggle data-md-toggle=drawer type=checkbox id=__drawer autocomplete=off> <input class=md-toggle data-md-toggle=search type=checkbox id=__search autocomplete=off> <label class=md-overlay for=__drawer></label> <div data-md-component=skip> <a href=#start class=md-skip> Skip to content </a> </div> <div data-md-component=announce> </div> <div data-md-color-scheme=default data-md-component=outdated hidden> </div> <header class="md-header md-header--shadow" data-md-component=header> <nav class="md-header__inner md-grid" aria-label=Header> <a href=../index.html title=ayon-launcher class="md-header__button md-logo" aria-label=ayon-launcher data-md-component=logo> <img src=../img/ay-symbol-blackw-full.png alt=logo> </a> <label class="md-header__button md-icon" for=__drawer> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg> </label> <div class=md-header__title data-md-component=header-title> <div class=md-header__ellipsis> <div class=md-header__topic> <span class=md-ellipsis> ayon-launcher </span> </div> <div class=md-header__topic data-md-component=header-topic> <span class=md-ellipsis> start </span> </div> </div> </div> <form class=md-header__option data-md-component=palette> <input class=md-option data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme=slate data-md-color-primary=indigo data-md-color-accent=indigo aria-label="Switch to light mode" type=radio name=__palette id=__palette_0> <label class="md-header__button md-icon" title="Switch to light mode" for=__palette_1 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg> </label> <input class=md-option data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme=default data-md-color-primary=indigo data-md-color-accent=indigo aria-label="Switch to dark mode" type=radio name=__palette id=__palette_1> <label class="md-header__button md-icon" title="Switch to dark mode" for=__palette_0 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg> </label> </form> <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script> <label class="md-header__button md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> </label> <div class=md-search data-md-component=search role=dialog> <label class=md-search__overlay for=__search></label> <div class=md-search__inner role=search> <form class=md-search__form name=search> <input type=text class=md-search__input name=query aria-label=Search placeholder=Search autocapitalize=off autocorrect=off autocomplete=off spellcheck=false data-md-component=search-query required> <label class="md-search__icon md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg> </label> <nav class=md-search__options aria-label=Search> <button type=reset class="md-search__icon md-icon" title=Clear aria-label=Clear tabindex=-1> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> </button> </nav> </form> <div class=md-search__output> <div class=md-search__scrollwrap tabindex=0 data-md-scrollfix> <div class=md-search-result data-md-component=search-result> <div class=md-search-result__meta> Initializing search </div> <ol class=md-search-result__list role=presentation></ol> </div> </div> </div> </div> </div> <div class=md-header__source> <a href=https://github.com/ynput/ayon-launcher title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg> </div> <div class=md-source__repository> GitHub </div> </a> </div> </nav> </header> <div class=md-container data-md-component=container> <main class=md-main data-md-component=main> <div class="md-main__inner md-grid"> <div class="md-sidebar md-sidebar--primary" data-md-component=sidebar data-md-type=navigation> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--primary" aria-label=Navigation data-md-level=0> <label class=md-nav__title for=__drawer> <a href=../index.html title=ayon-launcher class="md-nav__button md-logo" aria-label=ayon-launcher data-md-component=logo> <img src=../img/ay-symbol-blackw-full.png alt=logo> </a> ayon-launcher </label> <div class=md-nav__source> <a href=https://github.com/ynput/ayon-launcher title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg> </div> <div class=md-source__repository> GitHub </div> </a> </div> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../index.html class=md-nav__link> <span class=md-ellipsis> Home </span> </a> </li> <li class=md-nav__item> <a href=../license.html class=md-nav__link> <span class=md-ellipsis> License </span> </a> </li> <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_3 checked> <label class=md-nav__link for=__nav_3 id=__nav_3_label tabindex> <span class=md-ellipsis> Reference </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_3_label aria-expanded=true> <label class=md-nav__title for=__nav_3> <span class="md-nav__icon md-icon"></span> Reference </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=app_launcher.html class=md-nav__link> <span class=md-ellipsis> app_launcher </span> </a> </li> <li class="md-nav__item md-nav__item--pruned md-nav__item--nested"> <a href=common/ayon_common/_windows_register_scheme.html class=md-nav__link> <span class=md-ellipsis> common </span> <span class="md-nav__icon md-icon"></span> </a> </li> <li class=md-nav__item> <a href=mkdocs_hooks.html class=md-nav__link> <span class=md-ellipsis> mkdocs_hooks </span> </a> </li> <li class=md-nav__item> <a href=setup.html class=md-nav__link> <span class=md-ellipsis> setup </span> </a> </li> <li class="md-nav__item md-nav__item--pruned md-nav__item--nested"> <a href=shim/macos_start.html class=md-nav__link> <span class=md-ellipsis> shim </span> <span class="md-nav__icon md-icon"></span> </a> </li> <li class="md-nav__item md-nav__item--active"> <input class="md-nav__toggle md-toggle" type=checkbox id=__toc> <label class="md-nav__link md-nav__link--active" for=__toc> <span class=md-ellipsis> start </span> <span class="md-nav__icon md-icon"></span> </label> <a href=start.html class="md-nav__link md-nav__link--active"> <span class=md-ellipsis> start </span> </a> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#start class=md-nav__link> <span class=md-ellipsis> start </span> </a> </li> <li class=md-nav__item> <a href=#start.StartArgScript class=md-nav__link> <span class=md-ellipsis> StartArgScript </span> </a> <nav class=md-nav aria-label=StartArgScript> <ul class=md-nav__list> <li class=md-nav__item> <a href=#start.StartArgScript.from_args class=md-nav__link> <span class=md-ellipsis> from_args </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#start.boot class=md-nav__link> <span class=md-ellipsis> boot </span> </a> </li> <li class=md-nav__item> <a href=#start.fill_pythonpath class=md-nav__link> <span class=md-ellipsis> fill_pythonpath </span> </a> </li> <li class=md-nav__item> <a href=#start.get_info class=md-nav__link> <span class=md-ellipsis> get_info </span> </a> </li> <li class=md-nav__item> <a href=#start.init_launcher_executable class=md-nav__link> <span class=md-ellipsis> init_launcher_executable </span> </a> </li> <li class=md-nav__item> <a href=#start.main_cli class=md-nav__link> <span class=md-ellipsis> main_cli </span> </a> </li> <li class=md-nav__item> <a href=#start.script_cli class=md-nav__link> <span class=md-ellipsis> script_cli </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=version.html class=md-nav__link> <span class=md-ellipsis> version </span> </a> </li> </ul> </nav> </li> </ul> </nav> </div> </div> </div> <div class="md-sidebar md-sidebar--secondary" data-md-component=sidebar data-md-type=toc> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#start class=md-nav__link> <span class=md-ellipsis> start </span> </a> </li> <li class=md-nav__item> <a href=#start.StartArgScript class=md-nav__link> <span class=md-ellipsis> StartArgScript </span> </a> <nav class=md-nav aria-label=StartArgScript> <ul class=md-nav__list> <li class=md-nav__item> <a href=#start.StartArgScript.from_args class=md-nav__link> <span class=md-ellipsis> from_args </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#start.boot class=md-nav__link> <span class=md-ellipsis> boot </span> </a> </li> <li class=md-nav__item> <a href=#start.fill_pythonpath class=md-nav__link> <span class=md-ellipsis> fill_pythonpath </span> </a> </li> <li class=md-nav__item> <a href=#start.get_info class=md-nav__link> <span class=md-ellipsis> get_info </span> </a> </li> <li class=md-nav__item> <a href=#start.init_launcher_executable class=md-nav__link> <span class=md-ellipsis> init_launcher_executable </span> </a> </li> <li class=md-nav__item> <a href=#start.main_cli class=md-nav__link> <span class=md-ellipsis> main_cli </span> </a> </li> <li class=md-nav__item> <a href=#start.script_cli class=md-nav__link> <span class=md-ellipsis> script_cli </span> </a> </li> </ul> </nav> </div> </div> </div> <div class=md-content data-md-component=content> <article class="md-content__inner md-typeset"> <h1>start</h1> <div class="doc doc-object doc-module"> <a id=start></a> <div class="doc doc-contents first"> <p>Main entry point for AYON command.</p> <p>Bootstrapping process of AYON.</p> <p>This script is responsible for setting up the environment and bootstrapping AYON. It is also responsible for updating AYON from AYON server.</p> <details class=arguments-that-are-always-handled-by-ayon-launcher open> <summary>Arguments that are always handled by AYON launcher</summary> <p>--verbose <level> - set log level --debug - enable debug mode --skip-headers - skip printing headers --skip-bootstrap - skip bootstrap process - use only for bootstrap logic --use-staging - use staging server --use-dev - use dev server --bundle <bundle_name> - specify bundle name to use --headless - enable headless mode - bootstrap won't show any UI</p> </details> <p>AYON launcher can be running in multiple different states. The top layer of states is 'production', 'staging' and 'dev'.</p> <details class=to-start-in-dev-mode-use-one-of-following-options open> <summary>To start in dev mode use one of following options</summary> <ul> <li>by passing '--use-dev' argument</li> <li>by setting 'AYON_USE_DEV' environment variable to '1'</li> <li>by passing '--bundle <dev bundle name>'</li> <li>by setting 'AYON_BUNDLE_NAME' environment variable to dev bundle name</li> </ul> </details> <details class=note open> <summary>By using bundle name you can start any dev bundle, even if is not</summary> <p>assigned to current user.</p> </details> <p>To start in staging mode make sure none of develop options are used and then use one of following options: - by passing '--use-staging' argument - by setting 'AYON_USE_STAGING' environment variable to '1'</p> <p>Staging mode must be defined explicitly cannot be determined by bundle name. In all other cases AYON launcher will start in 'production' mode.</p> <p>Headless mode is not guaranteed after bootstrap process. It is possible that some addon won't handle headless mode and will try to use UIs.</p> <p>After bootstrap process AYON launcher will start 'ayon_core' addon. This addon is responsible for handling all other addons and their logic.</p> <details class=environment-variables-set-during-bootstrap open> <summary>Environment variables set during bootstrap</summary> <ul> <li>AYON_VERSION - version of AYON launcher</li> <li>AYON_BUNDLE_NAME - name of bundle to use</li> <li>AYON_USE_STAGING - set to '1' if staging mode is enabled</li> <li>AYON_USE_DEV - set to '1' if dev mode is enabled</li> <li>AYON_DEBUG - set to '1' if debug mode is enabled</li> <li>AYON_HEADLESS_MODE - set to '1' if headless mode is enabled</li> <li>AYON_SERVER_URL - URL of AYON server</li> <li>AYON_API_KEY - API key for AYON server</li> <li>AYON_SERVER_TIMEOUT - timeout for AYON server</li> <li>AYON_SERVER_RETRIES - number of retries for AYON server</li> <li>AYON_EXECUTABLE - path to AYON executable</li> <li>AYON_ROOT - path to AYON root directory</li> <li>AYON_MENU_LABEL - label for AYON integrations menu</li> <li>AYON_LAUNCHER_STORAGE_DIR - dir where addons, dependency packages, shim etc. are stored</li> <li>AYON_LAUNCHER_LOCAL_DIR - dir where machine specific files are stored</li> <li>AYON_ADDONS_DIR - path to AYON addons directory</li> <li>AYON_DEPENDENCIES_DIR - path to AYON dependencies directory</li> </ul> </details> <p>Some of the environment variables are not in this script but in 'ayon_common' module. - Function 'create_global_connection' can change 'AYON_USE_DEV' and 'AYON_USE_STAGING'. - Bootstrap will set 'AYON_LAUNCHER_STORAGE_DIR' and 'AYON_LAUNCHER_LOCAL_DIR' if are not set yet. - Distribution logic can set 'AYON_ADDONS_DIR' and 'AYON_DEPENDENCIES_DIR' if are not set yet.</p> <div class="doc doc-children"> <div class="doc doc-object doc-class"> <h2 id=start.StartArgScript class="doc doc-heading"> <code>StartArgScript</code> </h2> <div class="doc doc-contents "> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>933</span>
+<span class=normal>934</span>
+<span class=normal>935</span>
+<span class=normal>936</span>
+<span class=normal>937</span>
+<span class=normal>938</span>
+<span class=normal>939</span>
+<span class=normal>940</span>
+<span class=normal>941</span>
+<span class=normal>942</span>
+<span class=normal>943</span>
+<span class=normal>944</span>
+<span class=normal>945</span>
+<span class=normal>946</span>
+<span class=normal>947</span>
+<span class=normal>948</span>
+<span class=normal>949</span>
+<span class=normal>950</span>
+<span class=normal>951</span>
+<span class=normal>952</span>
+<span class=normal>953</span>
+<span class=normal>954</span>
+<span class=normal>955</span>
+<span class=normal>956</span>
+<span class=normal>957</span>
+<span class=normal>958</span>
+<span class=normal>959</span>
+<span class=normal>960</span>
+<span class=normal>961</span>
+<span class=normal>962</span>
+<span class=normal>963</span>
+<span class=normal>964</span>
+<span class=normal>965</span>
+<span class=normal>966</span>
+<span class=normal>967</span>
+<span class=normal>968</span>
+<span class=normal>969</span>
+<span class=normal>970</span>
+<span class=normal>971</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>class</span><span class=w> </span><span class=nc>StartArgScript</span><span class=p>:</span>
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>argument</span><span class=p>,</span> <span class=n>script_path</span><span class=p>):</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>argument</span> <span class=o>=</span> <span class=n>argument</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>script_path</span> <span class=o>=</span> <span class=n>script_path</span>
+
+    <span class=nd>@property</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>is_valid</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>script_path</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span>
+
+    <span class=nd>@property</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>is_dir</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>argument</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>isdir</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>argument</span><span class=p>)</span>
+        <span class=k>return</span> <span class=kc>False</span>
+
+    <span class=nd>@classmethod</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>from_args</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span>
+<span class=w>        </span><span class=sd>&quot;&quot;&quot;Get path argument from args and check if they can be started.</span>
+
+<span class=sd>        Args:</span>
+<span class=sd>            args (Iterable[str]): Arguments passed to AYON.</span>
+
+<span class=sd>        Returns:</span>
+<span class=sd>            StartArgScript: Object containing argument and script path.</span>
+<span class=sd>        &quot;&quot;&quot;</span>
+
+        <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>args</span><span class=p>)</span> <span class=o>&lt;</span> <span class=mi>2</span><span class=p>:</span>
+            <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+        <span class=n>path</span> <span class=o>=</span> <span class=n>args</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+        <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>path</span><span class=p>):</span>
+            <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>isdir</span><span class=p>(</span><span class=n>path</span><span class=p>):</span>
+                <span class=n>new_path</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=s2>&quot;__main__.py&quot;</span><span class=p>)</span>
+                <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>new_path</span><span class=p>):</span>
+                    <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>new_path</span><span class=p>)</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=n>path_ext</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>splitext</span><span class=p>(</span><span class=n>path</span><span class=p>)[</span><span class=mi>1</span><span class=p>]</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
+                <span class=k>if</span> <span class=n>path_ext</span> <span class=ow>in</span> <span class=p>(</span><span class=s2>&quot;.py&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyd&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyw&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyc&quot;</span><span class=p>):</span>
+                    <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>path</span><span class=p>)</span>
+        <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> <div class="doc doc-children"> <div class="doc doc-object doc-function"> <h3 id=start.StartArgScript.from_args class="doc doc-heading"> <code class="highlight language-python"><span class=n>from_args</span><span class=p>(</span><span class=n>args</span><span class=p>)</span></code> <span class="doc doc-labels"> <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small> </span> </h3> <div class="doc doc-contents "> <p>Get path argument from args and check if they can be started.</p> <p><span class=doc-section-title>Parameters:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> <th>Default</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td> <code>args</code> </td> <td> <code><span title=Iterable>Iterable</span>[<span title=str>str</span>]</code> </td> <td> <div class=doc-md-description> <p>Arguments passed to AYON.</p> </div> </td> <td> <em>required</em> </td> </tr> </tbody> </table> <p><span class=doc-section-title>Returns:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td><code>StartArgScript</code></td> <td> </td> <td> <div class=doc-md-description> <p>Object containing argument and script path.</p> </div> </td> </tr> </tbody> </table> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>948</span>
+<span class=normal>949</span>
+<span class=normal>950</span>
+<span class=normal>951</span>
+<span class=normal>952</span>
+<span class=normal>953</span>
+<span class=normal>954</span>
+<span class=normal>955</span>
+<span class=normal>956</span>
+<span class=normal>957</span>
+<span class=normal>958</span>
+<span class=normal>959</span>
+<span class=normal>960</span>
+<span class=normal>961</span>
+<span class=normal>962</span>
+<span class=normal>963</span>
+<span class=normal>964</span>
+<span class=normal>965</span>
+<span class=normal>966</span>
+<span class=normal>967</span>
+<span class=normal>968</span>
+<span class=normal>969</span>
+<span class=normal>970</span>
+<span class=normal>971</span></pre></div></td><td class=code><div><pre><span></span><code><span class=nd>@classmethod</span>
+<span class=k>def</span><span class=w> </span><span class=nf>from_args</span><span class=p>(</span><span class=bp>cls</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Get path argument from args and check if they can be started.</span>
+
+<span class=sd>    Args:</span>
+<span class=sd>        args (Iterable[str]): Arguments passed to AYON.</span>
+
+<span class=sd>    Returns:</span>
+<span class=sd>        StartArgScript: Object containing argument and script path.</span>
+<span class=sd>    &quot;&quot;&quot;</span>
+
+    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>args</span><span class=p>)</span> <span class=o>&lt;</span> <span class=mi>2</span><span class=p>:</span>
+        <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=kc>None</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+    <span class=n>path</span> <span class=o>=</span> <span class=n>args</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+    <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>path</span><span class=p>):</span>
+        <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>isdir</span><span class=p>(</span><span class=n>path</span><span class=p>):</span>
+            <span class=n>new_path</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=s2>&quot;__main__.py&quot;</span><span class=p>)</span>
+            <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>new_path</span><span class=p>):</span>
+                <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>new_path</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>path_ext</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>splitext</span><span class=p>(</span><span class=n>path</span><span class=p>)[</span><span class=mi>1</span><span class=p>]</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
+            <span class=k>if</span> <span class=n>path_ext</span> <span class=ow>in</span> <span class=p>(</span><span class=s2>&quot;.py&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyd&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyw&quot;</span><span class=p>,</span> <span class=s2>&quot;.pyc&quot;</span><span class=p>):</span>
+                <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>path</span><span class=p>)</span>
+    <span class=k>return</span> <span class=bp>cls</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> </div> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.boot class="doc doc-heading"> <code class="highlight language-python"><span class=n>boot</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Bootstrap AYON launcher.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>692</span>
+<span class=normal>693</span>
+<span class=normal>694</span>
+<span class=normal>695</span>
+<span class=normal>696</span>
+<span class=normal>697</span>
+<span class=normal>698</span>
+<span class=normal>699</span>
+<span class=normal>700</span>
+<span class=normal>701</span>
+<span class=normal>702</span>
+<span class=normal>703</span>
+<span class=normal>704</span>
+<span class=normal>705</span>
+<span class=normal>706</span>
+<span class=normal>707</span>
+<span class=normal>708</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>boot</span><span class=p>():</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Bootstrap AYON launcher.&quot;&quot;&quot;</span>
+    <span class=n>init_launcher_executable</span><span class=p>()</span>
+
+    <span class=c1># Setup site id in environment variable for all possible subprocesses</span>
+    <span class=k>if</span> <span class=n>SITE_ID_ENV_KEY</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=p>:</span>
+        <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=p>[</span><span class=n>SITE_ID_ENV_KEY</span><span class=p>]</span> <span class=o>=</span> <span class=n>get_local_site_id</span><span class=p>()</span>
+
+    <span class=n>_connect_to_ayon_server</span><span class=p>()</span>
+    <span class=n>create_global_connection</span><span class=p>()</span>
+    <span class=n>_start_distribution</span><span class=p>()</span>
+    <span class=n>fill_pythonpath</span><span class=p>()</span>
+
+    <span class=c1># Call launcher storage dir getters to make sure their</span>
+    <span class=c1>#   env variables are set</span>
+    <span class=n>get_launcher_local_dir</span><span class=p>()</span>
+    <span class=n>get_launcher_storage_dir</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.fill_pythonpath class="doc doc-heading"> <code class="highlight language-python"><span class=n>fill_pythonpath</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Fill 'sys.path' with paths from PYTHONPATH environment variable.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>683</span>
+<span class=normal>684</span>
+<span class=normal>685</span>
+<span class=normal>686</span>
+<span class=normal>687</span>
+<span class=normal>688</span>
+<span class=normal>689</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>fill_pythonpath</span><span class=p>():</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Fill &#39;sys.path&#39; with paths from PYTHONPATH environment variable.&quot;&quot;&quot;</span>
+    <span class=n>lookup_set</span> <span class=o>=</span> <span class=nb>set</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>path</span> <span class=ow>in</span> <span class=p>(</span><span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>&quot;PYTHONPATH&quot;</span><span class=p>)</span> <span class=ow>or</span> <span class=s2>&quot;&quot;</span><span class=p>)</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=n>os</span><span class=o>.</span><span class=n>pathsep</span><span class=p>):</span>
+        <span class=k>if</span> <span class=n>path</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>lookup_set</span><span class=p>:</span>
+            <span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>path</span><span class=p>)</span>
+            <span class=n>lookup_set</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>path</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.get_info class="doc doc-heading"> <code class="highlight language-python"><span class=n>get_info</span><span class=p>(</span><span class=n>use_staging</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>use_dev</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span></code> </h2> <div class="doc doc-contents "> <p>Print additional information to console.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>1008</span>
+<span class=normal>1009</span>
+<span class=normal>1010</span>
+<span class=normal>1011</span>
+<span class=normal>1012</span>
+<span class=normal>1013</span>
+<span class=normal>1014</span>
+<span class=normal>1015</span>
+<span class=normal>1016</span>
+<span class=normal>1017</span>
+<span class=normal>1018</span>
+<span class=normal>1019</span>
+<span class=normal>1020</span>
+<span class=normal>1021</span>
+<span class=normal>1022</span>
+<span class=normal>1023</span>
+<span class=normal>1024</span>
+<span class=normal>1025</span>
+<span class=normal>1026</span>
+<span class=normal>1027</span>
+<span class=normal>1028</span>
+<span class=normal>1029</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>get_info</span><span class=p>(</span><span class=n>use_staging</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>use_dev</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>list</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Print additional information to console.&quot;&quot;&quot;</span>
+
+    <span class=n>inf</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>bundle_name</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>&quot;AYON_BUNDLE_NAME&quot;</span><span class=p>)</span>
+
+    <span class=n>variant</span> <span class=o>=</span> <span class=s2>&quot;production&quot;</span>
+    <span class=k>if</span> <span class=n>use_dev</span><span class=p>:</span>
+        <span class=n>variant</span> <span class=o>=</span> <span class=s2>&quot;dev (</span><span class=si>{}</span><span class=s2>)&quot;</span><span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bundle_name</span><span class=p>)</span>
+    <span class=k>elif</span> <span class=n>use_staging</span><span class=p>:</span>
+        <span class=n>variant</span> <span class=o>=</span> <span class=s2>&quot;staging&quot;</span>
+    <span class=n>inf</span><span class=o>.</span><span class=n>append</span><span class=p>((</span><span class=s2>&quot;AYON variant&quot;</span><span class=p>,</span> <span class=n>variant</span><span class=p>))</span>
+    <span class=n>inf</span><span class=o>.</span><span class=n>append</span><span class=p>((</span><span class=s2>&quot;AYON bundle&quot;</span><span class=p>,</span> <span class=n>bundle_name</span><span class=p>))</span>
+
+    <span class=c1># NOTE add addons information</span>
+
+    <span class=n>maximum</span> <span class=o>=</span> <span class=nb>max</span><span class=p>(</span><span class=nb>len</span><span class=p>(</span><span class=n>i</span><span class=p>[</span><span class=mi>0</span><span class=p>])</span> <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=n>inf</span><span class=p>)</span>
+    <span class=n>formatted</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=k>for</span> <span class=n>info</span> <span class=ow>in</span> <span class=n>inf</span><span class=p>:</span>
+        <span class=n>padding</span> <span class=o>=</span> <span class=p>(</span><span class=n>maximum</span> <span class=o>-</span> <span class=nb>len</span><span class=p>(</span><span class=n>info</span><span class=p>[</span><span class=mi>0</span><span class=p>]))</span> <span class=o>+</span> <span class=mi>1</span>
+        <span class=n>formatted</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=sa>f</span><span class=s1>&#39;... </span><span class=si>{</span><span class=n>info</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>}</span><span class=s1>:</span><span class=si>{</span><span class=s2>&quot; &quot;</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>padding</span><span class=si>}</span><span class=s1>[ </span><span class=si>{</span><span class=n>info</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span><span class=si>}</span><span class=s1> ]&#39;</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>formatted</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.init_launcher_executable class="doc doc-heading"> <code class="highlight language-python"><span class=n>init_launcher_executable</span><span class=p>(</span><span class=n>ensure_protocol_is_registered</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span></code> </h2> <div class="doc doc-contents "> <p>Initialize AYON launcher executable.</p> <p>Make sure current AYON launcher executable is stored to known executables and shim is deployed.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>668</span>
+<span class=normal>669</span>
+<span class=normal>670</span>
+<span class=normal>671</span>
+<span class=normal>672</span>
+<span class=normal>673</span>
+<span class=normal>674</span>
+<span class=normal>675</span>
+<span class=normal>676</span>
+<span class=normal>677</span>
+<span class=normal>678</span>
+<span class=normal>679</span>
+<span class=normal>680</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>init_launcher_executable</span><span class=p>(</span><span class=n>ensure_protocol_is_registered</span><span class=o>=</span><span class=kc>False</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Initialize AYON launcher executable.</span>
+
+<span class=sd>    Make sure current AYON launcher executable is stored to known executables</span>
+<span class=sd>        and shim is deployed.</span>
+
+<span class=sd>    &quot;&quot;&quot;</span>
+    <span class=n>create_desktop_icons</span> <span class=o>=</span> <span class=s2>&quot;--create-desktop-icons&quot;</span> <span class=ow>in</span> <span class=n>sys</span><span class=o>.</span><span class=n>argv</span>
+    <span class=n>store_current_executable_info</span><span class=p>()</span>
+    <span class=n>deploy_ayon_launcher_shims</span><span class=p>(</span>
+        <span class=n>create_desktop_icons</span><span class=o>=</span><span class=n>create_desktop_icons</span><span class=p>,</span>
+        <span class=n>ensure_protocol_is_registered</span><span class=o>=</span><span class=n>ensure_protocol_is_registered</span><span class=p>,</span>
+    <span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.main_cli class="doc doc-heading"> <code class="highlight language-python"><span class=n>main_cli</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Main startup logic.</p> <p>This is the main entry point for the AYON launcher. At this moment is fully dependent on 'ayon_core' addon. Which means it contains more logic than it should.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>890</span>
+<span class=normal>891</span>
+<span class=normal>892</span>
+<span class=normal>893</span>
+<span class=normal>894</span>
+<span class=normal>895</span>
+<span class=normal>896</span>
+<span class=normal>897</span>
+<span class=normal>898</span>
+<span class=normal>899</span>
+<span class=normal>900</span>
+<span class=normal>901</span>
+<span class=normal>902</span>
+<span class=normal>903</span>
+<span class=normal>904</span>
+<span class=normal>905</span>
+<span class=normal>906</span>
+<span class=normal>907</span>
+<span class=normal>908</span>
+<span class=normal>909</span>
+<span class=normal>910</span>
+<span class=normal>911</span>
+<span class=normal>912</span>
+<span class=normal>913</span>
+<span class=normal>914</span>
+<span class=normal>915</span>
+<span class=normal>916</span>
+<span class=normal>917</span>
+<span class=normal>918</span>
+<span class=normal>919</span>
+<span class=normal>920</span>
+<span class=normal>921</span>
+<span class=normal>922</span>
+<span class=normal>923</span>
+<span class=normal>924</span>
+<span class=normal>925</span>
+<span class=normal>926</span>
+<span class=normal>927</span>
+<span class=normal>928</span>
+<span class=normal>929</span>
+<span class=normal>930</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>main_cli</span><span class=p>():</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Main startup logic.</span>
+
+<span class=sd>    This is the main entry point for the AYON launcher. At this</span>
+<span class=sd>    moment is fully dependent on &#39;ayon_core&#39; addon. Which means it</span>
+<span class=sd>    contains more logic than it should.</span>
+<span class=sd>    &quot;&quot;&quot;</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=kn>import</span><span class=w> </span><span class=nn>ayon_core</span>  <span class=c1># noqa F401</span>
+    <span class=k>except</span> <span class=ne>ModuleNotFoundError</span><span class=p>:</span>
+        <span class=n>_on_main_addon_missing</span><span class=p>()</span>
+
+    <span class=k>try</span><span class=p>:</span>
+        <span class=kn>from</span><span class=w> </span><span class=nn>ayon_core</span><span class=w> </span><span class=kn>import</span> <span class=n>cli</span>
+    <span class=k>except</span> <span class=ne>ImportError</span> <span class=k>as</span> <span class=n>exc</span><span class=p>:</span>
+        <span class=n>traceback</span><span class=o>.</span><span class=n>print_exception</span><span class=p>(</span><span class=o>*</span><span class=n>sys</span><span class=o>.</span><span class=n>exc_info</span><span class=p>())</span>
+        <span class=n>_on_main_addon_import_error</span><span class=p>(</span><span class=n>exc</span><span class=p>)</span>
+
+    <span class=c1># print info when not running scripts defined in &#39;silent commands&#39;</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>SKIP_HEADERS</span><span class=p>:</span>
+        <span class=n>info</span> <span class=o>=</span> <span class=n>get_info</span><span class=p>(</span><span class=n>is_staging_enabled</span><span class=p>(),</span> <span class=n>is_dev_mode_enabled</span><span class=p>())</span>
+        <span class=n>info</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=sa>f</span><span class=s2>&quot;&gt;&gt;&gt; Using AYON from [ </span><span class=si>{</span><span class=n>AYON_ROOT</span><span class=si>}</span><span class=s2> ]&quot;</span><span class=p>)</span>
+
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>t_width</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>get_terminal_size</span><span class=p>()</span><span class=o>.</span><span class=n>columns</span> <span class=o>-</span> <span class=mi>2</span>
+        <span class=k>except</span> <span class=p>(</span><span class=ne>ValueError</span><span class=p>,</span> <span class=ne>OSError</span><span class=p>):</span>
+            <span class=n>t_width</span> <span class=o>=</span> <span class=mi>20</span>
+
+        <span class=n>_header</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&quot;*** AYON [</span><span class=si>{</span><span class=n>__version__</span><span class=si>}</span><span class=s2>] &quot;</span>
+        <span class=n>info</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>_header</span> <span class=o>+</span> <span class=s2>&quot;-&quot;</span> <span class=o>*</span> <span class=p>(</span><span class=n>t_width</span> <span class=o>-</span> <span class=nb>len</span><span class=p>(</span><span class=n>_header</span><span class=p>)))</span>
+
+        <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=n>info</span><span class=p>:</span>
+            <span class=n>_print</span><span class=p>(</span><span class=n>i</span><span class=p>)</span>
+
+    <span class=k>try</span><span class=p>:</span>
+        <span class=n>cli</span><span class=o>.</span><span class=n>main</span><span class=p>()</span>
+    <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa</span>
+        <span class=n>exc_info</span> <span class=o>=</span> <span class=n>sys</span><span class=o>.</span><span class=n>exc_info</span><span class=p>()</span>
+        <span class=n>_print</span><span class=p>(</span><span class=s2>&quot;!!! AYON crashed:&quot;</span><span class=p>)</span>
+        <span class=n>traceback</span><span class=o>.</span><span class=n>print_exception</span><span class=p>(</span><span class=o>*</span><span class=n>exc_info</span><span class=p>)</span>
+        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=start.script_cli class="doc doc-heading"> <code class="highlight language-python"><span class=n>script_cli</span><span class=p>(</span><span class=n>start_arg</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span></code> </h2> <div class="doc doc-contents "> <p>Run and execute script.</p> <details class=quote> <summary>Source code in <code>start.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 974</span>
+<span class=normal> 975</span>
+<span class=normal> 976</span>
+<span class=normal> 977</span>
+<span class=normal> 978</span>
+<span class=normal> 979</span>
+<span class=normal> 980</span>
+<span class=normal> 981</span>
+<span class=normal> 982</span>
+<span class=normal> 983</span>
+<span class=normal> 984</span>
+<span class=normal> 985</span>
+<span class=normal> 986</span>
+<span class=normal> 987</span>
+<span class=normal> 988</span>
+<span class=normal> 989</span>
+<span class=normal> 990</span>
+<span class=normal> 991</span>
+<span class=normal> 992</span>
+<span class=normal> 993</span>
+<span class=normal> 994</span>
+<span class=normal> 995</span>
+<span class=normal> 996</span>
+<span class=normal> 997</span>
+<span class=normal> 998</span>
+<span class=normal> 999</span>
+<span class=normal>1000</span>
+<span class=normal>1001</span>
+<span class=normal>1002</span>
+<span class=normal>1003</span>
+<span class=normal>1004</span>
+<span class=normal>1005</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>script_cli</span><span class=p>(</span><span class=n>start_arg</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>&quot;&quot;&quot;Run and execute script.&quot;&quot;&quot;</span>
+
+    <span class=k>if</span> <span class=n>start_arg</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>start_arg</span> <span class=o>=</span> <span class=n>StartArgScript</span><span class=o>.</span><span class=n>from_args</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>)</span>
+
+    <span class=c1># Remove first argument from sys.argv</span>
+    <span class=c1># - start.py when running from code</span>
+    <span class=c1># - ayon executable when running from build</span>
+    <span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=o>.</span><span class=n>pop</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span>
+
+    <span class=c1># Find &#39;__main__.py&#39; in directory</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>start_arg</span><span class=o>.</span><span class=n>is_valid</span><span class=p>:</span>
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>start_arg</span><span class=o>.</span><span class=n>argument</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>RuntimeError</span><span class=p>(</span><span class=s2>&quot;No script to run&quot;</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=n>start_arg</span><span class=o>.</span><span class=n>is_dir</span><span class=p>:</span>
+            <span class=k>raise</span> <span class=ne>RuntimeError</span><span class=p>(</span>
+                <span class=sa>f</span><span class=s2>&quot;Can&#39;t find &#39;__main__&#39; module in &#39;</span><span class=si>{</span><span class=n>start_arg</span><span class=o>.</span><span class=n>argument</span><span class=si>}</span><span class=s2>&#39;&quot;</span><span class=p>)</span>
+        <span class=k>raise</span> <span class=ne>RuntimeError</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Can&#39;t find script to run &#39;</span><span class=si>{</span><span class=n>start_arg</span><span class=o>.</span><span class=n>argument</span><span class=si>}</span><span class=s2>&#39;&quot;</span><span class=p>)</span>
+    <span class=n>filepath</span> <span class=o>=</span> <span class=n>start_arg</span><span class=o>.</span><span class=n>script_path</span>
+
+    <span class=c1># Add parent dir to sys path</span>
+    <span class=n>sys</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>dirname</span><span class=p>(</span><span class=n>filepath</span><span class=p>))</span>
+
+    <span class=c1># Read content and execute</span>
+    <span class=k>with</span> <span class=nb>open</span><span class=p>(</span><span class=n>filepath</span><span class=p>,</span> <span class=s2>&quot;r&quot;</span><span class=p>)</span> <span class=k>as</span> <span class=n>stream</span><span class=p>:</span>
+        <span class=n>content</span> <span class=o>=</span> <span class=n>stream</span><span class=o>.</span><span class=n>read</span><span class=p>()</span>
+
+    <span class=n>script_globals</span> <span class=o>=</span> <span class=nb>dict</span><span class=p>(</span><span class=nb>globals</span><span class=p>())</span>
+    <span class=n>script_globals</span><span class=p>[</span><span class=s2>&quot;__file__&quot;</span><span class=p>]</span> <span class=o>=</span> <span class=n>filepath</span>
+    <span class=n>exec</span><span class=p>(</span><span class=nb>compile</span><span class=p>(</span><span class=n>content</span><span class=p>,</span> <span class=n>filepath</span><span class=p>,</span> <span class=s2>&quot;exec&quot;</span><span class=p>),</span> <span class=n>script_globals</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> </div> </div> </div> </article> </div> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"base": "..", "features": ["navigation.sections", "navigation.path", "navigation.prune"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script> <script src=../assets/javascripts/bundle.c8b220af.min.js></script> </body> </html>
