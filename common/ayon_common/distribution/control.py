@@ -790,17 +790,18 @@ class BaseDistributionItem(ABC):
     def _post_distribute(self):
         pass
 
+    def is_distributed(self):
+        if not self.need_distribution:
+            return True
+        return self.state == UpdateState.UPDATED
+
     def distribute(self):
         """Execute distribution logic."""
-
-        if not self.need_distribution or self._dist_started:
+        if self.is_distributed() or self._dist_started:
             return
 
         self._dist_started = True
         try:
-            if self.state != UpdateState.OUTDATED:
-                return
-
             try:
                 self._distribute()
             except DistributionProgressInterupted:
@@ -2312,11 +2313,15 @@ class AYONDistribution:
                 self.distribute_installer()
             return
 
-        threads = collections.deque()
-        dist_items = self.get_all_distribution_items()
+        dist_items = [
+            dist_item
+            for dist_item in self.get_all_distribution_items()
+            if not dist_item.is_distributed()
+        ]
         if dist_items:
             _create_dist_download_file(self._dist_download_dir)
 
+        threads = collections.deque()
         for item in dist_items:
             if threaded:
                 threads.append(threading.Thread(target=item.distribute))
