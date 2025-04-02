@@ -256,8 +256,11 @@ def _create_dist_download_file(dist_download_dir: str):
         dist_download_dir (str): Path to distribution download directory.
 
     """
-    os.makedirs(dist_download_dir, exist_ok=True)
     info_path = os.path.join(dist_download_dir, "download_info.json")
+    if os.path.exists(info_path):
+        return
+
+    os.makedirs(dist_download_dir, exist_ok=True)
     with open(info_path, "w") as stream:
         json.dump(
             {"expiration_time": time.time() + (60 * 60)},
