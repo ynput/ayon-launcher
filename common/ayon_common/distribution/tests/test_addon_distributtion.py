@@ -10,7 +10,7 @@ from common.ayon_common.distribution.downloaders import (
     HTTPDownloader,
 )
 from common.ayon_common.distribution.control import (
-    AyonDistribution,
+    AYONDistribution,
     UpdateState,
 )
 from common.ayon_common.distribution.data_structures import (
@@ -184,7 +184,7 @@ def test_update_addon_state(
 
     # Cause crash because of invalid hash
     broken_addon_info["versions"][addon_version]["hash"] = "brokenhash"
-    distribution = AyonDistribution(
+    distribution = AYONDistribution(
         addon_dirpath=temp_folder,
         dependency_dirpath=temp_folder,
         dist_factory=download_factory,
@@ -204,7 +204,7 @@ def test_update_addon_state(
         "Update should have failed because of wrong hash")
 
     # Fix cache and validate if was updated
-    distribution = AyonDistribution(
+    distribution = AYONDistribution(
         addon_dirpath=temp_folder,
         dependency_dirpath=temp_folder,
         dist_factory=download_factory,
@@ -223,7 +223,7 @@ def test_update_addon_state(
         "Addon should have been updated")
 
     # Is UPDATED without calling distribute
-    distribution = AyonDistribution(
+    distribution = AYONDistribution(
         addon_dirpath=temp_folder,
         dependency_dirpath=temp_folder,
         dist_factory=download_factory,

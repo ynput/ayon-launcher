@@ -55,7 +55,9 @@ def show_missing_permissions():
     _show_message_dialog(
         "AYON distribution - Permissions issues",
         (
-            "Your user does not have permissions to distribute updates."
+            "Failed to distribute updates. Other process might block the"
+            " distribution or your user does not have required permissions"
+            " to distribute updates."
             "<br/><br/>Please contact your administrator, or use user"
             " with permissions to distribute addons and dependency package."
         ),
