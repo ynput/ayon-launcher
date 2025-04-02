@@ -472,7 +472,6 @@ class BaseDistributionItem(ABC):
         self._used_source_progress = None
         self._used_source = None
         self._dist_started = False
-        self._dist_finished = False
 
         self._progress_id = uuid.uuid4().hex
         self._progress_dir = progress_dir
@@ -834,7 +833,6 @@ class BaseDistributionItem(ABC):
             )
 
         finally:
-            self._dist_finished = True
             if self.state == UpdateState.OUTDATED:
                 self.state = UpdateState.UPDATE_FAILED
                 self._error_msg = "Distribution failed"
@@ -1287,7 +1285,6 @@ class AYONDistribution:
         self._log = None
 
         self._dist_started = False
-        self._dist_finished = False
 
         self._addons_dirpath = addon_dirpath or get_addons_dir()
         self._dependency_dirpath = dependency_dirpath or get_dependencies_dir()
@@ -2188,7 +2185,6 @@ class AYONDistribution:
         if os.path.exists(self._dist_download_dir):
             shutil.rmtree(self._dist_download_dir)
 
-        self._dist_finished = True
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
         #   of having one file
