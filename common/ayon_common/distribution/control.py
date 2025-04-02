@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import uuid
 import ctypes
 import tempfile
@@ -226,6 +227,72 @@ def _wait_for_other_process(
             break
         time.sleep(0.1)
     return False
+
+
+# --- Distribution download directories ---
+# Where to store downloaded files before extration.
+def _get_dist_download_dir(*args):
+    return os.path.join(
+        tempfile.gettempdir(), "ayon_dist_downloads", *args
+    )
+
+
+def _create_dist_download_file(dist_download_dir: str):
+    """Create distribution download directory with metadata file.
+
+    The metadata file contains information about expiration time of the
+        templ download folder. Lifetime is 1 hour (more than should be
+        needed).
+
+    Args:
+        dist_download_dir (str): Path to distribution download directory.
+
+    """
+    os.makedirs(dist_download_dir, exist_ok=True)
+    info_path = os.path.join(dist_download_dir, "download_info.json")
+    with open(info_path, "w") as stream:
+        json.dump(
+            {"expiration_time": time.time() + (60 * 60)},
+            stream,
+        )
+
+
+def _dist_download_file_expired(dist_download_dir: str) -> bool:
+    """Check if distribution download directory is expired.
+
+    Args:
+        dist_download_dir (str): Path to distribution download directory.
+
+    Returns:
+        bool: Directory is expired and can be removed.
+
+    """
+    info_path = os.path.join(dist_download_dir, "download_info.json")
+    if not os.path.exists(info_path):
+        return True
+
+    try:
+        with open(info_path, "r") as stream:
+            data = json.load(stream)
+    except Exception:
+        data = {}
+    expiration_time = data.get("expiration_time")
+    if not isinstance(expiration_time, int):
+        return False
+    return expiration_time < time.time()
+
+
+def _cleanup_dist_download_dirs():
+    """Clean up old distribution download directories.
+
+    If distribution crashed in past this function makes sure they are removed.
+
+    """
+    root = _get_dist_download_dir()
+    for subname in os.listdir(root):
+        path = os.path.join(root, subname)
+        if os.path.isdir(path) and _dist_download_file_expired(path):
+            shutil.rmtree(path)
 
 
 class DistributeTransferProgress:
