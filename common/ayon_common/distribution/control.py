@@ -939,7 +939,7 @@ class DistributionItem(BaseDistributionItem):
             shutil.rmtree(self.unzip_dirpath)
 
 
-class AyonDistribution:
+class AYONDistribution:
     """Distribution control.
 
     Receive information from server what addons and dependency packages
