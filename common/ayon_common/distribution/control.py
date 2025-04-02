@@ -48,6 +48,13 @@ from .downloaders import (
 )
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
+DIST_PROGRESS_FILENAME = "dist_progress.json"
+DOWNLOAD_WAIT_TRESHOLD_TIME = 20
+EXTRACT_WAIT_TRESHOLD_TIME = 20
+
+
+class DistributionProgressInterupted(Exception):
+    pass
 
 
 def _windows_dir_requires_permissions(dirpath: str) -> bool:
@@ -97,6 +104,128 @@ class UpdateState(Enum):
     OUTDATED = "outdated"
     UPDATE_FAILED = "failed"
     MISS_SOURCE_FILES = "miss_source_files"
+
+
+# --- Distribution metadata file ---
+# The file is stored to destination directory to keep track of distribution
+#   of the item.
+class DistFileStates(Enum):
+    downloading = "downloading"
+    extracting = "extracting"
+    failed = "failed"
+    done = "done"
+
+
+def _create_progress_file(
+    progress_path: str,
+    progress_id: str,
+    checksum: Optional[str],
+    checksum_algorithm: Optional[str],
+    state: Optional[DistFileStates] = None
+):
+    if state is None:
+        state = DistFileStates.downloading
+
+    progress_dir = os.path.dirname(progress_path)
+    if not os.path.exists(progress_dir):
+        os.makedirs(progress_dir, exist_ok=True)
+
+    progress_info = {
+        "state": state.value,
+        "progress_id": progress_id,
+        "checksum": checksum,
+        "checksum_algorithm": checksum_algorithm,
+        "dist_started": (
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ),
+    }
+    with open(progress_path, "w") as stream:
+        json.dump(progress_info, stream)
+
+
+def _read_progress_file(progress_path: str):
+    try:
+        with open(progress_path, "r") as stream:
+            return json.loads(stream.read())
+    except Exception:
+        return {}
+
+
+def _clean_dist_dir(dist_dirpath: str):
+    for subname in os.listdir(dist_dirpath):
+        if subname == DIST_PROGRESS_FILENAME:
+            continue
+        path = os.path.join(dist_dirpath, subname)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+
+
+def _wait_for_other_process(
+    progress_path: str,
+    progress_id: str,
+    log: logging.Logger,
+) -> bool:
+    dirpath = os.path.dirname(progress_path)
+    started = time.time()
+    progress_existed = False
+    threshold_time = None
+    state = None
+    while True:
+        if not os.path.exists(progress_path):
+            if progress_existed:
+                log.debug(
+                    "Other processed didn't finish download or extraction,"
+                    " trying to do so."
+                )
+            break
+
+        progress_info = _read_progress_file(progress_path)
+        if progress_info.get("progress_id") == progress_id:
+            return False
+
+        current_state = progress_info.get("state")
+
+        if not progress_existed:
+            log.debug(
+                "Other process already created progress file"
+                " in target directory. Waiting for finishing it."
+            )
+
+        progress_existed = True
+        if current_state is None:
+            log.warning(
+                "Other process did not store 'state' to progress file."
+            )
+            return False
+
+        if current_state == DistFileStates.done.value:
+            log.debug("Other process finished extraction.")
+            return True
+
+        if current_state == DistFileStates.failed.value:
+            log.debug("Other process failed with distribution.")
+            return False
+
+        if current_state != state:
+            started = time.time()
+            threshold_time = None
+
+        if threshold_time is None:
+            threshold_time = EXTRACT_WAIT_TRESHOLD_TIME
+            if current_state == DistFileStates.downloading.value:
+                threshold_time = DOWNLOAD_WAIT_TRESHOLD_TIME
+
+        if (time.time() - started) > threshold_time:
+            log.debug(
+                f"Waited for treshold time ({EXTRACT_WAIT_TRESHOLD_TIME}s)."
+                f" Extracting downloaded content."
+            )
+            _clean_dist_dir(dirpath)
+            break
+        time.sleep(0.1)
+    return False
 
 
 class DistributeTransferProgress:
