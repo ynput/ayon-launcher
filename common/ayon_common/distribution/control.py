@@ -117,8 +117,25 @@ class DistFileStates(Enum):
     done = "done"
 
 
+def _read_progress_file(progress_dir: str):
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    try:
+        with open(progress_path, "r") as stream:
+            return json.loads(stream.read())
+    except Exception:
+        return {}
+
+
+def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    if not os.path.exists(progress_dir):
+        os.makedirs(progress_dir, exist_ok=True)
+    with open(progress_path, "w") as stream:
+        json.dump(progress_info, stream)
+
+
 def _create_progress_file(
-    progress_path: str,
+    progress_dir: str,
     progress_id: str,
     checksum: Optional[str],
     checksum_algorithm: Optional[str],
@@ -127,29 +144,19 @@ def _create_progress_file(
     if state is None:
         state = DistFileStates.downloading
 
-    progress_dir = os.path.dirname(progress_path)
-    if not os.path.exists(progress_dir):
-        os.makedirs(progress_dir, exist_ok=True)
-
     progress_info = {
+        # State of the progress
         "state": state.value,
+        # Unique identifier of the progress
         "progress_id": progress_id,
+        # Just a metadata about the file
         "checksum": checksum,
         "checksum_algorithm": checksum_algorithm,
         "dist_started": (
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ),
     }
-    with open(progress_path, "w") as stream:
-        json.dump(progress_info, stream)
-
-
-def _read_progress_file(progress_path: str):
-    try:
-        with open(progress_path, "r") as stream:
-            return json.loads(stream.read())
-    except Exception:
-        return {}
+    _store_progress_file(progress_dir, progress_info)
 
 
 def _clean_dist_dir(dist_dirpath: str):
@@ -164,11 +171,11 @@ def _clean_dist_dir(dist_dirpath: str):
 
 
 def _wait_for_other_process(
-    progress_path: str,
+    progress_dir: str,
     progress_id: str,
     log: logging.Logger,
 ) -> bool:
-    dirpath = os.path.dirname(progress_path)
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     started = time.time()
     progress_existed = False
     threshold_time = None
@@ -182,7 +189,7 @@ def _wait_for_other_process(
                 )
             break
 
-        progress_info = _read_progress_file(progress_path)
+        progress_info = _read_progress_file(progress_dir)
         if progress_info.get("progress_id") == progress_id:
             return False
 
@@ -224,7 +231,7 @@ def _wait_for_other_process(
                 f"Waited for treshold time ({EXTRACT_WAIT_TRESHOLD_TIME}s)."
                 f" Extracting downloaded content."
             )
-            _clean_dist_dir(dirpath)
+            _clean_dist_dir(progress_dir)
             break
         time.sleep(0.1)
     return False
@@ -442,7 +449,7 @@ class BaseDistributionItem(ABC):
         sources: list[SourceInfo],
         downloader_data: dict[str, Any],
         item_label: str,
-        progress_path: Optional[str] = None,
+        progress_dir: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
@@ -465,7 +472,7 @@ class BaseDistributionItem(ABC):
         self._dist_finished = False
 
         self._progress_id = uuid.uuid4().hex
-        self._progress_path = progress_path
+        self._progress_dir = progress_dir
 
         self._error_msg = None
         self._error_detail = None
@@ -705,10 +712,10 @@ class BaseDistributionItem(ABC):
             return False
 
     def _set_progress_state(self, state: DistFileStates):
-        if not self._progress_path:
+        if not self._progress_dir:
             return
 
-        progress_info = _read_progress_file(self._progress_path)
+        progress_info = _read_progress_file(self._progress_dir)
         if progress_info.get("progress_id") != self._progress_id:
             # Ignore if wanted to set 'failed' state
             if state == DistFileStates.failed:
@@ -727,8 +734,7 @@ class BaseDistributionItem(ABC):
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
 
-        with open(self._progress_path, "w") as stream:
-            json.dump(progress_info, stream)
+        _store_progress_file(self._progress_dir, progress_info)
 
     def _distribute(self):
         if not self.sources:
@@ -742,10 +748,10 @@ class BaseDistributionItem(ABC):
             return
 
         # Progress file
-        if self._progress_path:
+        if self._progress_dir:
             # Check if other process/machine already started the job
             if _wait_for_other_process(
-                self._progress_path,
+                self._progress_dir,
                 self._progress_id,
                 self.log
             ):
@@ -755,7 +761,7 @@ class BaseDistributionItem(ABC):
 
             # Create progress file
             _create_progress_file(
-                self._progress_path,
+                self._progress_dir,
                 self._progress_id,
                 self.checksum,
                 self.checksum_algorithm,
@@ -1925,22 +1931,18 @@ class AYONDistribution:
             full_name = addon_version_item.full_name
             addon_dest = os.path.join(self._addons_dirpath, full_name)
             self.log.debug(f"Checking {full_name} in {addon_dest}")
-            progress_path = os.path.join(
-                addon_dest, DIST_PROGRESS_FILENAME
-            )
-            progress_info = _read_progress_file(progress_path)
-            state = None
-            if progress_info.get("state") == DistFileStates.done.value:
-                state = UpdateState.UPDATED
-
-            if state is None:
+            progress_info = _read_progress_file(addon_dest)
+            state = UpdateState.OUTDATED
+            if progress_info:
+                if progress_info.get("state") == DistFileStates.done.value:
+                    state = UpdateState.UPDATED
+            else:
                 addon_in_metadata = (
                     addon_name in addons_metadata
                     and addon_version_item.version in (
                         addons_metadata[addon_name]
                     )
                 )
-                state = UpdateState.OUTDATED
                 if addon_in_metadata and os.path.isdir(addon_dest):
                     self.log.debug(
                         f"Addon version folder {addon_dest} already exists."
@@ -1948,7 +1950,7 @@ class AYONDistribution:
                     state = UpdateState.UPDATED
                     # Auto-create addons dist file extracted with old versions
                     _create_progress_file(
-                        progress_path,
+                        addon_dest,
                         uuid.uuid4().hex,
                         addon_version_item.checksum,
                         addon_version_item.checksum_algorithm,
@@ -1969,7 +1971,7 @@ class AYONDistribution:
                 sources=list(addon_version_item.sources),
                 downloader_data=downloader_data,
                 item_label=full_name,
-                progress_path=progress_path,
+                progress_dir=addon_dest,
                 logger=self.log
             )
             output.append({
@@ -1996,24 +1998,20 @@ class AYONDistribution:
             self._dependency_dirpath, package.filename
         )
         self.log.debug(f"Checking {package.filename} in {package_dir}")
-        progress_path = os.path.join(
-            package_dir, DIST_PROGRESS_FILENAME
-        )
-        if os.path.exists(progress_path):
-            progress_info = _read_progress_file(progress_path)
-            if progress_info["state"] == DistFileStates.done.value:
+        state = UpdateState.OUTDATED
+        progress_info = _read_progress_file(package_dir)
+        if progress_info:
+            if progress_info.get("state") == DistFileStates.done.value:
                 state = UpdateState.UPDATED
 
         elif (
-            not os.path.isdir(package_dir)
-            or package.filename not in metadata
+            os.path.isdir(package_dir)
+            and package.filename in metadata
         ):
-            state = UpdateState.OUTDATED
-        else:
             state = UpdateState.UPDATED
             # Autofix dependency packages extracted with old versions
             _create_progress_file(
-                progress_path,
+                package_dir,
                 uuid.uuid4().hex,
                 package.checksum,
                 package.checksum_algorithm,
@@ -2029,7 +2027,7 @@ class AYONDistribution:
             sources=package.sources,
             downloader_data=downloader_data,
             item_label=os.path.splitext(package.filename)[0],
-            progress_path=progress_path,
+            progress_dir=package_dir,
             logger=self.log,
         )
 
