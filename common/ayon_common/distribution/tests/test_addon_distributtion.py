@@ -1,7 +1,7 @@
 import copy
 import tempfile
+import dataclasses
 
-import attr
 import pytest
 
 from common.ayon_common.distribution.downloaders import (
@@ -155,7 +155,7 @@ def test_addon_info(printer, sample_addon_info):
     with pytest.raises(TypeError):
         assert addon["name"], "Dict approach not implemented"
 
-    addon_as_dict = attr.asdict(addon)
+    addon_as_dict = dataclasses.asdict(addon)
     assert addon_as_dict["name"], "Dict approach should work"
 
 

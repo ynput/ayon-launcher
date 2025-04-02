@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AYON"
-version = "1.2.0"
+version = "1.2.2-dev.1"
 package-mode = false
 description = "Open VFX and Animation pipeline with support."
 authors = ["Ynput s.r.o. <info@ynput.io>"]
@@ -51,7 +51,7 @@ python3-xlib = { version="*", markers = "sys_platform == 'linux'"}
 distro = { version="^1.9.0", markers = "sys_platform == 'linux'"}
 pip = "24.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 flake8 = "^6.0"
 autopep8 = "^2.0"
 coverage = "*"
