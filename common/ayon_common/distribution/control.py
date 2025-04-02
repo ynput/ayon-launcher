@@ -426,6 +426,8 @@ class BaseDistributionItem(ABC):
             distribution item.
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
+        progress_path (Optional[str]): Path where progress is stored for
+            other processes.
         logger (Optional[logging.Logger]): Logger object.
 
     """
@@ -439,6 +441,7 @@ class BaseDistributionItem(ABC):
         sources: list[SourceInfo],
         downloader_data: dict[str, Any],
         item_label: str,
+        progress_path: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
@@ -459,6 +462,9 @@ class BaseDistributionItem(ABC):
         self._used_source = None
         self._dist_started = False
         self._dist_finished = False
+
+        self._progress_id = uuid.uuid4().hex
+        self._progress_path = progress_path
 
         self._error_msg = None
         self._error_detail = None
@@ -681,6 +687,9 @@ class BaseDistributionItem(ABC):
                 source_progress,
                 downloader
             )
+
+            self._set_progress_state(DistFileStates.extracting)
+
             return self._post_source_process(
                 filepath, source_data, source_progress, downloader
             )
@@ -694,6 +703,32 @@ class BaseDistributionItem(ABC):
             )
             return False
 
+    def _set_progress_state(self, state: DistFileStates):
+        if not self._progress_path:
+            return
+
+        progress_info = _read_progress_file(self._progress_path)
+        if progress_info.get("progress_id") != self._progress_id:
+            # Ignore if wanted to set 'failed' state
+            if state == DistFileStates.failed:
+                return
+            raise DistributionProgressInterupted(
+                "Different process took over progress file."
+            )
+
+        progress_info["state"] = state.value
+        if state == DistFileStates.done:
+            # Update checksum if it was not set from server information
+            if not progress_info["checksum"] and self.checksum:
+                progress_info["checksum"] = self.checksum
+                progress_info["checksum_algorithm"] = self.checksum_algorithm
+            progress_info["dist_finished"] = (
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+        with open(self._progress_path, "w") as stream:
+            json.dump(progress_info, stream)
+
     def _distribute(self):
         if not self.sources:
             message = (
@@ -705,6 +740,27 @@ class BaseDistributionItem(ABC):
             self.state = UpdateState.MISS_SOURCE_FILES
             return
 
+        # Progress file
+        if self._progress_path:
+            # Check if other process/machine already started the job
+            if _wait_for_other_process(
+                self._progress_path,
+                self._progress_id,
+                self.log
+            ):
+                self.state = UpdateState.UPDATED
+                self.log.info(f"{self.item_label}: Already distributed")
+                return
+
+            # Create progress file
+            _create_progress_file(
+                self._progress_path,
+                self._progress_id,
+                self.checksum,
+                self.checksum_algorithm,
+            )
+
+        # Download
         for source, source_progress in self.sources:
             if self._process_source(source, source_progress):
                 break
@@ -712,10 +768,12 @@ class BaseDistributionItem(ABC):
         last_progress = self._current_source_progress
         self._current_source_progress = None
         if self.state == UpdateState.UPDATED:
+            self._set_progress_state(DistFileStates.done)
             self._used_source_progress = last_progress
             self.log.info(f"{self.item_label}: Distributed")
             return
 
+        self._set_progress_state(DistFileStates.failed)
         self.log.error(f"{self.item_label}: Failed to distribute")
         self._error_msg = "Failed to receive or install source files"
 
@@ -730,8 +788,28 @@ class BaseDistributionItem(ABC):
 
         self._dist_started = True
         try:
-            if self.state == UpdateState.OUTDATED:
+            if self.state != UpdateState.OUTDATED:
+                return
+
+            try:
                 self._distribute()
+            except DistributionProgressInterupted:
+                if _wait_for_other_process(
+                    self._progress_path, self._progress_id, self.log
+                ):
+                    self.state = UpdateState.UPDATED
+                else:
+                    self.state = UpdateState.UPDATE_FAILED
+                    self._error_msg = (
+                        "Other process took over distribution and failed."
+                    )
+                    self._error_detail = (
+                        "Please try to start AYON again and contact"
+                        " administrator if issue persist."
+                    )
+                    self.log.error(
+                        f"{self.item_label}: {self._error_msg}"
+                    )
 
         except Exception as exc:
             self.state = UpdateState.UPDATE_FAILED
@@ -1105,7 +1183,7 @@ class DistributionItem(BaseDistributionItem):
         # Remove directory if exists
         if os.path.isdir(unzip_dirpath):
             self.log.debug(f"Cleaning {unzip_dirpath}")
-            shutil.rmtree(unzip_dirpath)
+            _clean_dist_dir(unzip_dirpath)
 
         # Create directory
         os.makedirs(unzip_dirpath, exist_ok=True)
@@ -1141,6 +1219,9 @@ class DistributionItem(BaseDistributionItem):
             and os.path.isdir(self.unzip_dirpath)
         ):
             self.log.debug(f"Cleaning {self.unzip_dirpath}")
+            # TODO use '_clean_dist_dir' when backwards compatibility with
+            #   previous versions of AYON launchers is not needed.
+            # _clean_dist_dir(self.unzip_dirpath)
             shutil.rmtree(self.unzip_dirpath)
 
 
@@ -1202,6 +1283,9 @@ class AYONDistribution:
         self._dist_factory = (
             dist_factory or get_default_download_factory()
         )
+
+        # Where addon zip files and dependency packages are downloaded
+        self._dist_download_dir = _get_dist_download_dir(uuid.uuid4().hex)
 
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
@@ -1652,7 +1736,7 @@ class AYONDistribution:
                 self._dist_factory,
                 list(installer_item.sources),
                 downloader_data,
-                f"Installer {installer_item.version}"
+                f"Installer {installer_item.version}",
             )
 
             if (
@@ -1840,28 +1924,43 @@ class AYONDistribution:
             full_name = addon_version_item.full_name
             addon_dest = os.path.join(self._addons_dirpath, full_name)
             self.log.debug(f"Checking {full_name} in {addon_dest}")
-            addon_in_metadata = (
-                addon_name in addons_metadata
-                and addon_version_item.version in addons_metadata[addon_name]
+            progress_path = os.path.join(
+                addon_dest, DIST_PROGRESS_FILENAME
             )
-            if addon_in_metadata and os.path.isdir(addon_dest):
-                self.log.debug(
-                    f"Addon version folder {addon_dest} already exists."
-                )
+            progress_info = _read_progress_file(progress_path)
+            state = None
+            if progress_info.get("state") == DistFileStates.done.value:
                 state = UpdateState.UPDATED
 
-            else:
+            if state is None:
+                addon_in_metadata = (
+                    addon_name in addons_metadata
+                    and addon_version_item.version in (
+                        addons_metadata[addon_name]
+                    )
+                )
                 state = UpdateState.OUTDATED
+                if addon_in_metadata and os.path.isdir(addon_dest):
+                    self.log.debug(
+                        f"Addon version folder {addon_dest} already exists."
+                    )
+                    state = UpdateState.UPDATED
+                    # Auto-create addons dist file extracted with old versions
+                    _create_progress_file(
+                        progress_path,
+                        uuid.uuid4().hex,
+                        addon_version_item.checksum,
+                        addon_version_item.checksum_algorithm,
+                    )
 
             downloader_data = {
                 "type": "addon",
                 "name": addon_name,
                 "version": addon_version
             }
-
             dist_item = DistributionItem(
                 addon_dest,
-                download_dirpath=addon_dest,
+                download_dirpath=self._dist_download_dir,
                 state=state,
                 checksum=addon_version_item.checksum,
                 checksum_algorithm=addon_version_item.checksum_algorithm,
@@ -1869,6 +1968,7 @@ class AYONDistribution:
                 sources=list(addon_version_item.sources),
                 downloader_data=downloader_data,
                 item_label=full_name,
+                progress_path=progress_path,
                 logger=self.log
             )
             output.append({
@@ -1895,11 +1995,28 @@ class AYONDistribution:
             self._dependency_dirpath, package.filename
         )
         self.log.debug(f"Checking {package.filename} in {package_dir}")
+        progress_path = os.path.join(
+            package_dir, DIST_PROGRESS_FILENAME
+        )
+        if os.path.exists(progress_path):
+            progress_info = _read_progress_file(progress_path)
+            if progress_info["state"] == DistFileStates.done.value:
+                state = UpdateState.UPDATED
 
-        if not os.path.isdir(package_dir) or package.filename not in metadata:
+        elif (
+            not os.path.isdir(package_dir)
+            or package.filename not in metadata
+        ):
             state = UpdateState.OUTDATED
         else:
             state = UpdateState.UPDATED
+            # Autofix dependency packages extracted with old versions
+            _create_progress_file(
+                progress_path,
+                uuid.uuid4().hex,
+                package.checksum,
+                package.checksum_algorithm,
+            )
 
         return DistributionItem(
             zip_dir,
@@ -1911,6 +2028,7 @@ class AYONDistribution:
             sources=package.sources,
             downloader_data=downloader_data,
             item_label=os.path.splitext(package.filename)[0],
+            progress_path=progress_path,
             logger=self.log,
         )
 
@@ -2064,6 +2182,9 @@ class AYONDistribution:
     def finish_distribution(self):
         """Store metadata about distributed items."""
 
+        if os.path.exists(self._dist_download_dir):
+            shutil.rmtree(self._dist_download_dir)
+
         self._dist_finished = True
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
@@ -2116,6 +2237,8 @@ class AYONDistribution:
             }
 
         self.update_addons_metadata(addons_info)
+
+        _cleanup_dist_download_dirs()
 
     def get_all_distribution_items(self) -> list[DistributionItem]:
         """Distribution items required by server.
@@ -2188,7 +2311,11 @@ class AYONDistribution:
             return
 
         threads = collections.deque()
-        for item in self.get_all_distribution_items():
+        dist_items = self.get_all_distribution_items()
+        if dist_items:
+            _create_dist_download_file(self._dist_download_dir)
+
+        for item in dist_items:
             if threaded:
                 threads.append(threading.Thread(target=item.distribute))
             else:
