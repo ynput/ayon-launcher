@@ -50,8 +50,7 @@ from .downloaders import (
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
-DOWNLOAD_WAIT_TRESHOLD_TIME = 20
-EXTRACT_WAIT_TRESHOLD_TIME = 20
+MOVE_WAIT_TRESHOLD_TIME = 20
 
 
 class DistributionProgressInterupted(Exception):
@@ -111,10 +110,9 @@ class UpdateState(Enum):
 # The file is stored to destination directory to keep track of distribution
 #   of the item.
 class DistFileStates(Enum):
-    downloading = "downloading"
-    extracting = "extracting"
-    failed = "failed"
+    moving = "moving"
     done = "done"
+    failed = "failed"
 
 
 def _read_progress_file(progress_dir: str):
@@ -142,7 +140,7 @@ def _create_progress_file(
     state: Optional[DistFileStates] = None
 ):
     if state is None:
-        state = DistFileStates.downloading
+        state = DistFileStates.moving
 
     progress_info = {
         # State of the progress
@@ -209,12 +207,13 @@ def _wait_for_other_process(
             return False
 
         if current_state == DistFileStates.done.value:
-            log.debug("Other process finished extraction.")
+            log.debug("Other process finished distribution.")
             return True
 
         if current_state == DistFileStates.failed.value:
-            log.debug("Other process failed with distribution.")
-            return False
+            log.debug("Other process failed distribution.")
+            state = current_state
+            threshold_time = 0
 
         if current_state != state:
             started = time.time()
@@ -222,13 +221,11 @@ def _wait_for_other_process(
             state = current_state
 
         if threshold_time is None:
-            threshold_time = EXTRACT_WAIT_TRESHOLD_TIME
-            if current_state == DistFileStates.downloading.value:
-                threshold_time = DOWNLOAD_WAIT_TRESHOLD_TIME
+            threshold_time = MOVE_WAIT_TRESHOLD_TIME
 
         if (time.time() - started) > threshold_time:
             log.debug(
-                f"Waited for treshold time ({EXTRACT_WAIT_TRESHOLD_TIME}s)."
+                f"Waited for treshold time ({threshold_time}s)."
                 f" Extracting downloaded content."
             )
             _clean_dist_dir(progress_dir)
@@ -698,8 +695,6 @@ class BaseDistributionItem(ABC):
                 downloader
             )
 
-            self._set_progress_state(DistFileStates.extracting)
-
             return self._post_source_process(
                 filepath, source_data, source_progress, downloader
             )
@@ -760,14 +755,6 @@ class BaseDistributionItem(ABC):
                 self.state = UpdateState.UPDATED
                 self.log.info(f"{self.item_label}: Already distributed")
                 return
-
-            # Create progress file
-            _create_progress_file(
-                self._progress_dir,
-                self._progress_id,
-                self.checksum,
-                self.checksum_algorithm,
-            )
 
         # Download
         for source, source_progress in self.sources:
@@ -1164,7 +1151,7 @@ class DistributionItem(BaseDistributionItem):
     unzip directory where the downloaded content is unzipped.
 
     Args:
-        unzip_dirpath (str): Path to directory where zip is downloaded.
+        target_dirpath (str): Path to directory where zip is downloaded.
         download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
@@ -1177,25 +1164,13 @@ class DistributionItem(BaseDistributionItem):
         logger (logging.Logger): Logger object.
 
     """
-    def __init__(self, unzip_dirpath: str, *args, **kwargs):
-        self.unzip_dirpath = unzip_dirpath
+    def __init__(self, target_dirpath: str, *args, **kwargs):
+        self.target_dirpath = target_dirpath
         super().__init__(*args, **kwargs)
 
     @property
     def is_missing_permissions(self) -> bool:
-        return not _has_write_permissions(self.unzip_dirpath)
-
-    def _pre_source_process(self):
-        super()._pre_source_process()
-        unzip_dirpath = self.unzip_dirpath
-
-        # Remove directory if exists
-        if os.path.isdir(unzip_dirpath):
-            self.log.debug(f"Cleaning {unzip_dirpath}")
-            _clean_dist_dir(unzip_dirpath)
-
-        # Create directory
-        os.makedirs(unzip_dirpath, exist_ok=True)
+        return not _has_write_permissions(self.target_dirpath)
 
     def _post_source_process(
         self,
@@ -1205,8 +1180,20 @@ class DistributionItem(BaseDistributionItem):
         downloader: SourceDownloader,
     ) -> bool:
         source_progress.set_unzip_started()
+        if _wait_for_other_process(
+            self._progress_dir, self._progress_id, self.log
+        ):
+            self.state = UpdateState.UPDATED
+            return True
+
+        filename = os.path.basename(self.target_dirpath)
+        unzip_dirpath = os.path.join(self.download_dirpath, filename)
+
+        # Create directory
+        os.makedirs(unzip_dirpath, exist_ok=True)
+
         try:
-            downloader.unzip(filepath, self.unzip_dirpath)
+            downloader.unzip(filepath, unzip_dirpath)
         except Exception:
             message = "Couldn't unzip source file"
             source_progress.set_failed(message)
@@ -1217,6 +1204,26 @@ class DistributionItem(BaseDistributionItem):
             return False
         source_progress.set_unzip_finished()
 
+        if _wait_for_other_process(
+            self._progress_dir, self._progress_id, self.log
+        ):
+            self.state = UpdateState.UPDATED
+            return True
+
+        # Create progress file
+        _create_progress_file(
+            self._progress_dir,
+            self._progress_id,
+            self.checksum,
+            self.checksum_algorithm,
+        )
+
+        for subname in os.listdir(unzip_dirpath):
+            shutil.move(
+                os.path.join(unzip_dirpath, subname),
+                self.target_dirpath
+            )
+
         return super()._post_source_process(
             filepath, source_data, source_progress, downloader
         )
@@ -1224,14 +1231,14 @@ class DistributionItem(BaseDistributionItem):
     def _post_distribute(self):
         if (
             self.state != UpdateState.UPDATED
-            and self.unzip_dirpath
-            and os.path.isdir(self.unzip_dirpath)
+            and self.target_dirpath
+            and os.path.isdir(self.target_dirpath)
         ):
-            self.log.debug(f"Cleaning {self.unzip_dirpath}")
+            self.log.debug(f"Cleaning {self.target_dirpath}")
             # TODO use '_clean_dist_dir' when backwards compatibility with
             #   previous versions of AYON launchers is not needed.
-            # _clean_dist_dir(self.unzip_dirpath)
-            shutil.rmtree(self.unzip_dirpath)
+            # _clean_dist_dir(self.target_dirpath)
+            shutil.rmtree(self.target_dirpath)
 
 
 class AYONDistribution:
@@ -2383,9 +2390,9 @@ class AYONDistribution:
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
             runtime_dir = None
-            unzip_dirpath = dependency_dist_item.unzip_dirpath
-            if unzip_dirpath:
-                runtime_dir = os.path.join(unzip_dirpath, "runtime")
+            target_dirpath = dependency_dist_item.target_dirpath
+            if target_dirpath:
+                runtime_dir = os.path.join(target_dirpath, "runtime")
 
             if runtime_dir and os.path.exists(runtime_dir):
                 output.append(runtime_dir)
@@ -2407,18 +2414,18 @@ class AYONDistribution:
             dist_item = item["dist_item"]
             if dist_item.state != UpdateState.UPDATED:
                 continue
-            unzip_dirpath = dist_item.unzip_dirpath
-            if unzip_dirpath and os.path.exists(unzip_dirpath):
-                output.append(unzip_dirpath)
+            target_dirpath = dist_item.target_dirpath
+            if target_dirpath and os.path.exists(target_dirpath):
+                output.append(target_dirpath)
 
         output.extend(self._get_dev_sys_paths())
 
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
             dependencies_dir = None
-            unzip_dirpath = dependency_dist_item.unzip_dirpath
-            if unzip_dirpath:
-                dependencies_dir = os.path.join(unzip_dirpath, "dependencies")
+            target_dirpath = dependency_dist_item.target_dirpath
+            if target_dirpath:
+                dependencies_dir = os.path.join(target_dirpath, "dependencies")
 
             if dependencies_dir and os.path.exists(dependencies_dir):
                 output.append(dependencies_dir)
