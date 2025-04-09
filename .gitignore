@@ -101,3 +101,6 @@ tools/run_eventserver.*
 tools/dev_*
 
 .github_changelog_generator
+
+# ignore mkdocs build
+site/
