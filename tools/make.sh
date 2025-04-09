@@ -206,8 +206,6 @@ create_env () {
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
   clean_pyc
 
-  "$poetry_home_root/bin/poetry" run python -m pip install --disable-pip-version-check --force-reinstall pip
-
   if [ -d "$repo_root/.git" ]; then
     echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
     "$poetry_home_root/bin/poetry" run pre-commit install
