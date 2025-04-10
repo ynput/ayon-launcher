@@ -1189,6 +1189,15 @@ class DistributionItem(BaseDistributionItem):
 
         filename = os.path.basename(self.target_dirpath)
         unzip_dirpath = os.path.join(self.download_dirpath, filename)
+        # NOTE This is a workaround for dependency packages
+        # TODO remove when dependency packages are not stored to directory
+        #   ending with .zip
+        if filepath == unzip_dirpath:
+            filedir = os.path.dirname(filepath)
+            ext = os.path.splitext(filepath)[-1]
+            new_filepath = os.path.join(filedir, f"{uuid.uuid4().hex}{ext}")
+            shutil.move(filepath, new_filepath)
+            filepath = new_filepath
 
         # Create directory
         os.makedirs(unzip_dirpath, exist_ok=True)
