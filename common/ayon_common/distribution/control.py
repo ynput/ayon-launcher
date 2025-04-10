@@ -2014,7 +2014,7 @@ class AYONDistribution:
             "name": package.filename,
             "platform": package.platform_name
         }
-        zip_dir = package_dir = os.path.join(
+        package_dir = os.path.join(
             self._dependency_dirpath, package.filename
         )
         download_dir = _get_dist_download_dir(uuid.uuid4().hex)
@@ -2040,7 +2040,7 @@ class AYONDistribution:
             )
 
         return DistributionItem(
-            zip_dir,
+            package_dir,
             download_dirpath=download_dir,
             state=state,
             checksum=package.checksum,
