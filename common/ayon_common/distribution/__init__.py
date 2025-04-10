@@ -5,6 +5,7 @@ from .exceptions import (
 from .control import AYONDistribution
 from .utils import (
     show_missing_permissions,
+    show_blocked_auto_update,
     show_missing_bundle_information,
     show_installer_issue_information,
     UpdateWindowManager,
@@ -18,6 +19,7 @@ __all__ = (
     "AYONDistribution",
 
     "show_missing_permissions",
+    "show_blocked_auto_update",
     "show_missing_bundle_information",
     "show_installer_issue_information",
     "UpdateWindowManager",

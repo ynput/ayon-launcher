@@ -64,6 +64,22 @@ def show_missing_permissions():
     )
 
 
+def show_blocked_auto_update(launcher: bool):
+    if launcher:
+        message = "AYON launcher"
+    else:
+        message = "addons or dependency package"
+    _show_message_dialog(
+        "AYON distribution - Auto update blocked",
+        (
+            f"Update of {message} is required but auto-update"
+            f" is explicitly blocked."
+            "<br/><br/>Please contact your administrator to help you"
+            " resolve the issue."
+        ),
+    )
+
+
 def show_missing_bundle_information(url, bundle_name=None, username=None):
     """Show missing bundle information window.
 

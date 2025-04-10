@@ -333,6 +333,7 @@ from ayon_common.distribution import (  # noqa E402
     AYONDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
+    show_blocked_auto_update,
     show_missing_permissions,
     show_installer_issue_information,
     UpdateWindowManager,
@@ -607,19 +608,38 @@ def _start_distribution():
     )
     _run_disk_mapping(bundle_name)
 
-    if distribution.is_missing_permissions:
-        show_missing_permissions()
-        sys.exit(1)
+    auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
+    skip_auto_update = auto_update == "skip"
+    block_auto_update = auto_update == "block"
+    if distribution.need_distribution and not skip_auto_update:
+        if block_auto_update:
+            _print(
+                "!!! Automatic update is blocked by 'AYON_AUTO_UPDATE'."
+            )
+            if not HEADLESS_MODE_ENABLED:
+                show_blocked_auto_update(
+                    distribution.need_installer_distribution
+                )
+            sys.exit(1)
 
-    # Start distribution
-    update_window_manager = UpdateWindowManager()
-    if not HEADLESS_MODE_ENABLED:
-        update_window_manager.start()
+        if distribution.is_missing_permissions:
+            _print(
+                "!!! Failed to initialize distribution"
+                " because of permissions error."
+            )
+            if not HEADLESS_MODE_ENABLED:
+                show_missing_permissions()
+            sys.exit(1)
 
-    try:
-        distribution.distribute(threaded=True)
-    finally:
-        update_window_manager.stop()
+        # Start distribution
+        update_window_manager = UpdateWindowManager()
+        if not HEADLESS_MODE_ENABLED:
+            update_window_manager.start()
+
+        try:
+            distribution.distribute(threaded=True)
+        finally:
+            update_window_manager.stop()
 
     if distribution.need_installer_change:
         # Check if any error happened
@@ -643,8 +663,9 @@ def _start_distribution():
         #   - it can technically cause infinite loop of subprocesses
         sys.exit(subprocess.call(args))
 
-    # TODO check failed distribution and inform user
-    distribution.validate_distribution()
+        # TODO check failed distribution and inform user
+        distribution.validate_distribution()
+
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
     # TODO probably remove paths to other addons?
