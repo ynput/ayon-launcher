@@ -641,6 +641,12 @@ def _start_distribution():
         finally:
             update_window_manager.stop()
 
+        # Skip validation of addons and dep packages if launcher
+        #   should be changed
+        if not distribution.need_installer_change:
+            # TODO check failed distribution and inform user
+            distribution.validate_distribution()
+
     if distribution.need_installer_change:
         # Check if any error happened
         error = distribution.installer_dist_error
@@ -662,9 +668,6 @@ def _start_distribution():
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
         sys.exit(subprocess.call(args))
-
-        # TODO check failed distribution and inform user
-        distribution.validate_distribution()
 
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
