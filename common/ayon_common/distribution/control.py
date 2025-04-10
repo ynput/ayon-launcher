@@ -745,16 +745,15 @@ class BaseDistributionItem(ABC):
             return
 
         # Progress file
-        if self._progress_dir:
-            # Check if other process/machine already started the job
-            if _wait_for_other_process(
-                self._progress_dir,
-                self._progress_id,
-                self.log
-            ):
-                self.state = UpdateState.UPDATED
-                self.log.info(f"{self.item_label}: Already distributed")
-                return
+        # - Check if other process/machine already started the job
+        if self._progress_dir and _wait_for_other_process(
+            self._progress_dir,
+            self._progress_id,
+            self.log
+        ):
+            self.state = UpdateState.UPDATED
+            self.log.info(f"{self.item_label}: Already distributed")
+            return
 
         # Download
         for source, source_progress in self.sources:
