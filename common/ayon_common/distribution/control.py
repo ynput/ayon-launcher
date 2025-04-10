@@ -434,7 +434,7 @@ class BaseDistributionItem(ABC):
             distribution item.
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
-        progress_path (Optional[str]): Path where progress is stored for
+        progress_dir (Optional[str]): Directory where progress is stored for
             other processes.
         logger (Optional[logging.Logger]): Logger object.
 
