@@ -257,7 +257,9 @@ def _create_dist_download_file(dist_download_dir: str):
     if os.path.exists(info_path):
         return
 
-    os.makedirs(dist_download_dir, exist_ok=True)
+    if not os.path.exists(dist_download_dir):
+        os.makedirs(dist_download_dir, exist_ok=True)
+
     with open(info_path, "w") as stream:
         json.dump(
             {"expiration_time": time.time() + (60 * 60)},
