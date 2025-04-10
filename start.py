@@ -330,7 +330,7 @@ from ayon_common.connection.credentials import (  # noqa E402
     show_invalid_credentials_ui,
 )
 from ayon_common.distribution import (  # noqa E402
-    AyonDistribution,
+    AYONDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
     show_blocked_auto_update,
@@ -544,7 +544,7 @@ def _start_distribution():
 
     # Create distribution object
     try:
-        distribution = AyonDistribution(
+        distribution = AYONDistribution(
             skip_installer_dist=not IS_BUILT_APPLICATION
         )
     except PermissionError:
@@ -637,7 +637,7 @@ def _start_distribution():
             update_window_manager.start()
 
         try:
-            distribution.distribute()
+            distribution.distribute(threaded=True)
         finally:
             update_window_manager.stop()
 

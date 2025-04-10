@@ -2,7 +2,7 @@ from .exceptions import (
     BundleNotFoundError,
     InstallerDistributionError,
 )
-from .control import AyonDistribution
+from .control import AYONDistribution
 from .utils import (
     show_missing_permissions,
     show_blocked_auto_update,
@@ -16,7 +16,7 @@ __all__ = (
     "BundleNotFoundError",
     "InstallerDistributionError",
 
-    "AyonDistribution",
+    "AYONDistribution",
 
     "show_missing_permissions",
     "show_blocked_auto_update",
