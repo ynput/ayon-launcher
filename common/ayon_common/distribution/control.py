@@ -2017,14 +2017,25 @@ class AYONDistribution:
         package_dir = os.path.join(
             self._dependency_dirpath, package.filename
         )
+        # Future compatibility for dependency packages without .zip in dirname
+        new_basename = os.path.splitext(package.filename)[0]
+        new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
+
         download_dir = _get_dist_download_dir(uuid.uuid4().hex)
         self._dist_download_dirs.append(download_dir)
+
         self.log.debug(f"Checking {package.filename} in {package_dir}")
         state = UpdateState.OUTDATED
         progress_info = _read_progress_file(package_dir)
+        new_progress_info = _read_progress_file(new_package_dir)
         if progress_info:
             if progress_info.get("state") == DistFileStates.done.value:
                 state = UpdateState.UPDATED
+
+        elif new_progress_info:
+            if new_progress_info.get("state") == DistFileStates.done.value:
+                state = UpdateState.UPDATED
+                package_dir = new_package_dir
 
         elif (
             os.path.isdir(package_dir)
