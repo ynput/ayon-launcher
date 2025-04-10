@@ -641,6 +641,8 @@ def _start_distribution():
         finally:
             update_window_manager.stop()
 
+        # Skip validation of addons and dep packages if launcher
+        #   should be changed
         if not distribution.need_installer_change:
             # TODO check failed distribution and inform user
             distribution.validate_distribution()
