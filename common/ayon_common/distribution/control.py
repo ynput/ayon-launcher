@@ -2008,6 +2008,8 @@ class AYONDistribution:
         zip_dir = package_dir = os.path.join(
             self._dependency_dirpath, package.filename
         )
+        download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+        self._dist_download_dirs.append(download_dir)
         self.log.debug(f"Checking {package.filename} in {package_dir}")
         state = UpdateState.OUTDATED
         progress_info = _read_progress_file(package_dir)
@@ -2030,7 +2032,7 @@ class AYONDistribution:
 
         return DistributionItem(
             zip_dir,
-            download_dirpath=package_dir,
+            download_dirpath=download_dir,
             state=state,
             checksum=package.checksum,
             checksum_algorithm=package.checksum_algorithm,
