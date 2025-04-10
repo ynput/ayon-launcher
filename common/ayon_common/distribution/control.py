@@ -1299,7 +1299,7 @@ class AYONDistribution:
         )
 
         # Where addon zip files and dependency packages are downloaded
-        self._dist_download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+        self._dist_download_dirs = []
 
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
@@ -1963,6 +1963,8 @@ class AYONDistribution:
                         addon_version_item.checksum_algorithm,
                     )
 
+            download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+            self._dist_download_dirs.append(download_dir)
             downloader_data = {
                 "type": "addon",
                 "name": addon_name,
@@ -1970,7 +1972,7 @@ class AYONDistribution:
             }
             dist_item = DistributionItem(
                 addon_dest,
-                download_dirpath=self._dist_download_dir,
+                download_dirpath=download_dir,
                 state=state,
                 checksum=addon_version_item.checksum,
                 checksum_algorithm=addon_version_item.checksum_algorithm,
@@ -2187,9 +2189,9 @@ class AYONDistribution:
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
-
-        if os.path.exists(self._dist_download_dir):
-            shutil.rmtree(self._dist_download_dir)
+        for dist_download_dir in self._dist_download_dirs:
+            if os.path.exists(dist_download_dir):
+                shutil.rmtree(dist_download_dir)
 
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
@@ -2315,13 +2317,11 @@ class AYONDistribution:
                 self.distribute_installer()
             return
 
-        dist_items = [
-            dist_item
-            for dist_item in self.get_all_distribution_items()
-            if not dist_item.is_distributed()
-        ]
-        if dist_items:
-            _create_dist_download_file(self._dist_download_dir)
+        dist_items = []
+        for dist_item in self.get_all_distribution_items():
+            if not dist_item.is_distributed():
+                dist_items.append(dist_item)
+                _create_dist_download_file(dist_item.download_dirpath)
 
         threads = collections.deque()
         for item in dist_items:
