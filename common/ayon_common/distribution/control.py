@@ -1231,29 +1231,43 @@ class DistributionItem(BaseDistributionItem):
         )
 
         failed = False
-        moved_paths = []
         renamed_mapping = []
+
+        # Target directory can contain only distribution metadata file
+        #   anything else is temporarily moved to different directory
+        # NOTE: We might validate if the content is exactly same?
+        for name in os.listdir(self.target_dirpath):
+            if name == DIST_PROGRESS_FILENAME:
+                continue
+            current_path = os.path.join(self.target_dirpath, name)
+            new_path = os.path.join(
+                os.path.dirname(self.target_dirpath), uuid.uuid4().hex, name
+            )
+            try:
+                os.rename(current_path, new_path)
+            except Exception:
+                message = (
+                    "Target files already exist and can't be renamed."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+            renamed_mapping.append((current_path, new_path))
+
+        if failed:
+            # Rollback renamed files
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+            return False
+
+        # Move unzipped content to target directory
+        moved_paths = []
         for subname in os.listdir(unzip_dirpath):
             target_path = os.path.join(self.target_dirpath, subname)
-            if os.path.exists(target_path):
-                renamed_target = os.path.join(
-                    self.target_dirpath, uuid.uuid4().hex
-                )
-                try:
-                    os.rename(target_path, renamed_target)
-                except Exception:
-                    message = (
-                        "Target files already exist and can't be renamed."
-                    )
-                    source_progress.set_failed(message)
-                    self.log.warning(
-                        f"{self.item_label}: {message}",
-                        exc_info=True
-                    )
-                    failed = True
-                    break
-                renamed_mapping.append((target_path, renamed_target))
-
             src_path = os.path.join(unzip_dirpath, subname)
             try:
                 shutil.move(src_path, self.target_dirpath)
@@ -1271,8 +1285,9 @@ class DistributionItem(BaseDistributionItem):
 
             moved_paths.append(target_path)
 
+        # Handle failed movement
         if failed:
-            # Rollback moved files
+            # Remove moved files
             for path in moved_paths:
                 if os.path.isfile(path):
                     os.remove(path)
