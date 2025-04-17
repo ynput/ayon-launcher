@@ -1236,14 +1236,14 @@ class DistributionItem(BaseDistributionItem):
         # Target directory can contain only distribution metadata file
         #   anything else is temporarily moved to different directory
         # NOTE: We might validate if the content is exactly same?
-        tmp_subfolder = uuid.uuid4().hex
+        tmp_subfolder = os.path.join(self.target_dirpath, uuid.uuid4().hex)
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
+            if not os.path.exists(tmp_subfolder):
+                os.makedirs(tmp_subfolder, exist_ok=True)
             current_path = os.path.join(self.target_dirpath, name)
-            new_path = os.path.join(
-                os.path.dirname(self.target_dirpath), tmp_subfolder, name
-            )
+            new_path = os.path.join(tmp_subfolder, name)
             try:
                 os.rename(current_path, new_path)
             except Exception:
@@ -1299,14 +1299,12 @@ class DistributionItem(BaseDistributionItem):
             for src_path, renamed_path in renamed_mapping:
                 os.rename(renamed_path, src_path)
 
-            return False
+        # Remove temp subfolder used for renaming
+        if os.path.exists(tmp_subfolder):
+            shutil.rmtree(tmp_subfolder)
 
-        # Remove renamed files
-        for _, renamed_path in renamed_mapping:
-            if os.path.isfile(renamed_path):
-                os.remove(renamed_path)
-            else:
-                shutil.rmtree(renamed_path)
+        if failed:
+            return False
 
         return super()._post_source_process(
             filepath, source_data, source_progress, downloader
