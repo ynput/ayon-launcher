@@ -1235,8 +1235,11 @@ class DistributionItem(BaseDistributionItem):
 
         # Target directory can contain only distribution metadata file
         #   anything else is temporarily moved to different directory
+        #   - next to target directory
         # NOTE: We might validate if the content is exactly same?
-        tmp_subfolder = os.path.join(self.target_dirpath, uuid.uuid4().hex)
+        tmp_subfolder = os.path.join(
+            os.path.dirname(self.target_dirpath), uuid.uuid4().hex
+        )
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
