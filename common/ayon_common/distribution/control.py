@@ -1230,11 +1230,60 @@ class DistributionItem(BaseDistributionItem):
             self.checksum_algorithm,
         )
 
+        failed = False
+        moved_paths = []
+        renamed_mapping = []
         for subname in os.listdir(unzip_dirpath):
-            shutil.move(
-                os.path.join(unzip_dirpath, subname),
-                self.target_dirpath
-            )
+            target_path = os.path.join(self.target_dirpath, subname)
+            if os.path.exists(target_path):
+                renamed_target = os.path.join(
+                    self.target_dirpath, uuid.uuid4().hex
+                )
+                try:
+                    os.rename(target_path, renamed_target)
+                except Exception:
+                    message = (
+                        "Target files already exist and can't be renamed."
+                    )
+                    source_progress.set_failed(message)
+                    self.log.warning(
+                        f"{self.item_label}: {message}",
+                        exc_info=True
+                    )
+                    failed = True
+                    break
+                renamed_mapping.append((target_path, renamed_target))
+
+            src_path = os.path.join(unzip_dirpath, subname)
+            try:
+                shutil.move(src_path, self.target_dirpath)
+            except Exception:
+                message = (
+                    "Failed to move unzipped content to target directory."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+
+            moved_paths.append(target_path)
+
+        if failed:
+            # Rollback moved files
+            for path in moved_paths:
+                if os.path.isfile(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+
+            # Rename renamed files back to original
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+
+            return False
 
         return super()._post_source_process(
             filepath, source_data, source_progress, downloader
