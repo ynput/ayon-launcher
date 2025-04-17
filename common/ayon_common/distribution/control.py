@@ -1236,12 +1236,13 @@ class DistributionItem(BaseDistributionItem):
         # Target directory can contain only distribution metadata file
         #   anything else is temporarily moved to different directory
         # NOTE: We might validate if the content is exactly same?
+        tmp_subfolder = uuid.uuid4().hex
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
             current_path = os.path.join(self.target_dirpath, name)
             new_path = os.path.join(
-                os.path.dirname(self.target_dirpath), uuid.uuid4().hex, name
+                os.path.dirname(self.target_dirpath), tmp_subfolder, name
             )
             try:
                 os.rename(current_path, new_path)
