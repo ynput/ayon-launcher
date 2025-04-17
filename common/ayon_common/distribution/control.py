@@ -1275,15 +1275,22 @@ class DistributionItem(BaseDistributionItem):
             # Rollback moved files
             for path in moved_paths:
                 if os.path.isfile(path):
-                    shutil.rmtree(path)
-                else:
                     os.remove(path)
+                else:
+                    shutil.rmtree(path)
 
             # Rename renamed files back to original
             for src_path, renamed_path in renamed_mapping:
                 os.rename(renamed_path, src_path)
 
             return False
+
+        # Remove renamed files
+        for _, renamed_path in renamed_mapping:
+            if os.path.isfile(renamed_path):
+                os.remove(renamed_path)
+            else:
+                shutil.rmtree(renamed_path)
 
         return super()._post_source_process(
             filepath, source_data, source_progress, downloader
