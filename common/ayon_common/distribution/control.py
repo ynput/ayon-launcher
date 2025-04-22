@@ -1230,11 +1230,84 @@ class DistributionItem(BaseDistributionItem):
             self.checksum_algorithm,
         )
 
+        failed = False
+        renamed_mapping = []
+
+        # Target directory can contain only distribution metadata file
+        #   anything else is temporarily moved to different directory
+        #   - next to target directory
+        # NOTE: We might validate if the content is exactly same?
+        tmp_subfolder = os.path.join(
+            os.path.dirname(self.target_dirpath), uuid.uuid4().hex
+        )
+        for name in os.listdir(self.target_dirpath):
+            if name == DIST_PROGRESS_FILENAME:
+                continue
+            if not os.path.exists(tmp_subfolder):
+                os.makedirs(tmp_subfolder, exist_ok=True)
+            current_path = os.path.join(self.target_dirpath, name)
+            new_path = os.path.join(tmp_subfolder, name)
+            try:
+                os.rename(current_path, new_path)
+            except Exception:
+                message = (
+                    "Target files already exist and can't be renamed."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+            renamed_mapping.append((current_path, new_path))
+
+        if failed:
+            # Rollback renamed files
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+            return False
+
+        # Move unzipped content to target directory
+        moved_paths = []
         for subname in os.listdir(unzip_dirpath):
-            shutil.move(
-                os.path.join(unzip_dirpath, subname),
-                self.target_dirpath
-            )
+            target_path = os.path.join(self.target_dirpath, subname)
+            src_path = os.path.join(unzip_dirpath, subname)
+            try:
+                shutil.move(src_path, self.target_dirpath)
+            except Exception:
+                message = (
+                    "Failed to move unzipped content to target directory."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+
+            moved_paths.append(target_path)
+
+        # Handle failed movement
+        if failed:
+            # Remove moved files
+            for path in moved_paths:
+                if os.path.isfile(path):
+                    os.remove(path)
+                else:
+                    shutil.rmtree(path)
+
+            # Rename renamed files back to original
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+
+        # Remove temp subfolder used for renaming
+        if os.path.exists(tmp_subfolder):
+            shutil.rmtree(tmp_subfolder)
+
+        if failed:
+            return False
 
         return super()._post_source_process(
             filepath, source_data, source_progress, downloader
