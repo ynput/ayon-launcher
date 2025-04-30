@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 import tempfile
+from typing import Optional
 
 from ayon_common.utils import get_launcher_storage_dir, get_ayon_launch_args
 
@@ -50,6 +51,35 @@ def get_dependencies_dir():
     return dependencies_dir
 
 
+def show_missing_permissions():
+    _show_message_dialog(
+        "AYON distribution - Permissions issues",
+        (
+            "Failed to distribute updates. Other process might block the"
+            " distribution or your user does not have required permissions"
+            " to distribute updates."
+            "<br/><br/>Please contact your administrator, or use user"
+            " with permissions to distribute addons and dependency package."
+        ),
+    )
+
+
+def show_blocked_auto_update(launcher: bool):
+    if launcher:
+        message = "AYON launcher"
+    else:
+        message = "addons or dependency package"
+    _show_message_dialog(
+        "AYON distribution - Auto update blocked",
+        (
+            f"Update of {message} is required but auto-update"
+            f" is explicitly blocked."
+            "<br/><br/>Please contact your administrator to help you"
+            " resolve the issue."
+        ),
+    )
+
+
 def show_missing_bundle_information(url, bundle_name=None, username=None):
     """Show missing bundle information window.
 
@@ -86,18 +116,40 @@ def show_installer_issue_information(message, installer_path=None):
         message (str): Error message with description of an issue.
         installer_path (Optional[str]): Path to installer file so user can
             try to install it manually.
+
     """
+    sub_message = None
+    if installer_path and os.path.exists(installer_path):
+        sub_message = (
+            "NOTE: Install file can be found here:"
+            f"<br/><b>{installer_path}</b>"
+        )
+    _show_message_dialog(
+        "AYON-launcher distribution",
+        message,
+        sub_message,
+    )
 
+
+def _show_message_dialog(
+    title: str,
+    message: str,
+    sub_message: Optional[str] = None,
+):
     ui_dir = os.path.join(os.path.dirname(__file__), "ui")
-    script_path = os.path.join(ui_dir, "installer_distribution_error.py")
-
+    script_path = os.path.join(ui_dir, "distribution_error.py")
     with tempfile.NamedTemporaryFile(
         suffix=".json", delete=False
     ) as tmp:
         filepath = tmp.name
+
     with open(filepath, "w") as stream:
         json.dump(
-            {"message": message, "installer_path": installer_path},
+            {
+                "title": title,
+                "message": message,
+                "sub_message": sub_message,
+            },
             stream
         )
 

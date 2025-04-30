@@ -28,6 +28,7 @@ RUN apt-get update \
         git \
         cmake \
         make \
+        g++ \
         curl \
         wget \
         build-essential \

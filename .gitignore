@@ -42,7 +42,7 @@ Temporary Items
 /shim/build.log
 /shim/dist
 
-/vendor/*
+/vendor/python/*
 /.venv
 /venv/
 
@@ -101,3 +101,6 @@ tools/run_eventserver.*
 tools/dev_*
 
 .github_changelog_generator
+
+# ignore mkdocs build
+site/

@@ -336,9 +336,11 @@ from ayon_common.connection.credentials import (  # noqa E402
     show_invalid_credentials_ui,
 )
 from ayon_common.distribution import (  # noqa E402
-    AyonDistribution,
+    AYONDistribution,
     BundleNotFoundError,
     show_missing_bundle_information,
+    show_blocked_auto_update,
+    show_missing_permissions,
     show_installer_issue_information,
     UpdateWindowManager,
 )
@@ -547,9 +549,19 @@ def _start_distribution():
     """
 
     # Create distribution object
-    distribution = AyonDistribution(
-        skip_installer_dist=not IS_BUILT_APPLICATION
-    )
+    try:
+        distribution = AYONDistribution(
+            skip_installer_dist=not IS_BUILT_APPLICATION
+        )
+    except PermissionError:
+        _print(
+            "!!! Failed to initialize distribution"
+            " because of permissions error."
+        )
+        if not HEADLESS_MODE_ENABLED:
+            show_missing_permissions()
+        sys.exit(1)
+
     bundle = None
     bundle_name = None
     # Try to find required bundle and handle missing one
@@ -602,15 +614,44 @@ def _start_distribution():
     )
     _run_disk_mapping(bundle_name)
 
-    # Start distribution
-    update_window_manager = UpdateWindowManager()
-    if not HEADLESS_MODE_ENABLED:
-        update_window_manager.start()
+    auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
+    skip_auto_update = auto_update == "skip"
+    block_auto_update = auto_update == "block"
+    if distribution.need_distribution and not skip_auto_update:
+        if block_auto_update:
+            _print(
+                "!!! Automatic update is blocked by 'AYON_AUTO_UPDATE'."
+            )
+            if not HEADLESS_MODE_ENABLED:
+                show_blocked_auto_update(
+                    distribution.need_installer_distribution
+                )
+            sys.exit(1)
 
-    try:
-        distribution.distribute()
-    finally:
-        update_window_manager.stop()
+        if distribution.is_missing_permissions:
+            _print(
+                "!!! Failed to initialize distribution"
+                " because of permissions error."
+            )
+            if not HEADLESS_MODE_ENABLED:
+                show_missing_permissions()
+            sys.exit(1)
+
+        # Start distribution
+        update_window_manager = UpdateWindowManager()
+        if not HEADLESS_MODE_ENABLED:
+            update_window_manager.start()
+
+        try:
+            distribution.distribute(threaded=True)
+        finally:
+            update_window_manager.stop()
+
+        # Skip validation of addons and dep packages if launcher
+        #   should be changed
+        if not distribution.need_installer_change:
+            # TODO check failed distribution and inform user
+            distribution.validate_distribution()
 
     if distribution.need_installer_change:
         # Check if any error happened
@@ -650,8 +691,6 @@ def _start_distribution():
         #   - it can technically cause infinite loop of subprocesses
         sys.exit(subprocess.call(args, env=env))
 
-    # TODO check failed distribution and inform user
-    distribution.validate_distribution()
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
     # TODO probably remove paths to other addons?

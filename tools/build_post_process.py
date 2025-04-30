@@ -94,9 +94,9 @@ def get_site_pkg():
 
     # WARNING: this assumes that all we've got is path to venv itself and
     # another path ending with 'site-packages' as is default. But because
-    # this must run under different platform, we cannot easily check if this path
-    # is the one, because under Linux and macOS site-packages are in different
-    # location.
+    # this must run under different platform, we cannot easily check if this
+    # path is the one, because under Linux and macOS site-packages are in
+    # different location.
     for s in sites:
         site_pkg = Path(s)
         if site_pkg.name == "site-packages":
