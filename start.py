@@ -633,11 +633,17 @@ def _start_distribution():
 
         # Cleanup 'PYTHONPATH'
         env = os.environ.copy()
+        path_paths = [
+            path
+            for path in env.get("PATH", "").split(os.pathsep)
+            if path and not path.startswith(AYON_ROOT)
+        ]
         python_paths = [
             path
             for path in env.get("PYTHONPATH", "").split(os.pathsep)
             if path and not path.startswith(AYON_ROOT)
         ]
+        env["PATH"] = os.pathsep.join(path_paths)
         env["PYTHONPATH"] = os.pathsep.join(python_paths)
 
         # TODO figure out how this should be launched
