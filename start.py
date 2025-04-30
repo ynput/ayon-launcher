@@ -672,7 +672,7 @@ def _start_distribution():
         # Replace executable with new executable
         args[0] = executable
 
-        # Cleanup 'PYTHONPATH'
+        # Cleanup 'PATH' and 'PYTHONPATH'
         env = os.environ.copy()
         path_paths = [
             path
