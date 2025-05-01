@@ -220,7 +220,11 @@ HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 AYON_IN_LOGIN_MODE = os.environ["AYON_IN_LOGIN_MODE"] == "1"
 
 _pythonpath = os.getenv("PYTHONPATH", "")
-_python_paths = _pythonpath.split(os.pathsep)
+_python_paths = [
+    path
+    for path in _pythonpath.split(os.pathsep)
+    if path
+]
 if not IS_BUILT_APPLICATION:
     # Code root defined by `start.py` directory
     AYON_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -233,8 +237,10 @@ else:
         os.path.join(AYON_ROOT, "dependencies")
     )
 # add stuff from `<frozen>/dependencies` to PYTHONPATH.
-sys.path.append(_dependencies_path)
-_python_paths.append(_dependencies_path)
+sys.path.insert(0, _dependencies_path)
+if _dependencies_path in _python_paths:
+    _python_paths.remove(_dependencies_path)
+_python_paths.insert(0, _dependencies_path)
 
 # Add common package to PYTHONPATH
 # - common contains common code and bootstrap logic (like connection
@@ -665,9 +671,25 @@ def _start_distribution():
         args = list(ORIGINAL_ARGS)
         # Replace executable with new executable
         args[0] = executable
+
+        # Cleanup 'PATH' and 'PYTHONPATH'
+        env = os.environ.copy()
+        path_paths = [
+            path
+            for path in env.get("PATH", "").split(os.pathsep)
+            if path and not path.startswith(AYON_ROOT)
+        ]
+        python_paths = [
+            path
+            for path in env.get("PYTHONPATH", "").split(os.pathsep)
+            if path and not path.startswith(AYON_ROOT)
+        ]
+        env["PATH"] = os.pathsep.join(path_paths)
+        env["PYTHONPATH"] = os.pathsep.join(python_paths)
+
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
-        sys.exit(subprocess.call(args))
+        sys.exit(subprocess.call(args, env=env))
 
     os.environ["AYON_BUNDLE_NAME"] = bundle_name
 
