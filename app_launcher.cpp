@@ -71,6 +71,12 @@ int main(int argc, char *argv[]) {
         posix_spawn_file_actions_t file_actions;
         posix_spawn_file_actions_init(&file_actions);
 
+        // Redirect stdout to /dev/null
+        posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+        // Redirect stderr to /dev/null
+        posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
         posix_spawnattr_t spawnattr;
         posix_spawnattr_init(&spawnattr);
 
@@ -82,6 +88,8 @@ int main(int argc, char *argv[]) {
             setsid();
             return 1;
         }
+
+        posix_spawn_file_actions_destroy(&file_actions);
 
         for (int i = 0; i < env->size(); i++) {
             free(new_environ[i]);
