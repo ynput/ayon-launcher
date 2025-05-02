@@ -77,11 +77,10 @@ int main(int argc, char *argv[]) {
         pid_t pid;
         int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
 
-        if (status == 0) {
-            int spawn_status;
-            waitpid(pid, &spawn_status, 0);
-        } else {
+        if (status != 0) {
             printf("posix_spawn: %s\n", strerror(status));
+            setsid();
+            return 1;
         }
 
         for (int i = 0; i < env->size(); i++) {
