@@ -643,7 +643,7 @@ def _start_distribution():
             update_window_manager.start()
 
         try:
-            distribution.distribute(threaded=True)
+            distribution.distribute()
         finally:
             update_window_manager.stop()
 
