@@ -8,6 +8,7 @@ CPLUS_INCLUDE_PATH=/../ayon-launcher/vendor/include
 g++ app_launcher.cpp -o app_launcher
 ```
 **/
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
