@@ -10,13 +10,12 @@ import collections
 import datetime
 import logging
 import shutil
-import threading
 import platform
 import subprocess
 import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Generator
 
 import ayon_api
 
@@ -158,6 +157,8 @@ def _create_progress_file(
 
 
 def _clean_dist_dir(dist_dirpath: str):
+    if not os.path.exists(dist_dirpath):
+        return
     for subname in os.listdir(dist_dirpath):
         if subname == DIST_PROGRESS_FILENAME:
             continue
@@ -172,12 +173,13 @@ def _wait_for_other_process(
     progress_dir: str,
     progress_id: str,
     log: logging.Logger,
-) -> bool:
+) -> Generator[Optional[bool], None, None]:
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     started = time.time()
     progress_existed = False
     threshold_time = None
     state = None
+    output = False
     while True:
         if not os.path.exists(progress_path):
             if progress_existed:
@@ -189,7 +191,7 @@ def _wait_for_other_process(
 
         progress_info = _read_progress_file(progress_dir)
         if progress_info.get("progress_id") == progress_id:
-            return False
+            break
 
         current_state = progress_info.get("state")
 
@@ -204,11 +206,12 @@ def _wait_for_other_process(
             log.warning(
                 "Other process did not store 'state' to progress file."
             )
-            return False
+            break
 
         if current_state == DistFileStates.done.value:
             log.debug("Other process finished distribution.")
-            return True
+            output = True
+            break
 
         if current_state == DistFileStates.failed.value:
             log.debug("Other process failed distribution.")
@@ -230,8 +233,8 @@ def _wait_for_other_process(
             )
             _clean_dist_dir(progress_dir)
             break
-        time.sleep(0.1)
-    return False
+        yield None
+    yield output
 
 
 # --- Distribution download directories ---
@@ -299,6 +302,8 @@ def _cleanup_dist_download_dirs():
 
     """
     root = _get_dist_download_dir()
+    if not os.path.exists(root):
+        return
     for subname in os.listdir(root):
         path = os.path.join(root, subname)
         if os.path.isdir(path) and _dist_download_file_expired(path):
@@ -625,7 +630,7 @@ class BaseDistributionItem(ABC):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         """Process source after it is downloaded and validated.
 
         Override this method if downloaded file needs more logic to do, like
@@ -642,9 +647,10 @@ class BaseDistributionItem(ABC):
                 of file.
 
         Returns:
-            bool: Post processing finished in a way that it is not needed to
-                process other possible sources. Does not mean that it was
-                successful.
+            Generator[Optional[bool], None, None]: Post processing finished
+                in a way that it is not needed to process other possible
+                sources. Does not mean that it was successful. If yields None
+                then is still working.
 
         """
         if filepath:
@@ -656,13 +662,13 @@ class BaseDistributionItem(ABC):
             self.download_dirpath,
             self.downloader_data
         )
-        return bool(filepath)
+        yield bool(filepath)
 
     def _process_source(
         self,
         source: SourceInfo,
         source_progress: DistributeTransferProgress,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         """Process single source item.
 
         Cares about download, validate and process source.
@@ -673,8 +679,9 @@ class BaseDistributionItem(ABC):
                 about process of a source.
 
         Returns:
-            bool: Source was processed so any other sources can be skipped.
-                Does not have to be successfull.
+            Generator[Optional[bool], None, None]: Source was processed so
+                any other sources can be skipped. Does not have to be
+                successfull. Is still working if yields None.
 
         """
         self._current_source_progress = source_progress
@@ -687,7 +694,8 @@ class BaseDistributionItem(ABC):
             message = f"Unknown downloader {source.type}"
             source_progress.set_failed(message)
             self.log.warning(message, exc_info=True)
-            return False
+            yield False
+            return
 
         try:
             source_data = dataclasses.asdict(source)
@@ -697,7 +705,7 @@ class BaseDistributionItem(ABC):
                 downloader
             )
 
-            return self._post_source_process(
+            yield from self._post_source_process(
                 filepath, source_data, source_progress, downloader
             )
 
@@ -708,7 +716,7 @@ class BaseDistributionItem(ABC):
                 f"{self.item_label}: {message}",
                 exc_info=True
             )
-            return False
+            yield False
 
     def _set_progress_state(self, state: DistFileStates):
         if not self._progress_dir:
@@ -735,7 +743,7 @@ class BaseDistributionItem(ABC):
 
         _store_progress_file(self._progress_dir, progress_info)
 
-    def _distribute(self):
+    def _distribute(self) -> Generator[bool, None, None]:
         if not self.sources:
             message = (
                 f"{self.item_label}: Don't have"
@@ -744,22 +752,47 @@ class BaseDistributionItem(ABC):
             self.log.error(message)
             self._error_msg = message
             self.state = UpdateState.MISS_SOURCE_FILES
+            yield True
             return
 
         # Progress file
         # - Check if other process/machine already started the job
-        if self._progress_dir and _wait_for_other_process(
-            self._progress_dir,
-            self._progress_id,
-            self.log
-        ):
-            self.state = UpdateState.UPDATED
-            self.log.info(f"{self.item_label}: Already distributed")
-            return
+        if self._progress_dir:
+            result = False
+            for result in _wait_for_other_process(
+                self._progress_dir,
+                self._progress_id,
+                self.log
+            ):
+                if result is not None:
+                    # Give other distribution items option to start waiting
+                    #   cycle
+                    yield False
+                    break
+                yield False
+
+            if result is True:
+                self.state = UpdateState.UPDATED
+                self.log.info(f"{self.item_label}: Already distributed")
+                yield True
+                return
+
+            _create_progress_file(
+                self._progress_dir,
+                self._progress_id,
+                self.checksum,
+                self.checksum_algorithm,
+            )
 
         # Download
         for source, source_progress in self.sources:
-            if self._process_source(source, source_progress):
+            yield False
+            result = False
+            for result in self._process_source(source, source_progress):
+                if result is not None:
+                    break
+
+            if result:
                 break
 
         last_progress = self._current_source_progress
@@ -768,11 +801,11 @@ class BaseDistributionItem(ABC):
             self._set_progress_state(DistFileStates.done)
             self._used_source_progress = last_progress
             self.log.info(f"{self.item_label}: Distributed")
-            return
-
-        self._set_progress_state(DistFileStates.failed)
-        self.log.error(f"{self.item_label}: Failed to distribute")
-        self._error_msg = "Failed to receive or install source files"
+        else:
+            self._set_progress_state(DistFileStates.failed)
+            self.log.error(f"{self.item_label}: Failed to distribute")
+            self._error_msg = "Failed to receive or install source files"
+        yield True
 
     def _post_distribute(self):
         pass
@@ -782,19 +815,30 @@ class BaseDistributionItem(ABC):
             return True
         return self.state == UpdateState.UPDATED
 
-    def distribute(self):
+    def distribute(self) -> Generator[bool, None, None]:
         """Execute distribution logic."""
         if self.is_distributed() or self._dist_started:
+            yield True
             return
 
         self._dist_started = True
         try:
             try:
-                self._distribute()
+                for result in self._distribute():
+                    if result:
+                        break
+                    yield False
+
             except DistributionProgressInterupted:
-                if _wait_for_other_process(
+                wait_result = False
+                for wait_result in _wait_for_other_process(
                     self._progress_dir, self._progress_id, self.log
                 ):
+                    if wait_result is not None:
+                        break
+                    yield False
+
+                if wait_result:
                     self.state = UpdateState.UPDATED
                 else:
                     self.state = UpdateState.UPDATE_FAILED
@@ -826,6 +870,7 @@ class BaseDistributionItem(ABC):
                 self._error_msg = "Distribution failed"
 
             self._post_distribute()
+            yield True
 
 
 def create_tmp_file(
@@ -1104,7 +1149,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         self._installer_path = filepath
         success = False
         try:
@@ -1142,7 +1187,7 @@ class InstallerDistributionItem(BaseDistributionItem):
                 self.downloader_data
             )
 
-        return True
+        yield True
 
 
 class DistributionItem(BaseDistributionItem):
@@ -1181,13 +1226,20 @@ class DistributionItem(BaseDistributionItem):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         source_progress.set_unzip_started()
-        if _wait_for_other_process(
+        result = False
+        for result in _wait_for_other_process(
             self._progress_dir, self._progress_id, self.log
         ):
+            if result is not None:
+                break
+            yield None
+
+        if result is True:
             self.state = UpdateState.UPDATED
-            return True
+            yield True
+            return
 
         filename = os.path.basename(self.target_dirpath)
         unzip_dirpath = os.path.join(self.download_dirpath, filename)
@@ -1213,22 +1265,23 @@ class DistributionItem(BaseDistributionItem):
                 f"{self.item_label}: {message}",
                 exc_info=True
             )
-            return False
+            yield False
+            return
+
         source_progress.set_unzip_finished()
 
-        if _wait_for_other_process(
+        result = False
+        for result in _wait_for_other_process(
             self._progress_dir, self._progress_id, self.log
         ):
-            self.state = UpdateState.UPDATED
-            return True
+            if result is not None:
+                break
+            yield None
 
-        # Create progress file
-        _create_progress_file(
-            self._progress_dir,
-            self._progress_id,
-            self.checksum,
-            self.checksum_algorithm,
-        )
+        if result is True:
+            self.state = UpdateState.UPDATED
+            yield True
+            return
 
         failed = False
         renamed_mapping = []
@@ -1240,6 +1293,9 @@ class DistributionItem(BaseDistributionItem):
         tmp_subfolder = os.path.join(
             os.path.dirname(self.target_dirpath), uuid.uuid4().hex
         )
+        if not os.path.exists(self.target_dirpath):
+            os.makedirs(self.target_dirpath, exist_ok=True)
+
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
@@ -1266,7 +1322,8 @@ class DistributionItem(BaseDistributionItem):
             # Rollback renamed files
             for src_path, renamed_path in renamed_mapping:
                 os.rename(renamed_path, src_path)
-            return False
+            yield False
+            return
 
         # Move unzipped content to target directory
         moved_paths = []
@@ -1307,9 +1364,10 @@ class DistributionItem(BaseDistributionItem):
             shutil.rmtree(tmp_subfolder)
 
         if failed:
-            return False
+            yield False
+            return
 
-        return super()._post_source_process(
+        yield from super()._post_source_process(
             filepath, source_data, source_progress, downloader
         )
 
@@ -1851,7 +1909,10 @@ class AYONDistribution:
                 )
                 return
 
-            dist_item.distribute()
+            for result in dist_item.distribute():
+                if result:
+                    break
+
             self._installer_executable = dist_item.executable
             if dist_item.installer_error is not None:
                 self._installer_dist_error = dist_item.installer_error
@@ -2395,16 +2456,13 @@ class AYONDistribution:
                 return True
         return False
 
-    def distribute(self, threaded: bool = False):
+    def distribute(self):
         """Distribute all missing items.
 
         Method will try to distribute all items that are required by server.
 
         This method does not handle failed items. To validate the result call
         'validate_distribution' when this method finishes.
-
-        Args:
-            threaded (bool): Distribute items in threads.
 
         """
         if self._dist_started:
@@ -2422,30 +2480,23 @@ class AYONDistribution:
                 dist_items.append(dist_item)
                 _create_dist_download_file(dist_item.download_dirpath)
 
-        threads = collections.deque()
+        running_items = collections.deque()
         for item in dist_items:
-            if threaded:
-                threads.append(threading.Thread(target=item.distribute))
-            else:
-                item.distribute()
+            running_items.append(item.distribute())
 
-        for thread in threads:
-            thread.start()
+        if running_items:
+            running_items.append(None)
 
-        if threads:
-            threads.append(None)
-        while threads:
-            thread = threads.popleft()
-            if thread is None:
-                if threads:
-                    time.sleep(0.01)
-                    threads.append(None)
+        while running_items:
+            running_item = running_items.popleft()
+            if running_item is None:
+                time.sleep(0.02)
+                if running_items:
+                    running_items.append(None)
                 continue
 
-            if thread.is_alive():
-                threads.append(thread)
-            else:
-                thread.join()
+            if not next(running_item):
+                running_items.append(running_item)
 
         self.finish_distribution()
 
