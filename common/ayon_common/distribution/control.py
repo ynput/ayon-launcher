@@ -758,6 +758,7 @@ class BaseDistributionItem(ABC):
         # Progress file
         # - Check if other process/machine already started the job
         if self._progress_dir:
+            result = False
             for result in _wait_for_other_process(
                 self._progress_dir,
                 self._progress_id,
@@ -776,9 +777,17 @@ class BaseDistributionItem(ABC):
                 yield True
                 return
 
+            _create_progress_file(
+                self._progress_dir,
+                self._progress_id,
+                self.checksum,
+                self.checksum_algorithm,
+            )
+
         # Download
         for source, source_progress in self.sources:
             yield False
+            result = False
             for result in self._process_source(source, source_progress):
                 if result is not None:
                     break
@@ -821,6 +830,7 @@ class BaseDistributionItem(ABC):
                     yield False
 
             except DistributionProgressInterupted:
+                wait_result = False
                 for wait_result in _wait_for_other_process(
                     self._progress_dir, self._progress_id, self.log
                 ):
@@ -1218,6 +1228,7 @@ class DistributionItem(BaseDistributionItem):
         downloader: SourceDownloader,
     ) -> Generator[Optional[bool], None, None]:
         source_progress.set_unzip_started()
+        result = False
         for result in _wait_for_other_process(
             self._progress_dir, self._progress_id, self.log
         ):
@@ -1259,6 +1270,7 @@ class DistributionItem(BaseDistributionItem):
 
         source_progress.set_unzip_finished()
 
+        result = False
         for result in _wait_for_other_process(
             self._progress_dir, self._progress_id, self.log
         ):
@@ -1281,11 +1293,10 @@ class DistributionItem(BaseDistributionItem):
         tmp_subfolder = os.path.join(
             os.path.dirname(self.target_dirpath), uuid.uuid4().hex
         )
-        filenames = []
-        if os.path.exists(self.target_dirpath):
-            filenames.extend(os.listdir(self.target_dirpath))
+        if not os.path.exists(self.target_dirpath):
+            os.makedirs(self.target_dirpath, exist_ok=True)
 
-        for name in filenames:
+        for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
             if not os.path.exists(tmp_subfolder):
