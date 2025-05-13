@@ -157,6 +157,8 @@ def _create_progress_file(
 
 
 def _clean_dist_dir(dist_dirpath: str):
+    if not os.path.exists(dist_dirpath):
+        return
     for subname in os.listdir(dist_dirpath):
         if subname == DIST_PROGRESS_FILENAME:
             continue
@@ -300,6 +302,8 @@ def _cleanup_dist_download_dirs():
 
     """
     root = _get_dist_download_dir()
+    if not os.path.exists(root):
+        return
     for subname in os.listdir(root):
         path = os.path.join(root, subname)
         if os.path.isdir(path) and _dist_download_file_expired(path):
@@ -1277,7 +1281,11 @@ class DistributionItem(BaseDistributionItem):
         tmp_subfolder = os.path.join(
             os.path.dirname(self.target_dirpath), uuid.uuid4().hex
         )
-        for name in os.listdir(self.target_dirpath):
+        filenames = []
+        if os.path.exists(self.target_dirpath):
+            filenames.extend(os.listdir(self.target_dirpath))
+
+        for name in filenames:
             if name == DIST_PROGRESS_FILENAME:
                 continue
             if not os.path.exists(tmp_subfolder):
