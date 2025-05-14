@@ -245,23 +245,22 @@ def _get_dist_download_dir(*args):
     )
 
 
-def _create_dist_download_file(dist_download_dir: str):
-    """Create distribution download directory with metadata file.
+def _create_dist_expire_file(process_dir: str):
+    """Create distribution temp directory with metadata file.
 
     The metadata file contains information about expiration time of the
-        templ download folder. Lifetime is 1 hour (more than should be
-        needed).
+        temp folder. Lifetime is 1 hour (more than should be needed).
 
     Args:
-        dist_download_dir (str): Path to distribution download directory.
+        process_dir (str): Path to distribution temp directory.
 
     """
-    info_path = os.path.join(dist_download_dir, "download_info.json")
+    info_path = os.path.join(process_dir, "download_info.json")
     if os.path.exists(info_path):
         return
 
-    if not os.path.exists(dist_download_dir):
-        os.makedirs(dist_download_dir, exist_ok=True)
+    if not os.path.exists(process_dir):
+        os.makedirs(process_dir, exist_ok=True)
 
     with open(info_path, "w") as stream:
         json.dump(
@@ -270,17 +269,17 @@ def _create_dist_download_file(dist_download_dir: str):
         )
 
 
-def _dist_download_file_expired(dist_download_dir: str) -> bool:
-    """Check if distribution download directory is expired.
+def _dist_expire_file_expired(process_dir: str) -> bool:
+    """Check if distribution temp directory is expired.
 
     Args:
-        dist_download_dir (str): Path to distribution download directory.
+        process_dir (str): Path to distribution temp directory.
 
     Returns:
         bool: Directory is expired and can be removed.
 
     """
-    info_path = os.path.join(dist_download_dir, "download_info.json")
+    info_path = os.path.join(process_dir, "download_info.json")
     if not os.path.exists(info_path):
         return True
 
@@ -295,19 +294,22 @@ def _dist_download_file_expired(dist_download_dir: str) -> bool:
     return expiration_time < time.time()
 
 
+def _cleanup_dist_expire_dirs(process_dir: str):
+    if not os.path.exists(process_dir):
+        return
+    for subname in os.listdir(process_dir):
+        path = os.path.join(process_dir, subname)
+        if os.path.isdir(path) and _dist_expire_file_expired(path):
+            shutil.rmtree(path)
+
+
 def _cleanup_dist_download_dirs():
     """Clean up old distribution download directories.
 
     If distribution crashed in past this function makes sure they are removed.
 
     """
-    root = _get_dist_download_dir()
-    if not os.path.exists(root):
-        return
-    for subname in os.listdir(root):
-        path = os.path.join(root, subname)
-        if os.path.isdir(path) and _dist_download_file_expired(path):
-            shutil.rmtree(path)
+    _cleanup_dist_expire_dirs(_get_dist_download_dir())
 
 
 class DistributeTransferProgress:
@@ -1214,8 +1216,11 @@ class DistributionItem(BaseDistributionItem):
         logger (logging.Logger): Logger object.
 
     """
-    def __init__(self, target_dirpath: str, *args, **kwargs):
+    def __init__(
+        self, target_dirpath: str, unzip_temp_dir: str, *args, **kwargs
+    ):
         self.target_dirpath = target_dirpath
+        self.unzip_temp_dir = unzip_temp_dir
         super().__init__(*args, **kwargs)
 
     @property
@@ -1244,7 +1249,7 @@ class DistributionItem(BaseDistributionItem):
             return
 
         filename = os.path.basename(self.target_dirpath)
-        unzip_dirpath = os.path.join(self.download_dirpath, filename)
+        unzip_dirpath = os.path.join(self.unzip_temp_dir, filename)
         # NOTE This is a workaround for dependency packages
         # TODO remove when dependency packages are not stored to directory
         #   ending with .zip
@@ -1252,7 +1257,7 @@ class DistributionItem(BaseDistributionItem):
             filedir = os.path.dirname(filepath)
             ext = os.path.splitext(filepath)[-1]
             new_filepath = os.path.join(filedir, f"{uuid.uuid4().hex}{ext}")
-            shutil.move(filepath, new_filepath)
+            os.rename(filepath, new_filepath)
             filepath = new_filepath
 
         # Create directory
@@ -1271,6 +1276,8 @@ class DistributionItem(BaseDistributionItem):
             return
 
         source_progress.set_unzip_finished()
+
+        yield None
 
         result = False
         for result in _wait_for_other_process(
@@ -1332,8 +1339,9 @@ class DistributionItem(BaseDistributionItem):
         for subname in os.listdir(unzip_dirpath):
             target_path = os.path.join(self.target_dirpath, subname)
             src_path = os.path.join(unzip_dirpath, subname)
+            dst_path = os.path.join(self.target_dirpath, subname)
             try:
-                shutil.move(src_path, self.target_dirpath)
+                os.rename(src_path, dst_path)
             except Exception:
                 message = (
                     "Failed to move unzipped content to target directory."
@@ -1446,6 +1454,14 @@ class AYONDistribution:
 
         # Where addon zip files and dependency packages are downloaded
         self._dist_download_dirs = []
+        self._dist_unzip_dirs = []
+
+        self._dist_addons_unzip_temp = os.path.join(
+            self._addons_dirpath, ".unzip_temp"
+        )
+        self._dist_dep_packages_unzip_temp = os.path.join(
+            self._dependency_dirpath, ".unzip_temp"
+        )
 
         if bundle_name is NOT_SET:
             bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
@@ -2060,6 +2076,10 @@ class AYONDistribution:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
 
+        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
+        if not os.path.exists(unzip_temp):
+            os.makedirs(unzip_temp)
+
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
             if self.use_dev:
@@ -2113,7 +2133,9 @@ class AYONDistribution:
                     )
 
             download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+            unzip_dir = os.path.join(unzip_temp, uuid.uuid4().hex)
             self._dist_download_dirs.append(download_dir)
+            self._dist_unzip_dirs.append(unzip_dir)
             downloader_data = {
                 "type": "addon",
                 "name": addon_name,
@@ -2121,6 +2143,7 @@ class AYONDistribution:
             }
             dist_item = DistributionItem(
                 addon_dest,
+                unzip_dir,
                 download_dirpath=download_dir,
                 state=state,
                 checksum=addon_version_item.checksum,
@@ -2160,7 +2183,9 @@ class AYONDistribution:
         new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
 
         download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
         self._dist_download_dirs.append(download_dir)
+        self._dist_unzip_dirs.append(unzip_dir)
 
         self.log.debug(f"Checking {package.filename} in {package_dir}")
         state = UpdateState.OUTDATED
@@ -2190,6 +2215,7 @@ class AYONDistribution:
 
         return DistributionItem(
             package_dir,
+            unzip_dir,
             download_dirpath=download_dir,
             state=state,
             checksum=package.checksum,
@@ -2351,9 +2377,14 @@ class AYONDistribution:
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
-        for dist_download_dir in self._dist_download_dirs:
-            if os.path.exists(dist_download_dir):
-                shutil.rmtree(dist_download_dir)
+        for tmp_dir in (
+            self._dist_download_dirs + self._dist_unzip_dirs
+        ):
+            if os.path.exists(tmp_dir):
+                try:
+                    shutil.rmtree(tmp_dir)
+                except Exception:
+                    pass
 
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
@@ -2408,6 +2439,8 @@ class AYONDistribution:
         self.update_addons_metadata(addons_info)
 
         _cleanup_dist_download_dirs()
+        _cleanup_dist_expire_dirs(self._dist_addons_unzip_temp)
+        _cleanup_dist_expire_dirs(self._dist_dep_packages_unzip_temp)
 
     def get_all_distribution_items(self) -> list[DistributionItem]:
         """Distribution items required by server.
@@ -2480,7 +2513,7 @@ class AYONDistribution:
         for dist_item in self.get_all_distribution_items():
             if not dist_item.is_distributed():
                 dist_items.append(dist_item)
-                _create_dist_download_file(dist_item.download_dirpath)
+                _create_dist_expire_file(dist_item.download_dirpath)
 
         running_items = collections.deque()
         for item in dist_items:
