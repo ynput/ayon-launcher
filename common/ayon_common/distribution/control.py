@@ -872,10 +872,6 @@ class BaseDistributionItem(ABC):
             self._post_distribute()
             yield True
 
-    @abstractmethod
-    def cleanup_temp_files(self):
-        pass
-
 
 def create_tmp_file(
     suffix: Optional[str] = None,
@@ -937,9 +933,6 @@ class InstallerDistributionItem(BaseDistributionItem):
         return not _has_write_permissions(
             os.path.dirname(os.path.dirname(sys.executable))
         )
-
-    def cleanup_temp_files(self):
-        pass
 
     def _find_windows_executable(self, log_output: str):
         """Find executable path in log output.
@@ -1226,15 +1219,6 @@ class DistributionItem(BaseDistributionItem):
     @property
     def is_missing_permissions(self) -> bool:
         return not _has_write_permissions(self.target_dirpath)
-
-    def cleanup_temp_files(self):
-        if not os.path.exists(self.download_dirpath):
-            return
-
-        try:
-            shutil.rmtree(self.download_dirpath)
-        except Exception:
-            pass
 
     def _post_source_process(
         self,
@@ -2516,10 +2500,7 @@ class AYONDistribution:
                     running_items.append(running_item)
 
         finally:
-            for item in dist_items:
-                item.cleanup_temp_files()
-
-        self.finish_distribution()
+            self.finish_distribution()
 
     def validate_distribution(self):
         """Check if all required distribution items are distributed.
