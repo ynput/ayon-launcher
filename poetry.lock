@@ -274,14 +274,14 @@ tomli = {version = "*", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "ayon-python-api"
-version = "1.1.1"
+version = "1.1.3"
 description = "AYON Python API"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "ayon-python-api-1.1.1.tar.gz", hash = "sha256:e2f75e57499c289a8bf71606f1ab5ca8d33ee2f04e23923c3cdcefca503f04bf"},
-    {file = "ayon_python_api-1.1.1-py3-none-any.whl", hash = "sha256:978876bd387635ae87faceb6f84c1d214788408a3f773d004375e5654e500dfb"},
+    {file = "ayon-python-api-1.1.3.tar.gz", hash = "sha256:b36079d457d87c3b777baab8a6d8cb4e75efa25f90fe1b4974f809f246e7b376"},
+    {file = "ayon_python_api-1.1.3-py3-none-any.whl", hash = "sha256:d1d27dc72cc6d27a13b58d4c083cb1de1f12beb4e754728cae5553582a6c6535"},
 ]
 
 [package.dependencies]
@@ -2506,4 +2506,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9.1,<3.10"
-content-hash = "ccff34b8180373ababb9646fa8e286d08313c923eb08616710ae6ce0d9f96fc1"
+content-hash = "a924cd552bde83bc8485cfe1f5fda96c44384cf8ae6fff15a738ae607d2f2ff2"
