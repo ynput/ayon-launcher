@@ -2522,18 +2522,20 @@ class AYONDistribution:
         if running_items:
             running_items.append(None)
 
-        while running_items:
-            running_item = running_items.popleft()
-            if running_item is None:
-                time.sleep(0.02)
-                if running_items:
-                    running_items.append(None)
-                continue
+        try:
+            while running_items:
+                running_item = running_items.popleft()
+                if running_item is None:
+                    if running_items:
+                        running_items.append(None)
+                        time.sleep(0.02)
+                    continue
 
-            if not next(running_item):
-                running_items.append(running_item)
+                if not next(running_item):
+                    running_items.append(running_item)
 
-        self.finish_distribution()
+        finally:
+            self.finish_distribution()
 
     def validate_distribution(self):
         """Check if all required distribution items are distributed.
