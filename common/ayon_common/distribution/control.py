@@ -1049,9 +1049,11 @@ class InstallerDistributionItem(BaseDistributionItem):
 
         """
         install_root = os.path.dirname(os.path.dirname(sys.executable))
+        installer_dir_name = os.path.basename(filepath).replace(".tar.gz", "")
+        installer_dir = os.path.join(install_root, installer_dir_name)
 
         self.log.info(
-            f"Installing AYON launcher {filepath} into:\n{install_root}"
+            f"Installing AYON launcher {filepath} into:\n{installer_dir}"
         )
 
         if not os.path.exists(install_root):
@@ -1059,15 +1061,23 @@ class InstallerDistributionItem(BaseDistributionItem):
 
         try:
             extract_archive_file(filepath, install_root)
-        except Exception as e:
-            self.log.error(e)
+        except Exception as exc:
+            self.log.error(exc, exc_info=True)
+
+            # Try to remove target directory to cleanup mess
+            # - should not cause hard crash!
+            if os.path.exists(installer_dir):
+                try:
+                    shutil.rmtree(installer_dir)
+                except Exception:
+                    pass
+
             raise InstallerDistributionError(
                 "Install process failed without known reason."
                 " Try to install AYON manually."
             )
 
-        installer_dir = os.path.basename(filepath).replace(".tar.gz", "")
-        executable = os.path.join(install_root, installer_dir, "ayon")
+        executable = os.path.join(installer_dir, "ayon")
         self.log.info(f"Setting executable to {executable}")
         self._executable = executable
 
