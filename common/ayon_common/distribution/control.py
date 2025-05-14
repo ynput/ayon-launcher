@@ -556,7 +556,8 @@ class BaseDistributionItem(ABC):
         pass
 
     def _pre_source_process(self):
-        os.makedirs(self.download_dirpath, exist_ok=True)
+        if not os.path.exists(self.download_dirpath):
+            os.makedirs(self.download_dirpath, exist_ok=True)
 
     def _receive_file(
         self,
@@ -1053,7 +1054,8 @@ class InstallerDistributionItem(BaseDistributionItem):
             f"Installing AYON launcher {filepath} into:\n{install_root}"
         )
 
-        os.makedirs(install_root, exist_ok=True)
+        if not os.path.exists(install_root):
+            os.makedirs(install_root, exist_ok=True)
 
         try:
             extract_archive_file(filepath, install_root)
