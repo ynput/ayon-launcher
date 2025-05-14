@@ -1217,10 +1217,10 @@ class DistributionItem(BaseDistributionItem):
 
     """
     def __init__(
-        self, target_dirpath: str, unzip_dirpath: str, *args, **kwargs
+        self, target_dirpath: str, unzip_temp_dir: str, *args, **kwargs
     ):
         self.target_dirpath = target_dirpath
-        self.unzip_dirpath = unzip_dirpath
+        self.unzip_temp_dir = unzip_temp_dir
         super().__init__(*args, **kwargs)
 
     @property
@@ -1249,7 +1249,7 @@ class DistributionItem(BaseDistributionItem):
             return
 
         filename = os.path.basename(self.target_dirpath)
-        unzip_dirpath = os.path.join(self.unzip_dirpath, filename)
+        unzip_dirpath = os.path.join(self.unzip_temp_dir, filename)
         # NOTE This is a workaround for dependency packages
         # TODO remove when dependency packages are not stored to directory
         #   ending with .zip
