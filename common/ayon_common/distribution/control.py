@@ -2384,7 +2384,7 @@ class AYONDistribution:
                 try:
                     shutil.rmtree(tmp_dir)
                 except Exception:
-                    passs
+                    pass
 
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
