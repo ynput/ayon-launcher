@@ -6,8 +6,8 @@ is when closed or blocked to be closed.
 
 import os
 import sys
-import subprocess
 import json
+import shlex
 
 
 def main(input_json_path):
@@ -36,7 +36,7 @@ def main(input_json_path):
     # Prepare launch arguments
     args = data["args"]
     if isinstance(args, list):
-        args = subprocess.list2cmdline(args)
+        args = shlex.join(args)
 
     # Run the command as background process
     shell_cmd = args + " &"
