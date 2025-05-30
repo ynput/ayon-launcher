@@ -237,6 +237,30 @@ def _wait_for_other_process(
     yield output
 
 
+def change_permissions_recursive(path: str, mode: Optional[int] = None):
+    if IS_WINDOWS or not os.path.exists(path):
+        return
+
+    if mode is None:
+        mode = 0o777
+
+    if os.path.isfile(path):
+        # If the path is a file, change its permissions directly
+        os.chmod(path, mode)
+        return
+
+    # Traverse the directory tree starting from 'path' to top
+    for root, dirnames, filenames in os.walk(path, topdown=False):
+        # Change the permissions of each directory
+        for dirname in dirnames:
+            dirpath = os.path.join(root, dirname)
+            os.chmod(dirpath, mode)
+
+        for filename in filenames:
+            filepath = os.path.join(root, filename)
+            os.chmod(filepath, mode)
+
+
 # --- Distribution download directories ---
 # Where to store downloaded files before extration.
 def _get_dist_download_dir(*args):
@@ -267,6 +291,8 @@ def _create_dist_expire_file(process_dir: str):
             {"expiration_time": time.time() + (60 * 60)},
             stream,
         )
+
+    change_permissions_recursive(process_dir)
 
 
 def _dist_expire_file_expired(process_dir: str) -> bool:
@@ -565,6 +591,8 @@ class BaseDistributionItem(ABC):
     def _pre_source_process(self):
         if not os.path.exists(self.download_dirpath):
             os.makedirs(self.download_dirpath, exist_ok=True)
+
+        change_permissions_recursive(self.download_dirpath)
 
     def _receive_file(
         self,
@@ -1267,6 +1295,7 @@ class DistributionItem(BaseDistributionItem):
 
         # Create directory
         os.makedirs(unzip_dirpath, exist_ok=True)
+        change_permissions_recursive(unzip_dirpath)
 
         try:
             downloader.unzip(filepath, unzip_dirpath)
@@ -1309,12 +1338,15 @@ class DistributionItem(BaseDistributionItem):
         )
         if not os.path.exists(self.target_dirpath):
             os.makedirs(self.target_dirpath, exist_ok=True)
+            change_permissions_recursive(self.target_dirpath)
 
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
             if not os.path.exists(tmp_subfolder):
                 os.makedirs(tmp_subfolder, exist_ok=True)
+                change_permissions_recursive(tmp_subfolder)
+
             current_path = os.path.join(self.target_dirpath, name)
             new_path = os.path.join(tmp_subfolder, name)
             try:
@@ -1905,6 +1937,7 @@ class AYONDistribution:
         if not downloads_dir or not os.path.exists(downloads_dir):
             tmp_used = True
             downloads_dir = tempfile.mkdtemp(prefix="ayon_installer")
+            change_permissions_recursive(downloads_dir)
 
         dist_item = None
         try:
@@ -2084,6 +2117,7 @@ class AYONDistribution:
         unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
         if not os.path.exists(unzip_temp):
             os.makedirs(unzip_temp)
+            change_permissions_recursive(unzip_temp)
 
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
@@ -2347,9 +2381,11 @@ class AYONDistribution:
             data (dict[str, Any]): Data to store into file.
 
         """
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        dirpath = os.path.dirname(filepath)
+        os.makedirs(dirpath, exist_ok=True)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
+        change_permissions_recursive(dirpath)
 
     def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
