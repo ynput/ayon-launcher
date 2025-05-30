@@ -300,7 +300,12 @@ def _cleanup_dist_expire_dirs(process_dir: str):
     for subname in os.listdir(process_dir):
         path = os.path.join(process_dir, subname)
         if os.path.isdir(path) and _dist_expire_file_expired(path):
-            shutil.rmtree(path)
+            try:
+                shutil.rmtree(path)
+            except Exception:
+                print(
+                    f"Failed to remove expired distribution directory: {path}"
+                )
 
 
 def _cleanup_dist_download_dirs():
