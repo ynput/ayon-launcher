@@ -50,6 +50,7 @@ from .downloaders import (
 NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
 MOVE_WAIT_TRESHOLD_TIME = 20
+IS_WINDOWS = platform.system().lower() == "windows"
 
 
 class DistributionProgressInterupted(Exception):
@@ -77,7 +78,6 @@ def _windows_dir_requires_permissions(dirpath: str) -> bool:
 
 
 def _has_write_permissions(dirpath: str) -> bool:
-    platform_name = platform.system().lower()
     while not os.path.exists(dirpath):
         _dirpath = os.path.dirname(dirpath)
         if _dirpath == dirpath:
@@ -88,7 +88,7 @@ def _has_write_permissions(dirpath: str) -> bool:
             return False
         dirpath = _dirpath
 
-    if platform_name == "windows":
+    if IS_WINDOWS:
         if ctypes.windll.shell32.IsUserAnAdmin():
             return True
 
