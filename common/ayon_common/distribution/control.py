@@ -237,12 +237,9 @@ def _wait_for_other_process(
     yield output
 
 
-def change_permissions_recursive(path: str, mode: Optional[int] = None):
+def change_permissions_recursive(path: str, mode: int = 0o777):
     if IS_WINDOWS or not os.path.exists(path):
         return
-
-    if mode is None:
-        mode = 0o777
 
     if os.path.isfile(path):
         # If the path is a file, change its permissions directly
