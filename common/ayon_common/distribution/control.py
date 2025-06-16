@@ -2565,7 +2565,7 @@ class AYONDistribution:
         output = []
         addon_versions = {}
         dev_addons = {}
-        bundle = self.bundle_to_use
+        bundle = self.project_bundle_to_use
         if bundle is not None:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
