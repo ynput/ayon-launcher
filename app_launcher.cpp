@@ -8,6 +8,7 @@ CPLUS_INCLUDE_PATH=/../ayon-launcher/vendor/include
 g++ app_launcher.cpp -o app_launcher
 ```
 **/
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -71,18 +72,25 @@ int main(int argc, char *argv[]) {
         posix_spawn_file_actions_t file_actions;
         posix_spawn_file_actions_init(&file_actions);
 
+        // Redirect stdout to /dev/null
+        posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+        // Redirect stderr to /dev/null
+        posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
         posix_spawnattr_t spawnattr;
         posix_spawnattr_init(&spawnattr);
 
         pid_t pid;
         int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
 
-        if (status == 0) {
-            int spawn_status;
-            waitpid(pid, &spawn_status, 0);
-        } else {
+        if (status != 0) {
             printf("posix_spawn: %s\n", strerror(status));
+            setsid();
+            return 1;
         }
+
+        posix_spawn_file_actions_destroy(&file_actions);
 
         for (int i = 0; i < env->size(); i++) {
             free(new_environ[i]);

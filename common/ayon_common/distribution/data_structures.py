@@ -249,7 +249,7 @@ class Installer:
     checksum_algorithm: str
     python_version: str
     python_modules: dict[str, str]
-    runtime_python_modules = dict[str, str]
+    runtime_python_modules: dict[str, str]
     sources: list[SourceInfo]
     unknown_sources: list[dict[str, Any]]
 

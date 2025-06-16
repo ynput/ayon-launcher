@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import uuid
 import ctypes
 import tempfile
@@ -9,13 +10,12 @@ import collections
 import datetime
 import logging
 import shutil
-import threading
 import platform
 import subprocess
 import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Generator
 
 import ayon_api
 
@@ -26,6 +26,7 @@ from ayon_common.utils import (
     is_dev_mode_enabled,
     get_executables_info_by_version,
     get_downloads_dir,
+    calculate_file_checksum,
 )
 
 from .exceptions import BundleNotFoundError, InstallerDistributionError
@@ -52,6 +53,13 @@ def _unknown_bool(self):
 
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
+DIST_PROGRESS_FILENAME = "dist_progress.json"
+MOVE_WAIT_TRESHOLD_TIME = 20
+IS_WINDOWS = platform.system().lower() == "windows"
+
+
+class DistributionProgressInterupted(Exception):
+    pass
 
 
 def _windows_dir_requires_permissions(dirpath: str) -> bool:
@@ -67,15 +75,14 @@ def _windows_dir_requires_permissions(dirpath: str) -> bool:
         return True
 
     except BaseException as exc:
-        print((
-                  "Failed to determine if root requires permissions."
-                  "Unexpected error: {}"
-              ).format(exc))
+        print(
+            "Failed to determine if root requires permissions."
+            f"Unexpected error: {exc}"
+        )
         return False
 
 
 def _has_write_permissions(dirpath: str) -> bool:
-    platform_name = platform.system().lower()
     while not os.path.exists(dirpath):
         _dirpath = os.path.dirname(dirpath)
         if _dirpath == dirpath:
@@ -86,7 +93,7 @@ def _has_write_permissions(dirpath: str) -> bool:
             return False
         dirpath = _dirpath
 
-    if platform_name == "windows":
+    if IS_WINDOWS:
         if ctypes.windll.shell32.IsUserAnAdmin():
             return True
 
@@ -101,6 +108,241 @@ class UpdateState(Enum):
     OUTDATED = "outdated"
     UPDATE_FAILED = "failed"
     MISS_SOURCE_FILES = "miss_source_files"
+
+
+# --- Distribution metadata file ---
+# The file is stored to destination directory to keep track of distribution
+#   of the item.
+class DistFileStates(Enum):
+    moving = "moving"
+    done = "done"
+    failed = "failed"
+
+
+def _read_progress_file(progress_dir: str):
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    try:
+        with open(progress_path, "r") as stream:
+            return json.loads(stream.read())
+    except Exception:
+        return {}
+
+
+def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    if not os.path.exists(progress_dir):
+        os.makedirs(progress_dir, exist_ok=True)
+    with open(progress_path, "w") as stream:
+        json.dump(progress_info, stream)
+
+
+def _create_progress_file(
+    progress_dir: str,
+    progress_id: str,
+    checksum: Optional[str],
+    checksum_algorithm: Optional[str],
+    state: Optional[DistFileStates] = None
+):
+    if state is None:
+        state = DistFileStates.moving
+
+    progress_info = {
+        # State of the progress
+        "state": state.value,
+        # Unique identifier of the progress
+        "progress_id": progress_id,
+        # Just a metadata about the file
+        "checksum": checksum,
+        "checksum_algorithm": checksum_algorithm,
+        "dist_started": (
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ),
+    }
+    _store_progress_file(progress_dir, progress_info)
+
+
+def _clean_dist_dir(dist_dirpath: str):
+    if not os.path.exists(dist_dirpath):
+        return
+    for subname in os.listdir(dist_dirpath):
+        if subname == DIST_PROGRESS_FILENAME:
+            continue
+        path = os.path.join(dist_dirpath, subname)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+
+
+def _wait_for_other_process(
+    progress_dir: str,
+    progress_id: str,
+    log: logging.Logger,
+) -> Generator[Optional[bool], None, None]:
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    started = time.time()
+    progress_existed = False
+    threshold_time = None
+    state = None
+    output = False
+    while True:
+        if not os.path.exists(progress_path):
+            if progress_existed:
+                log.debug(
+                    "Other processed didn't finish download or extraction,"
+                    " trying to do so."
+                )
+            break
+
+        progress_info = _read_progress_file(progress_dir)
+        if progress_info.get("progress_id") == progress_id:
+            break
+
+        current_state = progress_info.get("state")
+
+        if not progress_existed:
+            log.debug(
+                "Other process already created progress file"
+                " in target directory. Waiting for finishing it."
+            )
+
+        progress_existed = True
+        if current_state is None:
+            log.warning(
+                "Other process did not store 'state' to progress file."
+            )
+            break
+
+        if current_state == DistFileStates.done.value:
+            log.debug("Other process finished distribution.")
+            output = True
+            break
+
+        if current_state == DistFileStates.failed.value:
+            log.debug("Other process failed distribution.")
+            state = current_state
+            threshold_time = 0
+
+        if current_state != state:
+            started = time.time()
+            threshold_time = None
+            state = current_state
+
+        if threshold_time is None:
+            threshold_time = MOVE_WAIT_TRESHOLD_TIME
+
+        if (time.time() - started) > threshold_time:
+            log.debug(
+                f"Waited for treshold time ({threshold_time}s)."
+                f" Extracting downloaded content."
+            )
+            _clean_dist_dir(progress_dir)
+            break
+        yield None
+    yield output
+
+
+def change_permissions_recursive(path: str, mode: int = 0o777):
+    if IS_WINDOWS or not os.path.exists(path):
+        return
+
+    if os.path.isfile(path):
+        # If the path is a file, change its permissions directly
+        os.chmod(path, mode)
+        return
+
+    # Traverse the directory tree starting from 'path' to top
+    for root, dirnames, filenames in os.walk(path, topdown=False):
+        # Change the permissions of each directory
+        for dirname in dirnames:
+            dirpath = os.path.join(root, dirname)
+            os.chmod(dirpath, mode)
+
+        for filename in filenames:
+            filepath = os.path.join(root, filename)
+            os.chmod(filepath, mode)
+
+
+# --- Distribution download directories ---
+# Where to store downloaded files before extration.
+def _get_dist_download_dir(*args):
+    return os.path.join(
+        tempfile.gettempdir(), "ayon_dist_downloads", *args
+    )
+
+
+def _create_dist_expire_file(process_dir: str):
+    """Create distribution temp directory with metadata file.
+
+    The metadata file contains information about expiration time of the
+        temp folder. Lifetime is 1 hour (more than should be needed).
+
+    Args:
+        process_dir (str): Path to distribution temp directory.
+
+    """
+    info_path = os.path.join(process_dir, "download_info.json")
+    if os.path.exists(info_path):
+        return
+
+    if not os.path.exists(process_dir):
+        os.makedirs(process_dir, exist_ok=True)
+
+    with open(info_path, "w") as stream:
+        json.dump(
+            {"expiration_time": time.time() + (60 * 60)},
+            stream,
+        )
+
+    change_permissions_recursive(process_dir)
+
+
+def _dist_expire_file_expired(process_dir: str) -> bool:
+    """Check if distribution temp directory is expired.
+
+    Args:
+        process_dir (str): Path to distribution temp directory.
+
+    Returns:
+        bool: Directory is expired and can be removed.
+
+    """
+    info_path = os.path.join(process_dir, "download_info.json")
+    if not os.path.exists(info_path):
+        return True
+
+    try:
+        with open(info_path, "r") as stream:
+            data = json.load(stream)
+    except Exception:
+        data = {}
+    expiration_time = data.get("expiration_time")
+    if not isinstance(expiration_time, int):
+        return False
+    return expiration_time < time.time()
+
+
+def _cleanup_dist_expire_dirs(process_dir: str):
+    if not os.path.exists(process_dir):
+        return
+    for subname in os.listdir(process_dir):
+        path = os.path.join(process_dir, subname)
+        if os.path.isdir(path) and _dist_expire_file_expired(path):
+            try:
+                shutil.rmtree(path)
+            except Exception:
+                print(
+                    f"Failed to remove expired distribution directory: {path}"
+                )
+
+
+def _cleanup_dist_download_dirs():
+    """Clean up old distribution download directories.
+
+    If distribution crashed in past this function makes sure they are removed.
+
+    """
+    _cleanup_dist_expire_dirs(_get_dist_download_dir())
 
 
 class DistributeTransferProgress:
@@ -227,13 +469,15 @@ class BaseDistributionItem(ABC):
         download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
-        checksum (str): Hash of file for validation.
-        checksum_algorithm (str): Algorithm used to generate the hash.
+        checksum (Optional[str]): Hash of file for validation.
+        checksum_algorithm (Optional[str]): Algorithm used to generate the hash.
         factory (DownloadFactory): Downloaders factory object.
         sources (List[SourceInfo]): Possible sources to receive the
             distribution item.
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
+        progress_dir (Optional[str]): Directory where progress is stored for
+            other processes.
         logger (Optional[logging.Logger]): Logger object.
 
     """
@@ -241,12 +485,13 @@ class BaseDistributionItem(ABC):
         self,
         download_dirpath: str,
         state: UpdateState,
-        checksum: str,
-        checksum_algorithm: str,
+        checksum: Optional[str],
+        checksum_algorithm: Optional[str],
         factory: DownloadFactory,
         sources: list[SourceInfo],
         downloader_data: dict[str, Any],
         item_label: str,
+        progress_dir: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
@@ -254,8 +499,8 @@ class BaseDistributionItem(ABC):
         self.log: logging.Logger = logger
         self.state: UpdateState = state
         self.download_dirpath: str = download_dirpath
-        self.checksum: str = checksum
-        self.checksum_algorithm: str = checksum_algorithm
+        self.checksum: Optional[str] = checksum
+        self.checksum_algorithm: Optional[str] = checksum_algorithm
         self.factory: DownloadFactory = factory
         self.sources = self._prepare_sources(sources)
         self.downloader_data: dict[str, Any] = downloader_data
@@ -266,7 +511,9 @@ class BaseDistributionItem(ABC):
         self._used_source_progress = None
         self._used_source = None
         self._dist_started = False
-        self._dist_finished = False
+
+        self._progress_id = uuid.uuid4().hex
+        self._progress_dir = progress_dir
 
         self._error_msg = None
         self._error_detail = None
@@ -344,7 +591,10 @@ class BaseDistributionItem(ABC):
         pass
 
     def _pre_source_process(self):
-        os.makedirs(self.download_dirpath, exist_ok=True)
+        if not os.path.exists(self.download_dirpath):
+            os.makedirs(self.download_dirpath, exist_ok=True)
+
+        change_permissions_recursive(self.download_dirpath)
 
     def _receive_file(
         self,
@@ -392,6 +642,14 @@ class BaseDistributionItem(ABC):
                 downloader.check_hash(
                     filepath, self.checksum, self.checksum_algorithm
                 )
+            else:
+                # Fill checksum automatically based on downloaded file
+                # - still better than nothing
+                if not self.checksum_algorithm:
+                    self.checksum_algorithm = "sha256"
+                self.checksum = calculate_file_checksum(
+                    filepath, self.checksum_algorithm
+                )
 
         except Exception:
             message = "File hash does not match"
@@ -410,7 +668,7 @@ class BaseDistributionItem(ABC):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         """Process source after it is downloaded and validated.
 
         Override this method if downloaded file needs more logic to do, like
@@ -427,9 +685,10 @@ class BaseDistributionItem(ABC):
                 of file.
 
         Returns:
-            bool: Post processing finished in a way that it is not needed to
-                process other possible sources. Does not mean that it was
-                successful.
+            Generator[Optional[bool], None, None]: Post processing finished
+                in a way that it is not needed to process other possible
+                sources. Does not mean that it was successful. If yields None
+                then is still working.
 
         """
         if filepath:
@@ -441,13 +700,13 @@ class BaseDistributionItem(ABC):
             self.download_dirpath,
             self.downloader_data
         )
-        return bool(filepath)
+        yield bool(filepath)
 
     def _process_source(
         self,
         source: SourceInfo,
         source_progress: DistributeTransferProgress,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         """Process single source item.
 
         Cares about download, validate and process source.
@@ -458,8 +717,9 @@ class BaseDistributionItem(ABC):
                 about process of a source.
 
         Returns:
-            bool: Source was processed so any other sources can be skipped.
-                Does not have to be successfull.
+            Generator[Optional[bool], None, None]: Source was processed so
+                any other sources can be skipped. Does not have to be
+                successfull. Is still working if yields None.
 
         """
         self._current_source_progress = source_progress
@@ -472,7 +732,8 @@ class BaseDistributionItem(ABC):
             message = f"Unknown downloader {source.type}"
             source_progress.set_failed(message)
             self.log.warning(message, exc_info=True)
-            return False
+            yield False
+            return
 
         try:
             source_data = dataclasses.asdict(source)
@@ -481,7 +742,8 @@ class BaseDistributionItem(ABC):
                 source_progress,
                 downloader
             )
-            return self._post_source_process(
+
+            yield from self._post_source_process(
                 filepath, source_data, source_progress, downloader
             )
 
@@ -492,9 +754,34 @@ class BaseDistributionItem(ABC):
                 f"{self.item_label}: {message}",
                 exc_info=True
             )
-            return False
+            yield False
 
-    def _distribute(self):
+    def _set_progress_state(self, state: DistFileStates):
+        if not self._progress_dir:
+            return
+
+        progress_info = _read_progress_file(self._progress_dir)
+        if progress_info.get("progress_id") != self._progress_id:
+            # Ignore if wanted to set 'failed' state
+            if state == DistFileStates.failed:
+                return
+            raise DistributionProgressInterupted(
+                "Different process took over progress file."
+            )
+
+        progress_info["state"] = state.value
+        if state == DistFileStates.done:
+            # Update checksum if it was not set from server information
+            if not progress_info["checksum"] and self.checksum:
+                progress_info["checksum"] = self.checksum
+                progress_info["checksum_algorithm"] = self.checksum_algorithm
+            progress_info["dist_finished"] = (
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+        _store_progress_file(self._progress_dir, progress_info)
+
+    def _distribute(self) -> Generator[bool, None, None]:
         if not self.sources:
             message = (
                 f"{self.item_label}: Don't have"
@@ -503,35 +790,106 @@ class BaseDistributionItem(ABC):
             self.log.error(message)
             self._error_msg = message
             self.state = UpdateState.MISS_SOURCE_FILES
+            yield True
             return
 
+        # Progress file
+        # - Check if other process/machine already started the job
+        if self._progress_dir:
+            result = False
+            for result in _wait_for_other_process(
+                self._progress_dir,
+                self._progress_id,
+                self.log
+            ):
+                if result is not None:
+                    # Give other distribution items option to start waiting
+                    #   cycle
+                    yield False
+                    break
+                yield False
+
+            if result is True:
+                self.state = UpdateState.UPDATED
+                self.log.info(f"{self.item_label}: Already distributed")
+                yield True
+                return
+
+            _create_progress_file(
+                self._progress_dir,
+                self._progress_id,
+                self.checksum,
+                self.checksum_algorithm,
+            )
+
+        # Download
         for source, source_progress in self.sources:
-            if self._process_source(source, source_progress):
+            yield False
+            result = False
+            for result in self._process_source(source, source_progress):
+                if result is not None:
+                    break
+
+            if result:
                 break
 
         last_progress = self._current_source_progress
         self._current_source_progress = None
         if self.state == UpdateState.UPDATED:
+            self._set_progress_state(DistFileStates.done)
             self._used_source_progress = last_progress
             self.log.info(f"{self.item_label}: Distributed")
-            return
-
-        self.log.error(f"{self.item_label}: Failed to distribute")
-        self._error_msg = "Failed to receive or install source files"
+        else:
+            self._set_progress_state(DistFileStates.failed)
+            self.log.error(f"{self.item_label}: Failed to distribute")
+            self._error_msg = "Failed to receive or install source files"
+        yield True
 
     def _post_distribute(self):
         pass
 
-    def distribute(self):
-        """Execute distribution logic."""
+    def is_distributed(self):
+        if not self.need_distribution:
+            return True
+        return self.state == UpdateState.UPDATED
 
-        if not self.need_distribution or self._dist_started:
+    def distribute(self) -> Generator[bool, None, None]:
+        """Execute distribution logic."""
+        if self.is_distributed() or self._dist_started:
+            yield True
             return
 
         self._dist_started = True
         try:
-            if self.state == UpdateState.OUTDATED:
-                self._distribute()
+            try:
+                for result in self._distribute():
+                    if result:
+                        break
+                    yield False
+
+            except DistributionProgressInterupted:
+                wait_result = False
+                for wait_result in _wait_for_other_process(
+                    self._progress_dir, self._progress_id, self.log
+                ):
+                    if wait_result is not None:
+                        break
+                    yield False
+
+                if wait_result:
+                    self.state = UpdateState.UPDATED
+                else:
+                    self.state = UpdateState.UPDATE_FAILED
+                    self._error_msg = (
+                        "Other process took over distribution and failed."
+                    )
+                    self._error_detail = (
+                        "Please try to start AYON again and contact"
+                        " administrator if issue persist."
+                    )
+                    self.log.error(
+                        f"{self.item_label}: {self._error_msg}"
+                    )
 
         except Exception as exc:
             self.state = UpdateState.UPDATE_FAILED
@@ -545,12 +903,12 @@ class BaseDistributionItem(ABC):
             )
 
         finally:
-            self._dist_finished = True
             if self.state == UpdateState.OUTDATED:
                 self.state = UpdateState.UPDATE_FAILED
                 self._error_msg = "Distribution failed"
 
             self._post_distribute()
+            yield True
 
 
 def create_tmp_file(
@@ -733,7 +1091,8 @@ class InstallerDistributionItem(BaseDistributionItem):
             f"Installing AYON launcher {filepath} into:\n{install_root}"
         )
 
-        os.makedirs(install_root, exist_ok=True)
+        if not os.path.exists(install_root):
+            os.makedirs(install_root, exist_ok=True)
 
         try:
             extract_archive_file(filepath, install_root)
@@ -829,7 +1188,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         self._installer_path = filepath
         success = False
         try:
@@ -867,7 +1226,7 @@ class InstallerDistributionItem(BaseDistributionItem):
                 self.downloader_data
             )
 
-        return True
+        yield True
 
 
 class DistributionItem(BaseDistributionItem):
@@ -877,7 +1236,7 @@ class DistributionItem(BaseDistributionItem):
     unzip directory where the downloaded content is unzipped.
 
     Args:
-        unzip_dirpath (str): Path to directory where zip is downloaded.
+        target_dirpath (str): Path to directory where zip is downloaded.
         download_dirpath (str): Path to directory where file is unzipped.
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
@@ -887,28 +1246,21 @@ class DistributionItem(BaseDistributionItem):
             distribution item.
         downloader_data (Dict[str, Any]): More information for downloaders.
         item_label (str): Label used in log outputs (and in UI).
+        progress_dir (Optional[str]): Directory where progress is stored for
+            other processes.
         logger (logging.Logger): Logger object.
 
     """
-    def __init__(self, unzip_dirpath: str, *args, **kwargs):
-        self.unzip_dirpath = unzip_dirpath
+    def __init__(
+        self, target_dirpath: str, unzip_temp_dir: str, *args, **kwargs
+    ):
+        self.target_dirpath = target_dirpath
+        self.unzip_temp_dir = unzip_temp_dir
         super().__init__(*args, **kwargs)
 
     @property
     def is_missing_permissions(self) -> bool:
-        return not _has_write_permissions(self.unzip_dirpath)
-
-    def _pre_source_process(self):
-        super()._pre_source_process()
-        unzip_dirpath = self.unzip_dirpath
-
-        # Remove directory if exists
-        if os.path.isdir(unzip_dirpath):
-            self.log.debug(f"Cleaning {unzip_dirpath}")
-            shutil.rmtree(unzip_dirpath)
-
-        # Create directory
-        os.makedirs(unzip_dirpath, exist_ok=True)
+        return not _has_write_permissions(self.target_dirpath)
 
     def _post_source_process(
         self,
@@ -916,10 +1268,39 @@ class DistributionItem(BaseDistributionItem):
         source_data: dict[str, Any],
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
-    ) -> bool:
+    ) -> Generator[Optional[bool], None, None]:
         source_progress.set_unzip_started()
+        result = False
+        for result in _wait_for_other_process(
+            self._progress_dir, self._progress_id, self.log
+        ):
+            if result is not None:
+                break
+            yield None
+
+        if result is True:
+            self.state = UpdateState.UPDATED
+            yield True
+            return
+
+        filename = os.path.basename(self.target_dirpath)
+        unzip_dirpath = os.path.join(self.unzip_temp_dir, filename)
+        # NOTE This is a workaround for dependency packages
+        # TODO remove when dependency packages are not stored to directory
+        #   ending with .zip
+        if filepath == unzip_dirpath:
+            filedir = os.path.dirname(filepath)
+            ext = os.path.splitext(filepath)[-1]
+            new_filepath = os.path.join(filedir, f"{uuid.uuid4().hex}{ext}")
+            os.rename(filepath, new_filepath)
+            filepath = new_filepath
+
+        # Create directory
+        os.makedirs(unzip_dirpath, exist_ok=True)
+        change_permissions_recursive(unzip_dirpath)
+
         try:
-            downloader.unzip(filepath, self.unzip_dirpath)
+            downloader.unzip(filepath, unzip_dirpath)
         except Exception:
             message = "Couldn't unzip source file"
             source_progress.set_failed(message)
@@ -927,24 +1308,132 @@ class DistributionItem(BaseDistributionItem):
                 f"{self.item_label}: {message}",
                 exc_info=True
             )
-            return False
+            yield False
+            return
+
         source_progress.set_unzip_finished()
 
-        return super()._post_source_process(
+        yield None
+
+        result = False
+        for result in _wait_for_other_process(
+            self._progress_dir, self._progress_id, self.log
+        ):
+            if result is not None:
+                break
+            yield None
+
+        if result is True:
+            self.state = UpdateState.UPDATED
+            yield True
+            return
+
+        failed = False
+        renamed_mapping = []
+
+        # Target directory can contain only distribution metadata file
+        #   anything else is temporarily moved to different directory
+        #   - next to target directory
+        # NOTE: We might validate if the content is exactly same?
+        tmp_subfolder = os.path.join(
+            os.path.dirname(self.target_dirpath), uuid.uuid4().hex
+        )
+        if not os.path.exists(self.target_dirpath):
+            os.makedirs(self.target_dirpath, exist_ok=True)
+            change_permissions_recursive(self.target_dirpath)
+
+        for name in os.listdir(self.target_dirpath):
+            if name == DIST_PROGRESS_FILENAME:
+                continue
+            if not os.path.exists(tmp_subfolder):
+                os.makedirs(tmp_subfolder, exist_ok=True)
+                change_permissions_recursive(tmp_subfolder)
+
+            current_path = os.path.join(self.target_dirpath, name)
+            new_path = os.path.join(tmp_subfolder, name)
+            try:
+                os.rename(current_path, new_path)
+            except Exception:
+                message = (
+                    "Target files already exist and can't be renamed."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+            renamed_mapping.append((current_path, new_path))
+
+        if failed:
+            # Rollback renamed files
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+            yield False
+            return
+
+        # Move unzipped content to target directory
+        moved_paths = []
+        for subname in os.listdir(unzip_dirpath):
+            target_path = os.path.join(self.target_dirpath, subname)
+            src_path = os.path.join(unzip_dirpath, subname)
+            dst_path = os.path.join(self.target_dirpath, subname)
+            try:
+                os.rename(src_path, dst_path)
+            except Exception:
+                message = (
+                    "Failed to move unzipped content to target directory."
+                )
+                source_progress.set_failed(message)
+                self.log.warning(
+                    f"{self.item_label}: {message}",
+                    exc_info=True
+                )
+                failed = True
+                break
+
+            moved_paths.append(target_path)
+
+        # Handle failed movement
+        if failed:
+            # Remove moved files
+            for path in moved_paths:
+                if os.path.isfile(path):
+                    os.remove(path)
+                else:
+                    shutil.rmtree(path)
+
+            # Rename renamed files back to original
+            for src_path, renamed_path in renamed_mapping:
+                os.rename(renamed_path, src_path)
+
+        # Remove temp subfolder used for renaming
+        if os.path.exists(tmp_subfolder):
+            shutil.rmtree(tmp_subfolder)
+
+        if failed:
+            yield False
+            return
+
+        yield from super()._post_source_process(
             filepath, source_data, source_progress, downloader
         )
 
     def _post_distribute(self):
         if (
             self.state != UpdateState.UPDATED
-            and self.unzip_dirpath
-            and os.path.isdir(self.unzip_dirpath)
+            and self.target_dirpath
+            and os.path.isdir(self.target_dirpath)
         ):
-            self.log.debug(f"Cleaning {self.unzip_dirpath}")
-            shutil.rmtree(self.unzip_dirpath)
+            self.log.debug(f"Cleaning {self.target_dirpath}")
+            # TODO use '_clean_dist_dir' when backwards compatibility with
+            #   previous versions of AYON launchers is not needed.
+            # _clean_dist_dir(self.target_dirpath)
+            shutil.rmtree(self.target_dirpath)
 
 
-class AyonDistribution:
+class AYONDistribution:
     """Distribution control.
 
     Receive information from server what addons and dependency packages
@@ -997,7 +1486,6 @@ class AyonDistribution:
         self._log = None
 
         self._dist_started = False
-        self._dist_finished = False
 
         self._addons_dirpath = addon_dirpath or get_addons_dir()
         self._dependency_dirpath = dependency_dirpath or get_dependencies_dir()
@@ -1017,6 +1505,17 @@ class AyonDistribution:
 
         if project_name is NOT_SET:
             project_name = os.environ.get("AYON_PROJECT_NAME") or NOT_SET
+
+        # Where addon zip files and dependency packages are downloaded
+        self._dist_download_dirs = []
+        self._dist_unzip_dirs = []
+
+        self._dist_addons_unzip_temp = os.path.join(
+            self._addons_dirpath, ".unzip_temp"
+        )
+        self._dist_dep_packages_unzip_temp = os.path.join(
+            self._dependency_dirpath, ".unzip_temp"
+        )
 
         self._installers_info = installers_info
         self._installer_items = NOT_SET
@@ -1469,6 +1968,7 @@ class AyonDistribution:
         if not downloads_dir or not os.path.exists(downloads_dir):
             tmp_used = True
             downloads_dir = tempfile.mkdtemp(prefix="ayon_installer")
+            change_permissions_recursive(downloads_dir)
 
         dist_item = None
         try:
@@ -1481,7 +1981,7 @@ class AyonDistribution:
                 self._dist_factory,
                 list(installer_item.sources),
                 downloader_data,
-                f"Installer {installer_item.version}"
+                f"Installer {installer_item.version}",
             )
 
             if (
@@ -1496,7 +1996,10 @@ class AyonDistribution:
                 )
                 return
 
-            dist_item.distribute()
+            for result in dist_item.distribute():
+                if result:
+                    break
+
             self._installer_executable = dist_item.executable
             if dist_item.installer_error is not None:
                 self._installer_dist_error = dist_item.installer_error
@@ -1731,9 +2234,11 @@ class AyonDistribution:
             data (dict[str, Any]): Data to store into file.
 
         """
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        dirpath = os.path.dirname(filepath)
+        os.makedirs(dirpath, exist_ok=True)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
+        change_permissions_recursive(dirpath)
 
     def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
@@ -1766,8 +2271,15 @@ class AyonDistribution:
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
+        for tmp_dir in (
+            self._dist_download_dirs + self._dist_unzip_dirs
+        ):
+            if os.path.exists(tmp_dir):
+                try:
+                    shutil.rmtree(tmp_dir)
+                except Exception:
+                    pass
 
-        self._dist_finished = True
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
         #   of having one file
@@ -1820,6 +2332,10 @@ class AyonDistribution:
 
         self.update_addons_metadata(addons_info)
 
+        _cleanup_dist_download_dirs()
+        _cleanup_dist_expire_dirs(self._dist_addons_unzip_temp)
+        _cleanup_dist_expire_dirs(self._dist_dep_packages_unzip_temp)
+
     def get_all_distribution_items(self) -> list[DistributionItem]:
         """Distribution items required by server.
 
@@ -1869,16 +2385,13 @@ class AyonDistribution:
                 return True
         return False
 
-    def distribute(self, threaded: bool = False):
+    def distribute(self):
         """Distribute all missing items.
 
         Method will try to distribute all items that are required by server.
 
         This method does not handle failed items. To validate the result call
         'validate_distribution' when this method finishes.
-
-        Args:
-            threaded (bool): Distribute items in threads.
 
         """
         if self._dist_started:
@@ -1890,21 +2403,33 @@ class AyonDistribution:
                 self.distribute_installer()
             return
 
-        threads = collections.deque()
-        for item in self.get_all_distribution_items():
-            if threaded:
-                threads.append(threading.Thread(target=item.distribute))
-            else:
-                item.distribute()
+        dist_items = []
+        for dist_item in self.get_all_distribution_items():
+            if not dist_item.is_distributed():
+                dist_items.append(dist_item)
+                _create_dist_expire_file(dist_item.download_dirpath)
 
-        while threads:
-            thread = threads.popleft()
-            if thread.is_alive():
-                threads.append(thread)
-            else:
-                thread.join()
+        running_items = collections.deque()
+        for item in dist_items:
+            running_items.append(item.distribute())
 
-        self.finish_distribution()
+        if running_items:
+            running_items.append(None)
+
+        try:
+            while running_items:
+                running_item = running_items.popleft()
+                if running_item is None:
+                    if running_items:
+                        running_items.append(None)
+                        time.sleep(0.02)
+                    continue
+
+                if not next(running_item):
+                    running_items.append(running_item)
+
+        finally:
+            self.finish_distribution()
 
     def validate_distribution(self):
         """Check if all required distribution items are distributed.
@@ -1952,9 +2477,9 @@ class AyonDistribution:
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
             runtime_dir = None
-            unzip_dirpath = dependency_dist_item.unzip_dirpath
-            if unzip_dirpath:
-                runtime_dir = os.path.join(unzip_dirpath, "runtime")
+            target_dirpath = dependency_dist_item.target_dirpath
+            if target_dirpath:
+                runtime_dir = os.path.join(target_dirpath, "runtime")
 
             if runtime_dir and os.path.exists(runtime_dir):
                 output.append(runtime_dir)
@@ -1976,18 +2501,18 @@ class AyonDistribution:
             dist_item = item["dist_item"]
             if dist_item.state != UpdateState.UPDATED:
                 continue
-            unzip_dirpath = dist_item.unzip_dirpath
-            if unzip_dirpath and os.path.exists(unzip_dirpath):
-                output.append(unzip_dirpath)
+            target_dirpath = dist_item.target_dirpath
+            if target_dirpath and os.path.exists(target_dirpath):
+                output.append(target_dirpath)
 
         output.extend(self._get_dev_sys_paths())
 
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
             dependencies_dir = None
-            unzip_dirpath = dependency_dist_item.unzip_dirpath
-            if unzip_dirpath:
-                dependencies_dir = os.path.join(unzip_dirpath, "dependencies")
+            target_dirpath = dependency_dist_item.target_dirpath
+            if target_dirpath:
+                dependencies_dir = os.path.join(target_dirpath, "dependencies")
 
             if dependencies_dir and os.path.exists(dependencies_dir):
                 output.append(dependencies_dir)
@@ -2040,16 +2565,21 @@ class AyonDistribution:
         output = []
         addon_versions = {}
         dev_addons = {}
-        bundle = self.project_bundle_to_use
+        bundle = self.bundle_to_use
         if bundle is not None:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
+
+        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
+        if not os.path.exists(unzip_temp):
+            os.makedirs(unzip_temp)
+            change_permissions_recursive(unzip_temp)
 
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
             if self.use_dev:
                 dev_addon_info = dev_addons.get(addon_name)
-                if dev_addon_info is None or dev_addon_info.enabled is True:
+                if dev_addon_info is not None and dev_addon_info.enabled:
                     continue
 
             addon_version = addon_versions.get(addon_name)
@@ -2072,28 +2602,44 @@ class AyonDistribution:
             full_name = addon_version_item.full_name
             addon_dest = os.path.join(self._addons_dirpath, full_name)
             self.log.debug(f"Checking {full_name} in {addon_dest}")
-            addon_in_metadata = (
-                addon_name in addons_metadata
-                and addon_version_item.version in addons_metadata[addon_name]
-            )
-            if addon_in_metadata and os.path.isdir(addon_dest):
-                self.log.debug(
-                    f"Addon version folder {addon_dest} already exists."
-                )
-                state = UpdateState.UPDATED
-
+            progress_info = _read_progress_file(addon_dest)
+            state = UpdateState.OUTDATED
+            if progress_info:
+                if progress_info.get("state") == DistFileStates.done.value:
+                    state = UpdateState.UPDATED
             else:
-                state = UpdateState.OUTDATED
+                addon_in_metadata = (
+                    addon_name in addons_metadata
+                    and addon_version_item.version in (
+                        addons_metadata[addon_name]
+                    )
+                )
+                if addon_in_metadata and os.path.isdir(addon_dest):
+                    self.log.debug(
+                        f"Addon version folder {addon_dest} already exists."
+                    )
+                    state = UpdateState.UPDATED
+                    # Auto-create addons dist file extracted with old versions
+                    _create_progress_file(
+                        addon_dest,
+                        uuid.uuid4().hex,
+                        addon_version_item.checksum,
+                        addon_version_item.checksum_algorithm,
+                    )
 
+            download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+            unzip_dir = os.path.join(unzip_temp, uuid.uuid4().hex)
+            self._dist_download_dirs.append(download_dir)
+            self._dist_unzip_dirs.append(unzip_dir)
             downloader_data = {
                 "type": "addon",
                 "name": addon_name,
                 "version": addon_version
             }
-
             dist_item = DistributionItem(
                 addon_dest,
-                download_dirpath=addon_dest,
+                unzip_dir,
+                download_dirpath=download_dir,
                 state=state,
                 checksum=addon_version_item.checksum,
                 checksum_algorithm=addon_version_item.checksum_algorithm,
@@ -2101,6 +2647,7 @@ class AyonDistribution:
                 sources=list(addon_version_item.sources),
                 downloader_data=downloader_data,
                 item_label=full_name,
+                progress_dir=addon_dest,
                 logger=self.log
             )
             output.append({
@@ -2123,19 +2670,48 @@ class AyonDistribution:
             "name": package.filename,
             "platform": package.platform_name
         }
-        zip_dir = package_dir = os.path.join(
+        package_dir = os.path.join(
             self._dependency_dirpath, package.filename
         )
-        self.log.debug(f"Checking {package.filename} in {package_dir}")
+        # Future compatibility for dependency packages without .zip in dirname
+        new_basename = os.path.splitext(package.filename)[0]
+        new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
 
-        if not os.path.isdir(package_dir) or package.filename not in metadata:
-            state = UpdateState.OUTDATED
-        else:
+        download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
+        self._dist_download_dirs.append(download_dir)
+        self._dist_unzip_dirs.append(unzip_dir)
+
+        self.log.debug(f"Checking {package.filename} in {package_dir}")
+        state = UpdateState.OUTDATED
+        progress_info = _read_progress_file(package_dir)
+        new_progress_info = _read_progress_file(new_package_dir)
+        if progress_info:
+            if progress_info.get("state") == DistFileStates.done.value:
+                state = UpdateState.UPDATED
+
+        elif new_progress_info:
+            if new_progress_info.get("state") == DistFileStates.done.value:
+                state = UpdateState.UPDATED
+                package_dir = new_package_dir
+
+        elif (
+            os.path.isdir(package_dir)
+            and package.filename in metadata
+        ):
             state = UpdateState.UPDATED
+            # Autofix dependency packages extracted with old versions
+            _create_progress_file(
+                package_dir,
+                uuid.uuid4().hex,
+                package.checksum,
+                package.checksum_algorithm,
+            )
 
         return DistributionItem(
-            zip_dir,
-            download_dirpath=package_dir,
+            package_dir,
+            unzip_dir,
+            download_dirpath=download_dir,
             state=state,
             checksum=package.checksum,
             checksum_algorithm=package.checksum_algorithm,
@@ -2143,6 +2719,7 @@ class AyonDistribution:
             sources=package.sources,
             downloader_data=downloader_data,
             item_label=os.path.splitext(package.filename)[0],
+            progress_dir=package_dir,
             logger=self.log,
         )
 

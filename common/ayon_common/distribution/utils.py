@@ -55,9 +55,27 @@ def show_missing_permissions():
     _show_message_dialog(
         "AYON distribution - Permissions issues",
         (
-            "Your user does not have permissions to distribute updates."
+            "Failed to distribute updates. Other process might block the"
+            " distribution or your user does not have required permissions"
+            " to distribute updates."
             "<br/><br/>Please contact your administrator, or use user"
             " with permissions to distribute addons and dependency package."
+        ),
+    )
+
+
+def show_blocked_auto_update(launcher: bool):
+    if launcher:
+        message = "AYON launcher"
+    else:
+        message = "addons or dependency package"
+    _show_message_dialog(
+        "AYON distribution - Auto update blocked",
+        (
+            f"Update of {message} is required but auto-update"
+            f" is explicitly blocked."
+            "<br/><br/>Please contact your administrator to help you"
+            " resolve the issue."
         ),
     )
 
