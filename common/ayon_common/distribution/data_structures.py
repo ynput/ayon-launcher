@@ -302,6 +302,7 @@ class Bundle:
     is_dev: bool
     active_dev_user: Union[str, None]
     addons_dev_info: dict[str, AddonDevInfo]
+    is_project_bundle: Union[bool, None] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -317,6 +318,7 @@ class Bundle:
             is_production=data["isProduction"],
             is_staging=data["isStaging"],
             is_dev=data.get("isDev", False),
+            is_project_bundle=data.get("isProject"),
             active_dev_user=data.get("activeUser"),
             addons_dev_info=addons_dev_info,
         )
