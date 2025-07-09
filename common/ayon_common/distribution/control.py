@@ -1395,7 +1395,9 @@ class DistributionItem(BaseDistributionItem):
                         exc_info=True
                     )
                     failed = True
-                    break
+
+            if failed:
+                break
 
             moved_paths.append(target_path)
 
