@@ -1378,6 +1378,9 @@ class DistributionItem(BaseDistributionItem):
             src_path = os.path.join(unzip_dirpath, subname)
             dst_path = os.path.join(self.target_dirpath, subname)
             self.log.debug("Copying %s to %s", src_path, dst_path)
+            # Sometimes 'os.rename' crashes because of permissions issue
+            #   even though it can be done in a future attempt (probably some
+            #   service traversing through files blocking it?)
             for attempt in range(rename_attemps):
                 try:
                     os.rename(src_path, dst_path)
