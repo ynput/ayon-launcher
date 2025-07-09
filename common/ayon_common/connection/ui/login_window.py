@@ -2,8 +2,8 @@ import re
 import traceback
 import webbrowser
 
-import requests
-from requests import RequestException
+import ayon_api
+from ayon_api.exceptions import UnauthorizedError
 from qtpy import QtWidgets, QtCore, QtGui
 
 from ayon_api.exceptions import UrlError
@@ -32,41 +32,17 @@ VERSION_REGEX = re.compile(
 )
 
 
-def get_user(url, token, timeout=None):
-    base_headers = {
-        "Content-Type": "application/json",
-    }
-    for header_value in (
-        {"Authorization": "Bearer {}".format(token)},
-        {"X-Api-Key": token},
-    ):
-        headers = base_headers.copy()
-        headers.update(header_value)
-        response = requests.get(
-            "{}/api/users/me".format(url),
-            headers=headers,
-            timeout=timeout,
-        )
-        if response.status_code == 200:
-            return response.json()
+def get_user(url, token):
+    api = ayon_api.ServerAPI(url, token=token)
+    try:
+        return api.get_user()
+    except UnauthorizedError:
+        return None
 
 
 def get_server_version(url):
-    try:
-        response = requests.get(f"{url}/api/info")
-
-        re_match = VERSION_REGEX.fullmatch(response.json()["version"])
-        return (
-            int(re_match.group("major")),
-            int(re_match.group("minor")),
-            int(re_match.group("patch")),
-            re_match.group("prerelease") or "",
-            re_match.group("buildmetadata") or "",
-        )
-
-    except RequestException:
-        pass
-    return (0, 0, 0, "", "")
+    api = ayon_api.ServerAPI(url)
+    return api.server_version_tuple
 
 
 class ShowPasswordButton(QtWidgets.QPushButton):
