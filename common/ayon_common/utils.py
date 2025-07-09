@@ -640,8 +640,10 @@ def extract_archive_file(archive_file: str, dst_folder: Optional[str] = None):
 
     if archive_type == "zip":
         zip_file = ZipFileLongPaths(archive_file)
-        zip_file.extractall(dst_folder)
-        zip_file.close()
+        try:
+            zip_file.extractall(dst_folder)
+        finally:
+            zip_file.close()
 
     elif archive_type == "tar":
         if archive_ext == ".tar":
@@ -660,8 +662,10 @@ def extract_archive_file(archive_file: str, dst_folder: Optional[str] = None):
         except tarfile.ReadError:
             raise SystemExit("corrupted archive")
 
-        tar_file.extractall(dst_folder)
-        tar_file.close()
+        try:
+            tar_file.extractall(dst_folder)
+        finally:
+            tar_file.close()
 
 
 def calculate_file_checksum(
