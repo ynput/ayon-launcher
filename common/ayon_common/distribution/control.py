@@ -1368,25 +1368,34 @@ class DistributionItem(BaseDistributionItem):
             yield False
             return
 
+        yield None
+
         # Move unzipped content to target directory
         moved_paths = []
+        rename_attemps = 5
         for subname in os.listdir(unzip_dirpath):
             target_path = os.path.join(self.target_dirpath, subname)
             src_path = os.path.join(unzip_dirpath, subname)
             dst_path = os.path.join(self.target_dirpath, subname)
-            try:
-                os.rename(src_path, dst_path)
-            except Exception:
-                message = (
-                    "Failed to move unzipped content to target directory."
-                )
-                source_progress.set_failed(message)
-                self.log.warning(
-                    f"{self.item_label}: {message}",
-                    exc_info=True
-                )
-                failed = True
-                break
+            self.log.debug("Copying %s to %s", src_path, dst_path)
+            for attempt in range(rename_attemps):
+                try:
+                    os.rename(src_path, dst_path)
+                    break
+                except Exception:
+                    if attempt < (rename_attemps - 1):
+                        yield None
+                        continue
+                    message = (
+                        "Failed to move unzipped content to target directory."
+                    )
+                    source_progress.set_failed(message)
+                    self.log.warning(
+                        f"{self.item_label}: {message}",
+                        exc_info=True
+                    )
+                    failed = True
+                    break
 
             moved_paths.append(target_path)
 
