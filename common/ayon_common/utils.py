@@ -11,7 +11,7 @@ import shutil
 from uuid import UUID
 from typing import Optional, Iterable, List, Dict, Tuple, Any
 
-import appdirs
+import platformdirs
 import semver
 from ayon_api.constants import SITE_ID_ENV_KEY
 
@@ -39,7 +39,7 @@ def _get_ayon_appdirs(*args):
 
     """
     return os.path.join(
-        appdirs.user_data_dir("AYON", "Ynput"),
+        platformdirs.user_data_dir("AYON", "Ynput"),
         *args
     )
 
@@ -98,7 +98,7 @@ def get_launcher_storage_dir(
         os.environ["AYON_LAUNCHER_STORAGE_DIR"] = storage_dir
 
     path = os.path.join(storage_dir, *subdirs)
-    if create:
+    if create and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
     return path
 
@@ -640,8 +640,10 @@ def extract_archive_file(archive_file: str, dst_folder: Optional[str] = None):
 
     if archive_type == "zip":
         zip_file = ZipFileLongPaths(archive_file)
-        zip_file.extractall(dst_folder)
-        zip_file.close()
+        try:
+            zip_file.extractall(dst_folder)
+        finally:
+            zip_file.close()
 
     elif archive_type == "tar":
         if archive_ext == ".tar":
@@ -660,8 +662,10 @@ def extract_archive_file(archive_file: str, dst_folder: Optional[str] = None):
         except tarfile.ReadError:
             raise SystemExit("corrupted archive")
 
-        tar_file.extractall(dst_folder)
-        tar_file.close()
+        try:
+            tar_file.extractall(dst_folder)
+        finally:
+            tar_file.close()
 
 
 def calculate_file_checksum(

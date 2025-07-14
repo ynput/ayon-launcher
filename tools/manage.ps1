@@ -117,7 +117,7 @@ function Install-Poetry() {
     }
 
     $env:POETRY_HOME=$poetry_home
-    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python) - --version 1.8.1
+    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python)
 }
 
 function Install-Uv() {

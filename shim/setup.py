@@ -56,7 +56,6 @@ build_exe_options = dict(
         "test",
         "tkinter",
         "unittest",
-        "urllib",
         "xmlrps",
     ]
 )

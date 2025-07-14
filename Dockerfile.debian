@@ -30,6 +30,7 @@ RUN apt-get update \
     make \
     curl \
     wget \
+    g++ \
     build-essential \
     libssl-dev \
     zlib1g-dev \
