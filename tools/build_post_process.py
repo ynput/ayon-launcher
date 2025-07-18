@@ -562,7 +562,8 @@ def get_packages_info(build_root):
 
         match = re.match(r"^(.+?)(?:==|>=|<=|~=|!=|@)(.+)$", line)
         if not match:
-            raise ValueError(f"Cannot parse package info '{line}'.")
+            print(f"Cannot parse package info '{line}'.")
+            continue
         package_name, version = match.groups()
         package_name = package_name.rstrip()
         version = version.lstrip()

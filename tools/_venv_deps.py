@@ -11,6 +11,7 @@ import os
 import platform
 import site
 import json
+import tomllib
 from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -32,26 +33,28 @@ def get_poetry_venv_root():
 
 site.addsitedir(str(get_poetry_venv_root()))
 
-from poetry.factory import Factory  # noqa E402
+# from poetry.factory import Factory  # noqa E402
 
 
 def main():
-    poetry = Factory().create_poetry(REPO_ROOT_DIR)
-    locker = poetry.locker
+    uv_lock_file = REPO_ROOT_DIR / "uv.lock"
+    if uv_lock_file.exists():
+        with open(uv_lock_file, "rb") as stream:
+            uv_lock_data = tomllib.load(stream)
+
     packages = {}
-    package_data = locker.lock_data["package"]
+    package_data = uv_lock_data["package"]
     for package in package_data:
         package_name = package["name"]
         package_version = package["version"]
         source = package.get("source")
         if source:
-            source_type = source["type"]
-            if source_type == "git":
-                ref = source["resolved_reference"]
-                url = source["url"]
-                package_version = f"git+{url}@{ref}"
+            if source.get("git"):
+                url = source["git"]
+                package_version = f"git+{url}"
             else:
-                raise ValueError(f"Unknown source type {source_type}")
+                # raise ValueError(f"Unknown source type {source}")
+                ...
 
         packages[package_name] = package_version
 

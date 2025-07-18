@@ -154,13 +154,13 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
       Exit-WithCode 1
     }
     # We are supporting python 3.9 only
-    if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
+    if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 11)) {
       Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  " is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
       Restore-Cwd
       Exit-WithCode 1
     } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
         Write-Color -Text "WARNING Version ", "[ ",  $p, " ]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
-        Write-Color -Text "*** ", "AYON launcher supports only Python 3.9" -Color Yellow, White
+        Write-Color -Text "*** ", "AYON launcher supports only Python 3.11" -Color Yellow, White
     } else {
         Write-Color "OK ", "[ ",  $p, " ]" -Color Green, Cyan, White, Cyan
     }
@@ -436,7 +436,7 @@ function Build-Ayon($MakeInstaller = $false) {
 
     Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
     Change-Shim-Cwd
-    $out = & "$($poetry_home)\bin\poetry" run python setup.py build 2>&1
+    $out = & uv run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
@@ -469,7 +469,7 @@ function Build-Ayon($MakeInstaller = $false) {
     }
 
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\build_post_process.py" "build"
+    & uv run python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
         Make-Ayon-Installer-Raw
@@ -485,12 +485,12 @@ function Build-Ayon($MakeInstaller = $false) {
 }
 
 function Installer-Post-Process() {
-    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\installer_post_process.py" @args
+    & uv run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function Make-Ayon-Installer-Raw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    & uv run python "$($repo_root)\tools\build_post_process.py" "make-installer"
 }
 
 function Make-Ayon-Installer() {
@@ -516,7 +516,7 @@ function Install-Runtime-Dependencies() {
         Write-Color -Text "OK" -Color Green
     }
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\runtime_dependencies.py" @args
+    & uv run python "$($repo_root)\tools\runtime_dependencies.py" @args
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Dependencies downloaded", "All done in $( $endTime - $startTime ) secs."
