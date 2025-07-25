@@ -16,6 +16,7 @@ import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Generator
+from urllib.parse import urlencode
 
 import ayon_api
 
@@ -2773,9 +2774,12 @@ class AYONDistribution:
 
         studio_bundle_name = self.studio_bundle_to_use.name
         if studio_bundle_name:
-            response = ayon_api.get(
-                f"settings?summary=true&bundle={studio_bundle_name}"
-            )
+            key_values = {
+                "summary": "true",
+                "bundle": studio_bundle_name,
+            }
+            query = urlencode(key_values)
+            response = ayon_api.get(f"settings?{query}")
             # NOTE This does modify the bundle data
             # - should be fine as it really does fill up the project bundle
             for addon in response.data["addons"]:
