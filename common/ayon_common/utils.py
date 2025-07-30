@@ -780,7 +780,7 @@ def _is_launcher_launcher_protocol_registered() -> bool:
 def _register_linux_launcher_protocol() -> bool:
     # Add 'ayon.desktop' to applications
     dst_desktop_file_path = _get_linux_desktop_file_path()
-    desktop_filename, apps_dir = os.path.split(dst_desktop_file_path)
+    apps_dir, desktop_filename = os.path.split(dst_desktop_file_path)
     # Skip if applications directory does not exist
     # - e.g. on headless linux
     if not os.path.exists(apps_dir):
