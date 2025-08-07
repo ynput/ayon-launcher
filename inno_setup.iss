@@ -71,7 +71,7 @@ var
   OutputFilepath: String;
   InstallDir: String;
   ParamIdx: Integer;
-  SilentArg: String;
+  HeadlessArg: String;
 begin
   HeadlessArg := ''
   for ParamIdx := 1 to ParamCount do
