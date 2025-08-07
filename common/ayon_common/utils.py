@@ -892,7 +892,7 @@ def _get_installed_shim_version() -> str:
 
 def _deploy_shim_windows(
     installer_shim_root: str,
-    create_desktop_icons: bool
+    create_desktop_icons: bool,
 ) -> bool:
     """Deploy shim executable on Windows.
 
@@ -1021,8 +1021,8 @@ def _create_windows_shortcut() -> None:
 
 
 def deploy_ayon_launcher_shims(
-    create_desktop_icons: Optional[bool] = False,
-    ensure_protocol_is_registered: Optional[bool] = False,
+    ensure_protocol_is_registered: bool = False,
+    create_desktop_icons: bool = False,
 ):
     """Deploy shim executables for AYON launcher.
 
@@ -1030,10 +1030,10 @@ def deploy_ayon_launcher_shims(
         issue caused in v1.1.0, since 1.1.1 is used different registry path.
 
     Args:
-        create_desktop_icons (Optional[bool]): Create desktop shortcuts. Used
-            only on windows.
-        ensure_protocol_is_registered (Optional[bool]): Validate if protocol is
+        ensure_protocol_is_registered (bool): Validate if protocol is
             registered on windows.
+        create_desktop_icons (bool): Create desktop shortcuts. Used
+            only on windows.
 
     """
     if not IS_BUILT_APPLICATION:
@@ -1066,7 +1066,10 @@ def deploy_ayon_launcher_shims(
 
     platform_name = platform.system().lower()
     if platform_name == "windows":
-        _deploy_shim_windows(installer_shim_root, create_desktop_icons)
+        _deploy_shim_windows(
+            installer_shim_root,
+            create_desktop_icons,
+        )
 
     elif platform_name == "linux":
         _deploy_shim_linux(installer_shim_root)
