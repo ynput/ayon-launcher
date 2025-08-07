@@ -21,6 +21,7 @@ IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 # UUID of the default Windows download folder
 WIN_DOWNLOAD_FOLDER_ID = UUID("{374DE290-123F-4565-9164-39C4925E467B}")
+CSIDL_DESKTOP = 0
 IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
@@ -981,6 +982,44 @@ def _deploy_shim_macos(installer_shim_root: str):
             subprocess.run(["hdiutil", "detach", hdi_mounted_volume])
 
 
+def _create_windows_shortcut() -> None:
+    """Create Windows shortcut for AYON shim.
+
+    This is used if user does select to create desktop shortcuts on AYON
+        launcher install but the shim is already installed.
+
+    """
+    import ctypes
+    from ctypes import windll
+    from win32com.client import Dispatch
+
+    MAX_PATH = 260
+    buf = ctypes.create_unicode_buffer(MAX_PATH)
+    result = windll.shell32.SHGetFolderPathW(
+        None, CSIDL_DESKTOP, None, 0, buf
+    )
+    if result == 0:
+        desktop_dir = buf.value
+    else:
+        print(f"Failed to get desktop path, error code: {result}")
+        desktop_dir = os.path.expanduser("~/Desktop")
+
+    shortcut_path = os.path.join(desktop_dir, "AYON.lnk")
+    if os.path.exists(shortcut_path):
+        return
+
+    path = get_shim_executable_path()
+    if not os.path.exists(path):
+        return
+
+    shell = Dispatch("WScript.Shell")
+    shortcut = shell.CreateShortCut(shortcut_path)
+    shortcut.Targetpath = path
+    shortcut.WorkingDirectory = os.path.dirname(path)
+    shortcut.IconLocation = path
+    shortcut.save()
+
+
 def deploy_ayon_launcher_shims(
     create_desktop_icons: Optional[bool] = False,
     ensure_protocol_is_registered: Optional[bool] = False,
@@ -1021,6 +1060,8 @@ def deploy_ayon_launcher_shims(
         # Make sure windows registers are correctly set for each user
         if ensure_protocol_is_registered:
             register_ayon_launcher_protocol()
+        if platform_name == "windows" and create_desktop_icons:
+            _create_windows_shortcut()
         return
 
     platform_name = platform.system().lower()
