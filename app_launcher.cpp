@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
         }
         std::ofstream output_file(argv[1]);
         if (output_file.is_open()) {
-            output_file << root.dump(4);
+            output_file << root.dump();
             output_file.close();
         } else {
             fprintf(stderr, "error: could not write back to file %s\n", argv[1]);
