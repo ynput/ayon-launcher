@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "error: %s\n", e.what());
         return 1;
     }
+    json_file.close();
 
     auto env = root.find("env");
     char **new_environ = NULL;
@@ -83,6 +84,18 @@ int main(int argc, char *argv[]) {
 
         pid_t pid;
         int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
+        if (status == 0) {
+            root["pid"] = pid;
+        } else {
+            root["pid"] = nullptr;
+        }
+        std::ofstream output_file(argv[1]);
+        if (output_file.is_open()) {
+            output_file << root.dump(4);
+            output_file.close();
+        } else {
+            fprintf(stderr, "error: could not write back to file %s\n", argv[1]);
+        }
 
         if (status != 0) {
             printf("posix_spawn: %s\n", strerror(status));
