@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import shlex
+import tempfile
 
 
 def main(input_json_path):
@@ -38,9 +39,25 @@ def main(input_json_path):
     if isinstance(args, list):
         args = shlex.join(args)
 
-    # Run the command as background process
-    shell_cmd = args + " &"
+    # Run the command as background process and echo the pid to tempfile
+    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+        pid_path = tmpfile.name
+
+    shell_cmd = args + f" & && echo $! > {pid_path}"
     os.system(shell_cmd)
+
+    with open(pid_path, "r") as stream:
+        content = stream.read()
+    os.remove(pid_path)
+
+    try:
+        pid = int(content)
+    except Exception:
+        pid = None
+
+    data["pid"] = pid
+    with open(input_json_path, "w") as stream:
+        json.dump(data, stream)
     sys.exit(0)
 
 
