@@ -1893,6 +1893,35 @@ class AYONDistribution:
         if path and filename == "ayon_console.exe":
             path = os.path.join(os.path.dirname(path), filename)
 
+        if path:
+            self._installer_executable = path
+            return path
+
+        # Guess based on "expected" path of the version
+        # - is used if the AYON is already installed at target location but is
+        #   missing in the metadata file
+        current_version = os.environ["AYON_VERSION"]
+        platform_name = platform.system().lower()
+        if platform_name in {"windows", "linux"}:
+            executable_dir, exe_name = os.path.split(sys.executable)
+            install_root, dirname = os.path.split(executable_dir)
+            if current_version in dirname:
+                new_dirname = dirname.replace(
+                    current_version,
+                    self.expected_installer_version
+                )
+                executable = os.path.join(
+                    install_root, new_dirname, exe_name
+                )
+                if os.path.exists(executable):
+                    path = executable
+
+        elif platform_name == "darwin":
+            app_name = f"AYON {self.expected_installer_version}.app"
+            excutable = f"/Applications/{app_name}/Contents/MacOS/ayon"
+            if os.path.exists(excutable):
+                path = excutable
+
         self._installer_executable = path
         return path
 
