@@ -1866,32 +1866,32 @@ class AYONDistribution:
 
         path = None
         if not self.need_installer_change:
-            path = sys.executable
+            self._installer_executable = sys.executable
+            return self._installer_executable
 
-        else:
-            # Compare existing executable with current executable
-            current_executable = sys.executable
-            # Use 'ayon.exe' for executable lookup on Windows
-            root, filename = os.path.split(current_executable)
-            if filename == "ayon_console.exe":
-                current_executable = os.path.join(root, "ayon.exe")
+        # Compare existing executable with current executable
+        current_executable = sys.executable
+        # Use 'ayon.exe' for executable lookup on Windows
+        root, filename = os.path.split(current_executable)
+        if filename == "ayon_console.exe":
+            current_executable = os.path.join(root, "ayon.exe")
 
-            # TODO look to expected target install directory too
-            executables_info = get_executables_info_by_version(
-                self.expected_installer_version)
-            for executable_info in executables_info:
-                executable_path = executable_info.get("executable")
-                if (
-                    not os.path.exists(executable_path)
-                    or executable_path == current_executable
-                ):
-                    continue
-                path = executable_path
-                break
+        # TODO look to expected target install directory too
+        executables_info = get_executables_info_by_version(
+            self.expected_installer_version)
+        for executable_info in executables_info:
+            executable_path = executable_info.get("executable")
+            if (
+                not os.path.exists(executable_path)
+                or executable_path == current_executable
+            ):
+                continue
+            path = executable_path
+            break
 
-            # Make sure current executable filename is used on Windows
-            if path and filename == "ayon_console.exe":
-                path = os.path.join(os.path.dirname(path), filename)
+        # Make sure current executable filename is used on Windows
+        if path and filename == "ayon_console.exe":
+            path = os.path.join(os.path.dirname(path), filename)
 
         self._installer_executable = path
         return path
