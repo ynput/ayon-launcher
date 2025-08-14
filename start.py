@@ -760,8 +760,8 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
     create_desktop_icons = "--create-desktop-icons" in sys.argv
     store_current_executable_info()
     deploy_ayon_launcher_shims(
-        create_desktop_icons=create_desktop_icons,
         ensure_protocol_is_registered=ensure_protocol_is_registered,
+        create_desktop_icons=create_desktop_icons,
     )
 
 

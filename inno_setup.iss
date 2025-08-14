@@ -70,11 +70,25 @@ var
   ExecParams: String;
   OutputFilepath: String;
   InstallDir: String;
+  ParamIdx: Integer;
+  HeadlessArg: String;
 begin
+  HeadlessArg := ''
+  for ParamIdx := 1 to ParamCount do
+    if CompareText(Lowercase(ParamStr(ParamIdx)), '/verysilent') = 0 then
+    begin
+      HeadlessArg := ' --headless';
+      Break;
+    end;
+
   ExecParams := 'init-ayon-launcher';
   if WizardIsTaskSelected('desktopicon') then
   begin
     ExecParams := ExecParams + ' --create-desktop-icons';
+  end;
+  if WizardSilent() then
+  begin
+    ExecParams := ExecParams + HeadlessArg;
   end;
   Exec(ExpandConstant('{app}\ayon.exe'), ExecParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   OutputFilepath := GetEnv('AYON_INSTALL_EXE_OUTPUT');
