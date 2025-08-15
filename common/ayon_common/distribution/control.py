@@ -2771,6 +2771,12 @@ class AYONDistribution:
         if self._project_bundle is not NOT_SET:
             return self._project_bundle
 
+        # Project bundle is set and is same as studio bundle
+        studio_bundle_name = self.studio_bundle_to_use.name
+        if self._project_bundle_name == studio_bundle_name:
+            self._project_bundle = None
+            return None
+        
         if (
             not self._project_bundle_name
             and self._project_name is not NOT_SET
@@ -2801,7 +2807,6 @@ class AYONDistribution:
         if bundle is None:
             raise BundleNotFoundError(self._project_bundle_name)
 
-        studio_bundle_name = self.studio_bundle_to_use.name
         if studio_bundle_name:
             key_values = {
                 "summary": "true",
