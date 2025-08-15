@@ -2776,7 +2776,7 @@ class AYONDistribution:
         if self._project_bundle_name == studio_bundle_name:
             self._project_bundle = None
             return None
-        
+
         if (
             not self._project_bundle_name
             and self._project_name is not NOT_SET
