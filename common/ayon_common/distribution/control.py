@@ -16,6 +16,7 @@ import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Generator
+from urllib.parse import urlencode
 
 import ayon_api
 
@@ -47,7 +48,12 @@ from .downloaders import (
     DownloadFactory,
 )
 
-NOT_SET = type("UNKNOWN", (), {"__bool__": lambda: False})()
+
+def _unknown_bool(self):
+    return False
+
+
+NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
 MOVE_WAIT_TRESHOLD_TIME = 20
 IS_WINDOWS = platform.system().lower() == "windows"
@@ -1463,10 +1469,10 @@ class AYONDistribution:
             about packages from server.
         bundles_info (Optional[dict[str, Any]]): Info about
             bundles.
-        bundle_name (Optional[str]): Name of bundle to use. If not passed
-            an environment variable 'AYON_BUNDLE_NAME' is checked for value.
-            When both are not available the bundle is defined by 'use_staging'
-            value.
+        studio_bundle_name (Optional[str]): Name of studio bundle to use.
+        project_bundle_name (Optional[str]): Name of project bundle to use.
+        project_name (Optional[str]): Name of project for which project bundle
+            can be auto-detected.
         use_staging (Optional[bool]): Use staging versions of an addon.
             If not passed, 'is_staging_enabled' is used as default value.
         use_dev (Optional[bool]): Use develop versions of an addon.
@@ -1484,7 +1490,9 @@ class AYONDistribution:
         addons_info: Optional[list[dict[str, Any]]] = NOT_SET,
         dependency_packages_info: Optional[list[dict[str, Any]]] = NOT_SET,
         bundles_info: Optional[list[dict[str, Any]]] = NOT_SET,
-        bundle_name: Optional[str] = NOT_SET,
+        studio_bundle_name: Optional[str] = NOT_SET,
+        project_bundle_name: Optional[str] = NOT_SET,
+        project_name: Optional[str] = NOT_SET,
         use_staging: Optional[bool] = None,
         use_dev: Optional[bool] = None,
         active_user: Optional[bool] = None,
@@ -1500,6 +1508,19 @@ class AYONDistribution:
             dist_factory or get_default_download_factory()
         )
 
+        if studio_bundle_name is NOT_SET:
+            studio_bundle_name = (
+                os.environ.get("AYON_STUDIO_BUNDLE_NAME") or NOT_SET
+            )
+
+        if project_bundle_name is NOT_SET:
+            project_bundle_name = (
+                os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
+            )
+
+        if project_name is NOT_SET:
+            project_name = os.environ.get("AYON_PROJECT_NAME") or NOT_SET
+
         # Where addon zip files and dependency packages are downloaded
         self._dist_download_dirs = []
         self._dist_unzip_dirs = []
@@ -1510,9 +1531,6 @@ class AYONDistribution:
         self._dist_dep_packages_unzip_temp = os.path.join(
             self._dependency_dirpath, ".unzip_temp"
         )
-
-        if bundle_name is NOT_SET:
-            bundle_name = os.environ.get("AYON_BUNDLE_NAME") or NOT_SET
 
         self._installers_info = installers_info
         self._installer_items = NOT_SET
@@ -1546,20 +1564,24 @@ class AYONDistribution:
         self._bundle_items = NOT_SET
 
         # Bundle that should be used in production
-        self._production_bundle = NOT_SET
+        self._studio_production_bundle = NOT_SET
         # Bundle that should be used in staging
-        self._staging_bundle = NOT_SET
+        self._studio_staging_bundle = NOT_SET
         # Bundle that should be used in dev
-        self._dev_bundle = NOT_SET
+        self._studio_dev_bundle = NOT_SET
         # Boolean that defines if staging bundle should be used
         self._use_staging = use_staging
         self._use_dev = use_dev
         self._active_user = active_user
 
         # Specific bundle name should be used
-        self._bundle_name = bundle_name
-        # Final bundle that will be used
-        self._bundle = NOT_SET
+        self._studio_bundle_name = studio_bundle_name
+        self._project_bundle_name = project_bundle_name
+        self._project_name = project_name
+
+        # Final bundles that will be used
+        self._studio_bundle = NOT_SET
+        self._project_bundle = NOT_SET
 
     @property
     def active_user(self) -> str:
@@ -1598,14 +1620,14 @@ class AYONDistribution:
 
         """
         if self._use_dev is None:
-            if self._bundle_name is NOT_SET:
+            if self._studio_bundle_name is NOT_SET:
                 self._use_dev = is_dev_mode_enabled()
             else:
                 bundle = next(
                     (
                         bundle
                         for bundle in self.bundle_items
-                        if bundle.name == self._bundle_name
+                        if bundle.name == self._studio_bundle_name
                     ),
                     None
                 )
@@ -1655,47 +1677,81 @@ class AYONDistribution:
         return self._bundle_items
 
     @property
-    def production_bundle(self) -> Optional[Bundle]:
+    def studio_production_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
             Optional[Bundle]: Bundle that should be used in production.
 
         """
-        if self._production_bundle is NOT_SET:
+        if self._studio_production_bundle is NOT_SET:
             self._prepare_bundles()
-        return self._production_bundle
+        return self._studio_production_bundle
 
     @property
-    def staging_bundle(self) -> Optional[Bundle]:
+    def studio_staging_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
             Optional[Bundle]: Bundle that should be used in staging.
 
         """
-        if self._staging_bundle is NOT_SET:
+        if self._studio_staging_bundle is NOT_SET:
             self._prepare_bundles()
-        return self._staging_bundle
+        return self._studio_staging_bundle
 
     @property
-    def dev_bundle(self) -> Optional[Bundle]:
+    def studio_dev_bundle(self) -> Optional[Bundle]:
         """
 
         Returns:
             Optional[Bundle]: Bundle that should be used in dev.
 
         """
-        if self._dev_bundle is NOT_SET:
+        if self._studio_dev_bundle is NOT_SET:
             self._prepare_bundles()
-        return self._dev_bundle
+        return self._studio_dev_bundle
 
     @property
-    def bundle_to_use(self) -> Optional[Bundle]:
+    def studio_bundle_to_use(self) -> Optional[Bundle]:
+        """
+
+        Returns:
+            Optional[Bundle]: Bundle that should be used in distribution.
+
+        """
+        if self._studio_bundle is not NOT_SET:
+            return self._studio_bundle
+
+        self._prepare_bundles()
+        if self._studio_bundle_name is NOT_SET:
+            if self.use_staging:
+                self._studio_bundle = self.studio_staging_bundle
+            elif self.use_dev:
+                self._studio_bundle = self.studio_dev_bundle
+            else:
+                self._studio_bundle = self.studio_production_bundle
+            return self._studio_bundle
+
+        bundle = next(
+            (
+                bundle
+                for bundle in self.bundle_items
+                if bundle.name == self._studio_bundle_name
+            ),
+            None
+        )
+        if bundle is None:
+            raise BundleNotFoundError(self._studio_bundle_name)
+        self._studio_bundle = bundle
+        return self._studio_bundle
+
+    @property
+    def project_bundle_to_use(self) -> Optional[Bundle]:
         """Bundle that will be used for distribution.
 
-        Bundle that should be used can be affected by 'bundle_name'
-            or 'use_staging'.
+        Bundle that should be used can be affected by 'project_bundle_name',
+            'project_name', 'studio_bundle_name' or 'use_staging'.
 
         Returns:
             Optional[Bundle]: Bundle that will be used for distribution
@@ -1706,36 +1762,15 @@ class AYONDistribution:
                 but is not available on server.
 
         """
-        if self._bundle is not NOT_SET:
-            return self._bundle
-
-        if self._bundle_name is NOT_SET:
-            if self.use_staging:
-                self._bundle = self.staging_bundle
-            elif self.use_dev:
-                self._bundle = self.dev_bundle
-            else:
-                self._bundle = self.production_bundle
-            return self._bundle
-
-        bundle = next(
-            (
-                bundle
-                for bundle in self.bundle_items
-                if bundle.name == self._bundle_name
-            ),
-            None
-        )
-        if bundle is None:
-            raise BundleNotFoundError(self._bundle_name)
-
-        if bundle.is_dev:
-            self._use_dev = bundle.is_dev
-        self._bundle = bundle
-        return self._bundle
+        if not self._project_bundle:
+            project_bundle = self._get_project_bundle()
+            if not project_bundle:
+                project_bundle = self.studio_bundle_to_use
+            self._project_bundle = project_bundle
+        return self._project_bundle
 
     @property
-    def bundle_name_to_use(self) -> Optional[str]:
+    def project_bundle_name_to_use(self) -> Optional[str]:
         """Name of bundle that will be used for distribution.
 
         Returns:
@@ -1743,7 +1778,7 @@ class AYONDistribution:
                 distribution.
 
         """
-        bundle = self.bundle_to_use
+        bundle = self.project_bundle_to_use
         return None if bundle is None else bundle.name
 
     @property
@@ -1785,7 +1820,7 @@ class AYONDistribution:
         if self._expected_installer_version is not NOT_SET:
             return self._expected_installer_version
 
-        bundle = self.bundle_to_use
+        bundle = self.project_bundle_to_use
         version = None if bundle is None else bundle.installer_version
         self._expected_installer_version = version
         return version
@@ -1866,32 +1901,61 @@ class AYONDistribution:
 
         path = None
         if not self.need_installer_change:
-            path = sys.executable
+            self._installer_executable = sys.executable
+            return self._installer_executable
 
-        else:
-            # Compare existing executable with current executable
-            current_executable = sys.executable
-            # Use 'ayon.exe' for executable lookup on Windows
-            root, filename = os.path.split(current_executable)
-            if filename == "ayon_console.exe":
-                current_executable = os.path.join(root, "ayon.exe")
+        # Compare existing executable with current executable
+        current_executable = sys.executable
+        # Use 'ayon.exe' for executable lookup on Windows
+        root, filename = os.path.split(current_executable)
+        if filename == "ayon_console.exe":
+            current_executable = os.path.join(root, "ayon.exe")
 
-            # TODO look to expected target install directory too
-            executables_info = get_executables_info_by_version(
-                self.expected_installer_version)
-            for executable_info in executables_info:
-                executable_path = executable_info.get("executable")
-                if (
-                    not os.path.exists(executable_path)
-                    or executable_path == current_executable
-                ):
-                    continue
-                path = executable_path
-                break
+        # TODO look to expected target install directory too
+        executables_info = get_executables_info_by_version(
+            self.expected_installer_version)
+        for executable_info in executables_info:
+            executable_path = executable_info.get("executable")
+            if (
+                not os.path.exists(executable_path)
+                or executable_path == current_executable
+            ):
+                continue
+            path = executable_path
+            break
 
-            # Make sure current executable filename is used on Windows
-            if path and filename == "ayon_console.exe":
-                path = os.path.join(os.path.dirname(path), filename)
+        # Make sure current executable filename is used on Windows
+        if path and filename == "ayon_console.exe":
+            path = os.path.join(os.path.dirname(path), filename)
+
+        if path:
+            self._installer_executable = path
+            return path
+
+        # Guess based on "expected" path of the version
+        # - is used if the AYON is already installed at target location but is
+        #   missing in the metadata file
+        current_version = os.environ["AYON_VERSION"]
+        platform_name = platform.system().lower()
+        if platform_name in {"windows", "linux"}:
+            executable_dir, exe_name = os.path.split(sys.executable)
+            install_root, dirname = os.path.split(executable_dir)
+            if current_version in dirname:
+                new_dirname = dirname.replace(
+                    current_version,
+                    self.expected_installer_version
+                )
+                executable = os.path.join(
+                    install_root, new_dirname, exe_name
+                )
+                if os.path.exists(executable):
+                    path = executable
+
+        elif platform_name == "darwin":
+            app_name = f"AYON {self.expected_installer_version}.app"
+            excutable = f"/Applications/{app_name}/Contents/MacOS/ayon"
+            if os.path.exists(excutable):
+                path = excutable
 
         self._installer_executable = path
         return path
@@ -1932,7 +1996,7 @@ class AYONDistribution:
         if installer_item is None:
             self._installer_executable = None
             self._installer_dist_error = (
-                f"Release bundle {self.bundle_name_to_use}"
+                f"Bundle '{self.project_bundle_name_to_use}'"
                 " does not have set installer version to use."
             )
             return
@@ -2090,7 +2154,7 @@ class AYONDistribution:
         """
         if self._dependency_package_item is NOT_SET:
             dependency_package_item = None
-            bundle = self.bundle_to_use
+            bundle = self.project_bundle_to_use
             if bundle is not None:
                 package_name = bundle.dependency_packages.get(
                     platform.system().lower()
@@ -2099,184 +2163,6 @@ class AYONDistribution:
                     package_name)
             self._dependency_package_item = dependency_package_item
         return self._dependency_package_item
-
-    def _prepare_bundles(self):
-        production_bundle = None
-        staging_bundle = None
-        dev_bundle = None
-        for bundle in self.bundle_items:
-            if bundle.is_production:
-                production_bundle = bundle
-            if bundle.is_staging:
-                staging_bundle = bundle
-            if bundle.is_dev and bundle.active_dev_user == self.active_user:
-                dev_bundle = bundle
-        self._production_bundle = production_bundle
-        self._staging_bundle = staging_bundle
-        self._dev_bundle = dev_bundle
-
-    def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
-        addons_metadata = self.get_addons_metadata()
-        output = []
-        addon_versions = {}
-        dev_addons = {}
-        bundle = self.bundle_to_use
-        if bundle is not None:
-            dev_addons = bundle.addons_dev_info
-            addon_versions = bundle.addon_versions
-
-        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
-        if not os.path.exists(unzip_temp):
-            os.makedirs(unzip_temp)
-            change_permissions_recursive(unzip_temp)
-
-        for addon_name, addon_item in self.addon_items.items():
-            # Dev mode can redirect addon directory elsewhere
-            if self.use_dev:
-                dev_addon_info = dev_addons.get(addon_name)
-                if dev_addon_info is not None and dev_addon_info.enabled:
-                    continue
-
-            addon_version = addon_versions.get(addon_name)
-            # Addon is not in bundle -> Skip
-            if addon_version is None:
-                continue
-
-            addon_version_item = addon_item.versions.get(addon_version)
-            # Addon version is not available in addons info
-            # - TODO handle this case (raise error, skip, store, report, ...)
-            if addon_version_item is None:
-                print(
-                    f"Version '{addon_version}' of addon '{addon_name}'"
-                    " is not available on server."
-                )
-                continue
-
-            if not addon_version_item.require_distribution:
-                continue
-            full_name = addon_version_item.full_name
-            addon_dest = os.path.join(self._addons_dirpath, full_name)
-            self.log.debug(f"Checking {full_name} in {addon_dest}")
-            progress_info = _read_progress_file(addon_dest)
-            state = UpdateState.OUTDATED
-            if progress_info:
-                if progress_info.get("state") == DistFileStates.done.value:
-                    state = UpdateState.UPDATED
-            else:
-                addon_in_metadata = (
-                    addon_name in addons_metadata
-                    and addon_version_item.version in (
-                        addons_metadata[addon_name]
-                    )
-                )
-                if addon_in_metadata and os.path.isdir(addon_dest):
-                    self.log.debug(
-                        f"Addon version folder {addon_dest} already exists."
-                    )
-                    state = UpdateState.UPDATED
-                    # Auto-create addons dist file extracted with old versions
-                    _create_progress_file(
-                        addon_dest,
-                        uuid.uuid4().hex,
-                        addon_version_item.checksum,
-                        addon_version_item.checksum_algorithm,
-                    )
-
-            download_dir = _get_dist_download_dir(uuid.uuid4().hex)
-            unzip_dir = os.path.join(unzip_temp, uuid.uuid4().hex)
-            self._dist_download_dirs.append(download_dir)
-            self._dist_unzip_dirs.append(unzip_dir)
-            downloader_data = {
-                "type": "addon",
-                "name": addon_name,
-                "version": addon_version
-            }
-            dist_item = DistributionItem(
-                addon_dest,
-                unzip_dir,
-                download_dirpath=download_dir,
-                state=state,
-                checksum=addon_version_item.checksum,
-                checksum_algorithm=addon_version_item.checksum_algorithm,
-                factory=self._dist_factory,
-                sources=list(addon_version_item.sources),
-                downloader_data=downloader_data,
-                item_label=full_name,
-                progress_dir=addon_dest,
-                logger=self.log
-            )
-            output.append({
-                "dist_item": dist_item,
-                "addon_name": addon_name,
-                "addon_version": addon_version,
-                "addon_item": addon_item,
-                "addon_version_item": addon_version_item,
-            })
-        return output
-
-    def _prepare_dependency_progress(self) -> Optional[DistributionItem]:
-        package = self.dependency_package_item
-        if package is None:
-            return None
-
-        metadata = self.get_dependency_metadata()
-        downloader_data = {
-            "type": "dependency_package",
-            "name": package.filename,
-            "platform": package.platform_name
-        }
-        package_dir = os.path.join(
-            self._dependency_dirpath, package.filename
-        )
-        # Future compatibility for dependency packages without .zip in dirname
-        new_basename = os.path.splitext(package.filename)[0]
-        new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
-
-        download_dir = _get_dist_download_dir(uuid.uuid4().hex)
-        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
-        self._dist_download_dirs.append(download_dir)
-        self._dist_unzip_dirs.append(unzip_dir)
-
-        self.log.debug(f"Checking {package.filename} in {package_dir}")
-        state = UpdateState.OUTDATED
-        progress_info = _read_progress_file(package_dir)
-        new_progress_info = _read_progress_file(new_package_dir)
-        if progress_info:
-            if progress_info.get("state") == DistFileStates.done.value:
-                state = UpdateState.UPDATED
-
-        elif new_progress_info:
-            if new_progress_info.get("state") == DistFileStates.done.value:
-                state = UpdateState.UPDATED
-                package_dir = new_package_dir
-
-        elif (
-            os.path.isdir(package_dir)
-            and package.filename in metadata
-        ):
-            state = UpdateState.UPDATED
-            # Autofix dependency packages extracted with old versions
-            _create_progress_file(
-                package_dir,
-                uuid.uuid4().hex,
-                package.checksum,
-                package.checksum_algorithm,
-            )
-
-        return DistributionItem(
-            package_dir,
-            unzip_dir,
-            download_dirpath=download_dir,
-            state=state,
-            checksum=package.checksum,
-            checksum_algorithm=package.checksum_algorithm,
-            factory=self._dist_factory,
-            sources=package.sources,
-            downloader_data=downloader_data,
-            item_label=os.path.splitext(package.filename)[0],
-            progress_dir=package_dir,
-            logger=self.log,
-        )
 
     def get_addon_dist_items(self) -> list[dict[str, Any]]:
         """Addon distribution items.
@@ -2683,12 +2569,12 @@ class AYONDistribution:
 
         addon_versions = {}
         dev_addons = {}
-        bundle = self.bundle_to_use
+        bundle = self.project_bundle_to_use
         if bundle is not None:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
 
-        for addon_name, addon_item in self.addon_items.items():
+        for addon_name, _ in self.addon_items.items():
             addon_version = addon_versions.get(addon_name)
             # Addon is not in bundle -> Skip
             if addon_version is None:
@@ -2699,6 +2585,244 @@ class AYONDistribution:
                 output.append(dev_addon_info.path)
 
         return output
+
+    def _prepare_bundles(self):
+        studio_production_bundle = None
+        studio_staging_bundle = None
+        studio_dev_bundle = None
+        for bundle in self.bundle_items:
+            if bundle.is_project_bundle:
+                continue
+
+            if bundle.is_production:
+                studio_production_bundle = bundle
+            if bundle.is_staging:
+                studio_staging_bundle = bundle
+            if bundle.is_dev and bundle.active_dev_user == self.active_user:
+                studio_dev_bundle = bundle
+        self._studio_production_bundle = studio_production_bundle
+        self._studio_staging_bundle = studio_staging_bundle
+        self._studio_dev_bundle = studio_dev_bundle
+
+    def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
+        addons_metadata = self.get_addons_metadata()
+        output = []
+        addon_versions = {}
+        dev_addons = {}
+        bundle = self.project_bundle_to_use
+        if bundle is not None:
+            dev_addons = bundle.addons_dev_info
+            addon_versions = bundle.addon_versions
+
+        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
+        if not os.path.exists(unzip_temp):
+            os.makedirs(unzip_temp)
+            change_permissions_recursive(unzip_temp)
+
+        for addon_name, addon_item in self.addon_items.items():
+            # Dev mode can redirect addon directory elsewhere
+            if self.use_dev:
+                dev_addon_info = dev_addons.get(addon_name)
+                if dev_addon_info is not None and dev_addon_info.enabled:
+                    continue
+
+            addon_version = addon_versions.get(addon_name)
+            # Addon is not in bundle -> Skip
+            if addon_version is None:
+                continue
+
+            addon_version_item = addon_item.versions.get(addon_version)
+            # Addon version is not available in addons info
+            # - TODO handle this case (raise error, skip, store, report, ...)
+            if addon_version_item is None:
+                print(
+                    f"Version '{addon_version}' of addon '{addon_name}'"
+                    " is not available on server."
+                )
+                continue
+
+            if not addon_version_item.require_distribution:
+                continue
+            full_name = addon_version_item.full_name
+            addon_dest = os.path.join(self._addons_dirpath, full_name)
+            self.log.debug(f"Checking {full_name} in {addon_dest}")
+            progress_info = _read_progress_file(addon_dest)
+            state = UpdateState.OUTDATED
+            if progress_info:
+                if progress_info.get("state") == DistFileStates.done.value:
+                    state = UpdateState.UPDATED
+            else:
+                addon_in_metadata = (
+                    addon_name in addons_metadata
+                    and addon_version_item.version in (
+                        addons_metadata[addon_name]
+                    )
+                )
+                if addon_in_metadata and os.path.isdir(addon_dest):
+                    self.log.debug(
+                        f"Addon version folder {addon_dest} already exists."
+                    )
+                    state = UpdateState.UPDATED
+                    # Auto-create addons dist file extracted with old versions
+                    _create_progress_file(
+                        addon_dest,
+                        uuid.uuid4().hex,
+                        addon_version_item.checksum,
+                        addon_version_item.checksum_algorithm,
+                    )
+
+            download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+            unzip_dir = os.path.join(unzip_temp, uuid.uuid4().hex)
+            self._dist_download_dirs.append(download_dir)
+            self._dist_unzip_dirs.append(unzip_dir)
+            downloader_data = {
+                "type": "addon",
+                "name": addon_name,
+                "version": addon_version
+            }
+            dist_item = DistributionItem(
+                addon_dest,
+                unzip_dir,
+                download_dirpath=download_dir,
+                state=state,
+                checksum=addon_version_item.checksum,
+                checksum_algorithm=addon_version_item.checksum_algorithm,
+                factory=self._dist_factory,
+                sources=list(addon_version_item.sources),
+                downloader_data=downloader_data,
+                item_label=full_name,
+                progress_dir=addon_dest,
+                logger=self.log
+            )
+            output.append({
+                "dist_item": dist_item,
+                "addon_name": addon_name,
+                "addon_version": addon_version,
+                "addon_item": addon_item,
+                "addon_version_item": addon_version_item,
+            })
+        return output
+
+    def _prepare_dependency_progress(self) -> Optional[DistributionItem]:
+        package = self.dependency_package_item
+        if package is None:
+            return None
+
+        metadata = self.get_dependency_metadata()
+        downloader_data = {
+            "type": "dependency_package",
+            "name": package.filename,
+            "platform": package.platform_name
+        }
+        package_dir = os.path.join(
+            self._dependency_dirpath, package.filename
+        )
+        # Future compatibility for dependency packages without .zip in dirname
+        new_basename = os.path.splitext(package.filename)[0]
+        new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
+
+        download_dir = _get_dist_download_dir(uuid.uuid4().hex)
+        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
+        self._dist_download_dirs.append(download_dir)
+        self._dist_unzip_dirs.append(unzip_dir)
+
+        self.log.debug(f"Checking {package.filename} in {package_dir}")
+        state = UpdateState.OUTDATED
+        progress_info = _read_progress_file(package_dir)
+        new_progress_info = _read_progress_file(new_package_dir)
+        if progress_info:
+            if progress_info.get("state") == DistFileStates.done.value:
+                state = UpdateState.UPDATED
+
+        elif new_progress_info:
+            if new_progress_info.get("state") == DistFileStates.done.value:
+                state = UpdateState.UPDATED
+                package_dir = new_package_dir
+
+        elif (
+            os.path.isdir(package_dir)
+            and package.filename in metadata
+        ):
+            state = UpdateState.UPDATED
+            # Autofix dependency packages extracted with old versions
+            _create_progress_file(
+                package_dir,
+                uuid.uuid4().hex,
+                package.checksum,
+                package.checksum_algorithm,
+            )
+
+        return DistributionItem(
+            package_dir,
+            unzip_dir,
+            download_dirpath=download_dir,
+            state=state,
+            checksum=package.checksum,
+            checksum_algorithm=package.checksum_algorithm,
+            factory=self._dist_factory,
+            sources=package.sources,
+            downloader_data=downloader_data,
+            item_label=os.path.splitext(package.filename)[0],
+            progress_dir=package_dir,
+            logger=self.log,
+        )
+
+    def _get_project_bundle(self) -> Optional[Bundle]:
+        if self._project_bundle is not NOT_SET:
+            return self._project_bundle
+
+        # Project bundle is set and is same as studio bundle
+        studio_bundle_name = self.studio_bundle_to_use.name
+        if self._project_bundle_name == studio_bundle_name:
+            self._project_bundle = None
+            return None
+
+        if (
+            not self._project_bundle_name
+            and self._project_name is not NOT_SET
+        ):
+            project = ayon_api.get_project(self._project_name)
+            project_bundles = project["data"].get("bundle", {})
+            bundle_name = None
+            if self.use_staging:
+                bundle_name = project_bundles.get("staging")
+            elif not self.use_dev:
+                bundle_name = project_bundles.get("production")
+
+            if bundle_name:
+                self._project_bundle_name = bundle_name
+
+        if not self._project_bundle_name:
+            self._project_bundle = None
+            return None
+
+        bundle = next(
+            (
+                bundle
+                for bundle in self.bundle_items
+                if bundle.name == self._project_bundle_name
+            ),
+            None
+        )
+        if bundle is None:
+            raise BundleNotFoundError(self._project_bundle_name)
+
+        if studio_bundle_name:
+            key_values = {
+                "summary": "true",
+                "bundle": studio_bundle_name,
+            }
+            query = urlencode(key_values)
+            response = ayon_api.get(f"settings?{query}")
+            # NOTE This does modify the bundle data
+            # - should be fine as it really does fill up the project bundle
+            for addon in response.data["addons"]:
+                addon_name = addon["name"]
+                addon_version = addon["version"]
+                bundle.addon_versions[addon_name] = addon_version
+
+        self._project_bundle = bundle
+        return bundle
 
 
 def cli(*args):

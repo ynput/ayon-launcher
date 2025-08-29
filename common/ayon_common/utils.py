@@ -21,6 +21,7 @@ IS_BUILT_APPLICATION = getattr(sys, "frozen", False)
 HEADLESS_MODE_ENABLED = os.getenv("AYON_HEADLESS_MODE") == "1"
 # UUID of the default Windows download folder
 WIN_DOWNLOAD_FOLDER_ID = UUID("{374DE290-123F-4565-9164-39C4925E467B}")
+CSIDL_DESKTOP = 0
 IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
@@ -780,7 +781,7 @@ def _is_launcher_launcher_protocol_registered() -> bool:
 def _register_linux_launcher_protocol() -> bool:
     # Add 'ayon.desktop' to applications
     dst_desktop_file_path = _get_linux_desktop_file_path()
-    desktop_filename, apps_dir = os.path.split(dst_desktop_file_path)
+    apps_dir, desktop_filename = os.path.split(dst_desktop_file_path)
     # Skip if applications directory does not exist
     # - e.g. on headless linux
     if not os.path.exists(apps_dir):
@@ -891,7 +892,7 @@ def _get_installed_shim_version() -> str:
 
 def _deploy_shim_windows(
     installer_shim_root: str,
-    create_desktop_icons: bool
+    create_desktop_icons: bool,
 ) -> bool:
     """Deploy shim executable on Windows.
 
@@ -981,9 +982,47 @@ def _deploy_shim_macos(installer_shim_root: str):
             subprocess.run(["hdiutil", "detach", hdi_mounted_volume])
 
 
+def _create_windows_shortcut() -> None:
+    """Create Windows shortcut for AYON shim.
+
+    This is used if user does select to create desktop shortcuts on AYON
+        launcher install but the shim is already installed.
+
+    """
+    import ctypes
+    from ctypes import windll
+    from win32com.client import Dispatch
+
+    MAX_PATH = 260
+    buf = ctypes.create_unicode_buffer(MAX_PATH)
+    result = windll.shell32.SHGetFolderPathW(
+        None, CSIDL_DESKTOP, None, 0, buf
+    )
+    if result == 0:
+        desktop_dir = buf.value
+    else:
+        print(f"Failed to get desktop path, error code: {result}")
+        desktop_dir = os.path.expanduser("~/Desktop")
+
+    shortcut_path = os.path.join(desktop_dir, "AYON.lnk")
+    if os.path.exists(shortcut_path):
+        return
+
+    path = get_shim_executable_path()
+    if not os.path.exists(path):
+        return
+
+    shell = Dispatch("WScript.Shell")
+    shortcut = shell.CreateShortCut(shortcut_path)
+    shortcut.Targetpath = path
+    shortcut.WorkingDirectory = os.path.dirname(path)
+    shortcut.IconLocation = path
+    shortcut.save()
+
+
 def deploy_ayon_launcher_shims(
-    create_desktop_icons: Optional[bool] = False,
-    ensure_protocol_is_registered: Optional[bool] = False,
+    ensure_protocol_is_registered: bool = False,
+    create_desktop_icons: bool = False,
 ):
     """Deploy shim executables for AYON launcher.
 
@@ -991,10 +1030,10 @@ def deploy_ayon_launcher_shims(
         issue caused in v1.1.0, since 1.1.1 is used different registry path.
 
     Args:
-        create_desktop_icons (Optional[bool]): Create desktop shortcuts. Used
-            only on windows.
-        ensure_protocol_is_registered (Optional[bool]): Validate if protocol is
+        ensure_protocol_is_registered (bool): Validate if protocol is
             registered on windows.
+        create_desktop_icons (bool): Create desktop shortcuts. Used
+            only on windows.
 
     """
     if not IS_BUILT_APPLICATION:
@@ -1021,11 +1060,16 @@ def deploy_ayon_launcher_shims(
         # Make sure windows registers are correctly set for each user
         if ensure_protocol_is_registered:
             register_ayon_launcher_protocol()
+        if platform_name == "windows" and create_desktop_icons:
+            _create_windows_shortcut()
         return
 
     platform_name = platform.system().lower()
     if platform_name == "windows":
-        _deploy_shim_windows(installer_shim_root, create_desktop_icons)
+        _deploy_shim_windows(
+            installer_shim_root,
+            create_desktop_icons,
+        )
 
     elif platform_name == "linux":
         _deploy_shim_linux(installer_shim_root)
