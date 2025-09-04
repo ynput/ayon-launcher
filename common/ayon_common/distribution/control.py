@@ -2600,9 +2600,19 @@ class AYONDistribution:
                 studio_staging_bundle = bundle
             if bundle.is_dev and bundle.active_dev_user == self.active_user:
                 studio_dev_bundle = bundle
+
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
         self._studio_dev_bundle = studio_dev_bundle
+        if (
+                not self._studio_production_bundle
+                or not self._studio_staging_bundle
+                or not self._studio_dev_bundle):
+            msg = (
+                "Server does not have defined required production, "
+                f'staging or dev bundle (for user "{self.active_user}").'
+            )
+            raise RuntimeError(msg)
 
     def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
         addons_metadata = self.get_addons_metadata()
