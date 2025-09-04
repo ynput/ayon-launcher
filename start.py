@@ -400,6 +400,8 @@ def _connect_to_ayon_server(force=False, username=None):
         need_server, need_api_key = need_server_or_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
+    if os.getenv(SERVER_API_ENV_KEY):
+        _print("*** Using API key from environment variable to connect")
     if not need_server and not need_api_key:
         _print(f">>> Connected to AYON server {current_url}")
         return
