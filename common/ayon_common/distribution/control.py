@@ -2604,13 +2604,20 @@ class AYONDistribution:
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
         self._studio_dev_bundle = studio_dev_bundle
-        if (
-                not self._studio_production_bundle
-                or not self._studio_staging_bundle
-                or not self._studio_dev_bundle):
+        # Check for required bundles individually and raise specific errors
+        if not self._studio_production_bundle:
             msg = (
-                "Server does not have defined required production, "
-                f'staging or dev bundle (for user "{self.active_user}").'
+                "Server does not have a defined required production bundle."
+            )
+            raise RuntimeError(msg)
+        if is_staging_enabled() and not self._studio_staging_bundle:
+            msg = (
+                "Server does not have a defined required staging bundle."
+            )
+            raise RuntimeError(msg)
+        if is_dev_mode_enabled() and not self._studio_dev_bundle:
+            msg = (
+                f'Server does not have a defined required dev bundle for user "{self.active_user}".'
             )
             raise RuntimeError(msg)
 
