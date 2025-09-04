@@ -2604,22 +2604,6 @@ class AYONDistribution:
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
         self._studio_dev_bundle = studio_dev_bundle
-        # Check for required bundles individually and raise specific errors
-        if not self._studio_production_bundle:
-            msg = (
-                "Server does not have a defined required production bundle."
-            )
-            raise RuntimeError(msg)
-        if is_staging_enabled() and not self._studio_staging_bundle:
-            msg = (
-                "Server does not have a defined required staging bundle."
-            )
-            raise RuntimeError(msg)
-        if is_dev_mode_enabled() and not self._studio_dev_bundle:
-            msg = (
-                f'Server does not have a defined required dev bundle for user "{self.active_user}".'
-            )
-            raise RuntimeError(msg)
 
     def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
         addons_metadata = self.get_addons_metadata()
@@ -2787,6 +2771,10 @@ class AYONDistribution:
     def _get_project_bundle(self) -> Optional[Bundle]:
         if self._project_bundle is not NOT_SET:
             return self._project_bundle
+
+        if self.studio_bundle_to_use is None:
+            self._project_bundle = None
+            return None
 
         # Project bundle is set and is same as studio bundle
         studio_bundle_name = self.studio_bundle_to_use.name
