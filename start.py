@@ -612,13 +612,19 @@ def _start_distribution():
             mode = f"dev for user '{username}'"
         elif distribution.use_staging:
             mode = "staging"
-        for bundle, bundle_name, bundle_type in (
-            (studio_bundle, studio_bundle_name, "studio"),
-            (project_bundle, project_bundle_name, "project")
+
+        _items = []
+        if studio_bundle is None:
+            _items.append((studio_bundle_name, "studio"))
+
+        if (
+            project_bundle is None
+            and studio_bundle_name != project_bundle_name
         ):
-            if bundle is not None:
-                pass
-            elif bundle_name:
+            _items.append((project_bundle_name, "project"))
+
+        for bundle_name, bundle_type in _items:
+            if bundle_name:
                 _print((
                     f"!!! Requested {bundle_type} bundle '{bundle_name}'"
                     " is not available on server."
