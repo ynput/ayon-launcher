@@ -287,6 +287,8 @@ class Installer:
 class AddonDevInfo:
     enabled: bool
     path: Union[str, None]
+    path_liunx: Union[str, None] = None
+    path_darwin: Union[str, None] = None
 
 
 @dataclass
@@ -307,7 +309,12 @@ class Bundle:
     @classmethod
     def from_dict(cls, data):
         addons_dev_info = {
-            addon_name: AddonDevInfo(info["enabled"], info["path"])
+            addon_name: AddonDevInfo(
+                info["enabled"],
+                info["path"],
+                info["path_linux"],
+                info["path_darwin"],
+            )
             for addon_name, info in data.get("addonDevelopment", {}).items()
         }
         return cls(

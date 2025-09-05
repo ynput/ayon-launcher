@@ -2582,6 +2582,14 @@ class AYONDistribution:
 
             dev_addon_info = dev_addons.get(addon_name)
             if dev_addon_info is not None and dev_addon_info.enabled:
+                if platform.system().lower() == "linux":
+                    if dev_addon_info.path_liunx:
+                        output.append(dev_addon_info.path_liunx)
+                        continue
+                elif platform.system().lower() == "darwin":
+                    if dev_addon_info.path_darwin:
+                        output.append(dev_addon_info.path_darwin)
+                        continue
                 output.append(dev_addon_info.path)
 
         return output
