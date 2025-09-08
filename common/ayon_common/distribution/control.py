@@ -2587,10 +2587,12 @@ class AYONDistribution:
                         os.path.expandvars(dev_addon_info.path.format_map(os.environ))
                     )
                 except (KeyError, ValueError):
-                    self.log.warning(
+                    msg = (
                         f"Failed to format path '{dev_addon_info.path}'"
                         f" for addon '{addon_name}'."
                     )
+                    self.log.warning(msg)
+                    raise RuntimeError(msg)
 
         return output
 
