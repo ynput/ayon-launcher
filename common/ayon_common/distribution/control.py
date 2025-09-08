@@ -2610,6 +2610,7 @@ class AYONDistribution:
                 studio_staging_bundle = bundle
             if bundle.is_dev and bundle.active_dev_user == self.active_user:
                 studio_dev_bundle = bundle
+
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
         self._studio_dev_bundle = studio_dev_bundle
@@ -2780,6 +2781,10 @@ class AYONDistribution:
     def _get_project_bundle(self) -> Optional[Bundle]:
         if self._project_bundle is not NOT_SET:
             return self._project_bundle
+
+        if self.studio_bundle_to_use is None:
+            self._project_bundle = None
+            return None
 
         # Project bundle is set and is same as studio bundle
         studio_bundle_name = self.studio_bundle_to_use.name
