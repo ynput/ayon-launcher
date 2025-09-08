@@ -312,8 +312,8 @@ class Bundle:
             addon_name: AddonDevInfo(
                 info["enabled"],
                 info["path"],
-                info["path_linux"],
-                info["path_darwin"],
+                info["pathLinux"],
+                info["pathDarwin"],
             )
             for addon_name, info in data.get("addonDevelopment", {}).items()
         }
