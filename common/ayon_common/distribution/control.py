@@ -2589,7 +2589,7 @@ class AYONDistribution:
                 except KeyError:
                     self.log.warning(
                         f"Failed to format path '{dev_addon_info.path}'"
-                        " for addon '{addon_name}'."
+                        f" for addon '{addon_name}'."
                     )
 
         return output
