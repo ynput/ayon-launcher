@@ -2582,7 +2582,9 @@ class AYONDistribution:
 
             dev_addon_info = dev_addons.get(addon_name)
             if dev_addon_info is not None and dev_addon_info.enabled:
-                output.append(dev_addon_info.path)
+                output.append(
+                    dev_addon_info.path.format(os.environ)
+                )
 
         return output
 
