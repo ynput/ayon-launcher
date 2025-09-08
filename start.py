@@ -394,12 +394,16 @@ def _connect_to_ayon_server(force=False, username=None):
         _print("!!! Login UI was requested in headless mode.")
         sys.exit(1)
 
+    if os.getenv(SERVER_API_ENV_KEY):
+        _print("*** Using API key from environment variable to connect")
+
     load_environments()
     need_server = need_api_key = True
     if not force:
         need_server, need_api_key = need_server_or_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
+
     if not need_server and not need_api_key:
         _print(f">>> Connected to AYON server {current_url}")
         return
@@ -608,13 +612,19 @@ def _start_distribution():
             mode = f"dev for user '{username}'"
         elif distribution.use_staging:
             mode = "staging"
-        for bundle, bundle_name, bundle_type in (
-            (studio_bundle, studio_bundle_name, "studio"),
-            (project_bundle, project_bundle_name, "project")
+
+        _items = []
+        if studio_bundle is None:
+            _items.append((studio_bundle_name, "studio"))
+
+        if (
+            project_bundle is None
+            and studio_bundle_name != project_bundle_name
         ):
-            if bundle is not None:
-                pass
-            elif bundle_name:
+            _items.append((project_bundle_name, "project"))
+
+        for bundle_name, bundle_type in _items:
+            if bundle_name:
                 _print((
                     f"!!! Requested {bundle_type} bundle '{bundle_name}'"
                     " is not available on server."
