@@ -2584,7 +2584,7 @@ class AYONDistribution:
             if dev_addon_info is not None and dev_addon_info.enabled:
                 try:
                     output.append(
-                        dev_addon_info.path.format(**os.environ)
+                        os.path.expandvars(dev_addon_info.path.format_map(os.environ))
                     )
                 except (KeyError, ValueError):
                     self.log.warning(
