@@ -57,6 +57,20 @@ int main(int argc, char *argv[]) {
         }
         new_environ[env_size] = NULL;
     }
+    auto stdout = root.find("stdout");
+    std::string outPathStr;
+    if (stdoutIt != root.end() && stdoutIt->is_string()) {
+        outPathStr = stdoutIt->get<std::string>();
+    }
+    if (outPathStr.empty()) outPathStr = "/dev/null";
+
+    auto stderr = root.find("stderr");
+    std::string errPathStr;
+    if (stderrIt != root.end() && stderrIt->is_string()) {
+        errPathStr = stderrIt->get<std::string>();
+    }
+    if (errPathStr.empty()) errPathStr = "/dev/null";
+
     auto args = root.find("args");
     if (args != root.end() && args->is_array()) {
         char **exec_args = (char **)malloc((args->size() + 2) * sizeof(char *));
@@ -74,10 +88,10 @@ int main(int argc, char *argv[]) {
         posix_spawn_file_actions_init(&file_actions);
 
         // Redirect stdout to /dev/null
-        posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, outPathStr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
         // Redirect stderr to /dev/null
-        posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, "/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, errPathStr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
         posix_spawnattr_t spawnattr;
         posix_spawnattr_init(&spawnattr);
