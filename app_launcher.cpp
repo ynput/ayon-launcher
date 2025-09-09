@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     bool addStderrRedirection = true;
     if (stderrIt != root.end()) {
         if (stderrIt->is_null()) {
-            addstderrRedirection = false;  // do not redirect stderr if explicitly null
+            addStderrRedirection = false;  // do not redirect stderr if explicitly null
         } else if (stderrIt->is_string()) {
             errPathStr = stderrIt->get<std::string>();
         }
