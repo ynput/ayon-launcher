@@ -2582,7 +2582,17 @@ class AYONDistribution:
 
             dev_addon_info = dev_addons.get(addon_name)
             if dev_addon_info is not None and dev_addon_info.enabled:
-                output.append(dev_addon_info.path)
+                try:
+                    output.append(
+                        os.path.expandvars(dev_addon_info.path.format_map(os.environ))
+                    )
+                except (KeyError, ValueError):
+                    msg = (
+                        f"Failed to format path '{dev_addon_info.path}'"
+                        f" for addon '{addon_name}'."
+                    )
+                    self.log.warning(msg)
+                    raise RuntimeError(msg)
 
         return output
 
