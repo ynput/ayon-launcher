@@ -1,7 +1,10 @@
 /**
-This is a simple C++ equivalent of the `app_launcher.py` with one difference:
-it completely detach from the parent process. This is needed to avoid
-hanging child processes when the parent process is killed.
+LINUX only
+
+This is a simple C++ application to start process and completely detach it
+from the parent process. This is needed to avoid hanging child processes
+when the parent process is killed.
+
 You can use it instead of the `app_launcher.py` by building it with:
 ```shell
 CPLUS_INCLUDE_PATH=/../ayon-launcher/vendor/include
