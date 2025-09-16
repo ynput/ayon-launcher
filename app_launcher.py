@@ -4,8 +4,6 @@ This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.
 """
 
-
-import contextlib
 import os
 import sys
 import json
@@ -33,12 +31,6 @@ def main(input_json_path):
 
     # Change environment variables
     env = data.get("env") or {}
-
-    # Add AYON_PID_FILE environment variable if pid_file is specified
-    pid_file_path = data.get("pid_file")
-    if pid_file_path and "AYON_PID_FILE" not in env:
-        env["AYON_PID_FILE"] = pid_file_path
-
     for key, value in env.items():
         os.environ[key] = value
 
@@ -82,27 +74,11 @@ def main(input_json_path):
     os.remove(pid_path)
 
     try:
-        initial_pid = int(content)
+        pid = int(content)
     except Exception:
-        initial_pid = None
+        pid = None
 
-    # Check if shell script provided actual application PID via PID file
-    final_pid = initial_pid
-    pid_file_path = data.get("pid_file")
-    if pid_file_path and final_pid:
-        # Wait a short time for shell script to potentially write actual PID
-        import time
-        time.sleep(0.5)  # Give shell script time to launch app and write PID
-
-        with contextlib.suppress(OSError, ValueError):
-            with open(pid_file_path, "r") as pid_file:
-                script_pid_content = pid_file.read().strip()
-                if script_pid_content.isdigit():
-                    script_pid = int(script_pid_content)
-                    # Only use if different from shell PID
-                    if script_pid != final_pid:
-                        final_pid = script_pid
-    data["pid"] = final_pid
+    data["pid"] = pid
     with open(input_json_path, "w") as stream:
         json.dump(data, stream)
     sys.exit(0)
