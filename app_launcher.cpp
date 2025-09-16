@@ -19,6 +19,8 @@ g++ app_launcher.cpp -o app_launcher
 #include <sys/wait.h>
 #include <string.h>
 #include <fstream>
+#include <thread>
+#include <chrono>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
@@ -48,6 +50,14 @@ int main(int argc, char *argv[]) {
     char **new_environ = NULL;
     if (env != root.end() && env->is_object()) {
         int env_size = env->size();
+
+        // Check if we need to add AYON_PID_FILE to environment
+        auto pid_file_it = root.find("pid_file");
+        bool has_pid_file = (pid_file_it != root.end() && pid_file_it->is_string());
+        if (has_pid_file && env->find("AYON_PID_FILE") == env->end()) {
+            env_size++; // Add space for AYON_PID_FILE
+        }
+
         new_environ = (char **)malloc((env_size + 1) * sizeof(char *));
         int i = 0;
 
@@ -58,7 +68,24 @@ int main(int argc, char *argv[]) {
                 i++;
             }
         }
+
+        // Add AYON_PID_FILE environment variable if pid_file is specified
+        if (has_pid_file && env->find("AYON_PID_FILE") == env->end()) {
+            std::string pid_file_env = "AYON_PID_FILE=" + pid_file_it->get<std::string>();
+            new_environ[i] = strdup(pid_file_env.c_str());
+            i++;
+        }
+
         new_environ[env_size] = NULL;
+    } else {
+        // No env object, but check if we need to create one for pid_file
+        auto pid_file_it = root.find("pid_file");
+        if (pid_file_it != root.end() && pid_file_it->is_string()) {
+            new_environ = (char **)malloc(2 * sizeof(char *));
+            std::string pid_file_env = "AYON_PID_FILE=" + pid_file_it->get<std::string>();
+            new_environ[0] = strdup(pid_file_env.c_str());
+            new_environ[1] = NULL;
+        }
     }
     auto stdoutIt = root.find("stdout");
     std::string outPathStr;
@@ -113,13 +140,49 @@ int main(int argc, char *argv[]) {
         posix_spawnattr_t spawnattr;
         posix_spawnattr_init(&spawnattr);
 
-        pid_t pid;
-        int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
+        pid_t initial_pid;
+        int status = posix_spawn(&initial_pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
+
+        pid_t final_pid = initial_pid;
+
         if (status == 0) {
-            root["pid"] = pid;
+            // Check if shell script provided actual application PID via PID file
+            auto pid_file_it = root.find("pid_file");
+            if (pid_file_it != root.end() && pid_file_it->is_string()) {
+                std::string pid_file_path = pid_file_it->get<std::string>();
+
+                // Wait a short time for shell script to potentially write actual PID
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+                std::ifstream pid_file(pid_file_path);
+                if (pid_file.is_open()) {
+                    std::string pid_content;
+                    std::getline(pid_file, pid_content);
+                    pid_file.close();
+
+                    // Remove any whitespace
+                    pid_content.erase(0, pid_content.find_first_not_of(" \t\r\n"));
+                    pid_content.erase(pid_content.find_last_not_of(" \t\r\n") + 1);
+
+                    if (!pid_content.empty()) {
+                        try {
+                            pid_t script_pid = std::stoi(pid_content);
+                            if (script_pid != initial_pid && script_pid > 0) {
+                                final_pid = script_pid;
+                                printf("Shell script provided actual application PID: %d\n", script_pid);
+                            }
+                        } catch (const std::exception& e) {
+                            // Invalid PID in file, use initial_pid
+                        }
+                    }
+                }
+            }
+
+            root["pid"] = final_pid;
         } else {
             root["pid"] = nullptr;
         }
+
         std::ofstream output_file(argv[1]);
         if (output_file.is_open()) {
             output_file << root.dump();
