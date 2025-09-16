@@ -71,8 +71,8 @@ def main(input_json_path):
 
     post_args_s = ""
     if post_args:
-        joined_ags = " ".join(post_args)
-        post_args_s = f" {joined_ags}"
+        joined_args = " ".join(post_args)
+        post_args_s = f" {joined_args}"
 
     shell_cmd = f"{args}{post_args_s} & echo $! > {pid_path}"
     os.system(shell_cmd)
