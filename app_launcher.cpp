@@ -169,7 +169,6 @@ int main(int argc, char *argv[]) {
                             pid_t script_pid = std::stoi(pid_content);
                             if (script_pid != initial_pid && script_pid > 0) {
                                 final_pid = script_pid;
-                                printf("Shell script provided actual application PID: %d\n", script_pid);
                             }
                         } catch (const std::exception& e) {
                             // Invalid PID in file, use initial_pid

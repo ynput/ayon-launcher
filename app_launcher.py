@@ -3,14 +3,13 @@
 This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.
 """
-
-
 import contextlib
 import os
 import sys
 import json
 import shlex
 import tempfile
+import time
 
 
 def main(input_json_path):
@@ -91,7 +90,6 @@ def main(input_json_path):
     pid_file_path = data.get("pid_file")
     if pid_file_path and final_pid:
         # Wait a short time for shell script to potentially write actual PID
-        import time
         time.sleep(0.5)  # Give shell script time to launch app and write PID
 
         with contextlib.suppress(OSError, ValueError):
