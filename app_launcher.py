@@ -43,7 +43,30 @@ def main(input_json_path):
     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
         pid_path = tmpfile.name
 
-    shell_cmd = args + f" & && echo $! > {pid_path}"
+    stdout_path = stderr_path = "/dev/null"
+    if "stdout" in data:
+        stdout_path = data["stdout"]
+
+    if "stderr" in data:
+        stderr_path = data["stderr"]
+
+    post_args = []
+    if stdout_path:
+        stdout = f">{stdout_path}"
+        post_args.append(stdout)
+
+    if stderr_path:
+        if stdout_path == stderr_path:
+            stderr_path = "&1"
+        stderr = f"2>{stderr_path}"
+        post_args.append(stderr)
+
+    post_args_s = ""
+    if post_args:
+        joined_ags = " ".join(post_args)
+        post_args_s = f" {joined_ags}"
+
+    shell_cmd = f"{args}{post_args_s} & echo $! > {pid_path}"
     os.system(shell_cmd)
 
     with open(pid_path, "r") as stream:
