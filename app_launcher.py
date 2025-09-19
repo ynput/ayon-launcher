@@ -82,7 +82,7 @@ def main(input_json_path):
 
     # Check if shell script provided actual application PID via PID file
     final_pid = initial_pid
-    if pid_file_path and final_pid:
+    if pid_file_path and final_pid is not None:
         # Wait a short time for shell script to potentially write actual PID
         time.sleep(0.5)  # Give shell script time to launch app and write PID
 
