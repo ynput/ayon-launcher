@@ -31,6 +31,12 @@ def main(input_json_path):
     with open(input_json_path, "r") as stream:
         data = json.load(stream)
 
+
+    # Add AYON_PID_FILE environment variable if pid_file is specified
+    pid_file_path = data.get("pid_file")
+    if pid_file_path and "AYON_PID_FILE" not in env:
+        env["AYON_PID_FILE"] = pid_file_path
+
     # Change environment variables
     env = data.get("env") or {}
     for key, value in env.items():
@@ -76,7 +82,7 @@ def main(input_json_path):
     os.remove(pid_path)
 
     try:
-        pid = int(content)
+        initial_pid = int(content)
     except Exception:
         initial_pid = None
 
