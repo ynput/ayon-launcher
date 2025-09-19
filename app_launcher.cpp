@@ -19,8 +19,6 @@ g++ app_launcher.cpp -o app_launcher
 #include <sys/wait.h>
 #include <string.h>
 #include <fstream>
-#include <thread>
-#include <chrono>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
@@ -50,14 +48,6 @@ int main(int argc, char *argv[]) {
     char **new_environ = NULL;
     if (env != root.end() && env->is_object()) {
         int env_size = env->size();
-
-        // Check if we need to add AYON_PID_FILE to environment
-        auto pid_file_it = root.find("pid_file");
-        bool has_pid_file = (pid_file_it != root.end() && pid_file_it->is_string());
-        if (has_pid_file && env->find("AYON_PID_FILE") == env->end()) {
-            env_size++; // Add space for AYON_PID_FILE
-        }
-
         new_environ = (char **)malloc((env_size + 1) * sizeof(char *));
         int i = 0;
 
@@ -68,24 +58,7 @@ int main(int argc, char *argv[]) {
                 i++;
             }
         }
-
-        // Add AYON_PID_FILE environment variable if pid_file is specified
-        if (has_pid_file && env->find("AYON_PID_FILE") == env->end()) {
-            std::string pid_file_env = "AYON_PID_FILE=" + pid_file_it->get<std::string>();
-            new_environ[i] = strdup(pid_file_env.c_str());
-            i++;
-        }
-
         new_environ[env_size] = NULL;
-    } else {
-        // No env object, but check if we need to create one for pid_file
-        auto pid_file_it = root.find("pid_file");
-        if (pid_file_it != root.end() && pid_file_it->is_string()) {
-            new_environ = (char **)malloc(2 * sizeof(char *));
-            std::string pid_file_env = "AYON_PID_FILE=" + pid_file_it->get<std::string>();
-            new_environ[0] = strdup(pid_file_env.c_str());
-            new_environ[1] = NULL;
-        }
     }
     auto stdoutIt = root.find("stdout");
     std::string outPathStr;
@@ -140,11 +113,8 @@ int main(int argc, char *argv[]) {
         posix_spawnattr_t spawnattr;
         posix_spawnattr_init(&spawnattr);
 
-        pid_t initial_pid;
-        int status = posix_spawn(&initial_pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
-
-        pid_t final_pid = initial_pid;
-
+        pid_t pid;
+        int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
         if (status == 0) {
             // Check if shell script provided actual application PID via PID file
             auto pid_file_it = root.find("pid_file");
@@ -181,7 +151,6 @@ int main(int argc, char *argv[]) {
         } else {
             root["pid"] = nullptr;
         }
-
         std::ofstream output_file(argv[1]);
         if (output_file.is_open()) {
             output_file << root.dump();

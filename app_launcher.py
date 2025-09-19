@@ -4,6 +4,7 @@ This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.
 """
 import contextlib
+
 import os
 import sys
 import json
@@ -32,12 +33,6 @@ def main(input_json_path):
 
     # Change environment variables
     env = data.get("env") or {}
-
-    # Add AYON_PID_FILE environment variable if pid_file is specified
-    pid_file_path = data.get("pid_file")
-    if pid_file_path and "AYON_PID_FILE" not in env:
-        env["AYON_PID_FILE"] = pid_file_path
-
     for key, value in env.items():
         os.environ[key] = value
 
@@ -81,7 +76,7 @@ def main(input_json_path):
     os.remove(pid_path)
 
     try:
-        initial_pid = int(content)
+        pid = int(content)
     except Exception:
         initial_pid = None
 
