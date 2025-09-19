@@ -31,14 +31,14 @@ def main(input_json_path):
     with open(input_json_path, "r") as stream:
         data = json.load(stream)
 
+    # Change environment variables
+    env = data.get("env") or {}
 
     # Add AYON_PID_FILE environment variable if pid_file is specified
     pid_file_path = data.get("pid_file")
     if pid_file_path and "AYON_PID_FILE" not in env:
         env["AYON_PID_FILE"] = pid_file_path
 
-    # Change environment variables
-    env = data.get("env") or {}
     for key, value in env.items():
         os.environ[key] = value
 
