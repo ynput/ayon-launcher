@@ -36,7 +36,7 @@ def main(input_json_path):
 
     # Add AYON_PID_FILE environment variable if pid_file is specified
     pid_file_path = data.get("pid_file")
-    if pid_file_path and "AYON_PID_FILE" not in env:
+    if pid_file_path:
         env["AYON_PID_FILE"] = pid_file_path
 
     for key, value in env.items():
