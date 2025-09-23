@@ -116,7 +116,38 @@ int main(int argc, char *argv[]) {
         pid_t pid;
         int status = posix_spawn(&pid, exec_args[0], &file_actions, &spawnattr, exec_args, new_environ);
         if (status == 0) {
-            root["pid"] = pid;
+            // Check if shell script provided actual application PID via PID file
+            auto pid_file_it = root.find("pid_file");
+            if (pid_file_it != root.end() && pid_file_it->is_string()) {
+                std::string pid_file_path = pid_file_it->get<std::string>();
+
+                // Wait a short time for shell script to potentially write actual PID
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+                std::ifstream pid_file(pid_file_path);
+                if (pid_file.is_open()) {
+                    std::string pid_content;
+                    std::getline(pid_file, pid_content);
+                    pid_file.close();
+
+                    // Remove any whitespace
+                    pid_content.erase(0, pid_content.find_first_not_of(" \t\r\n"));
+                    pid_content.erase(pid_content.find_last_not_of(" \t\r\n") + 1);
+
+                    if (!pid_content.empty()) {
+                        try {
+                            pid_t script_pid = std::stoi(pid_content);
+                            if (script_pid != initial_pid && script_pid > 0) {
+                                final_pid = script_pid;
+                            }
+                        } catch (const std::exception& e) {
+                            // Invalid PID in file, use initial_pid
+                        }
+                    }
+                }
+            }
+
+            root["pid"] = final_pid;
         } else {
             root["pid"] = nullptr;
         }
