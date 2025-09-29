@@ -137,8 +137,8 @@ int main(int argc, char *argv[]) {
                     if (!pid_content.empty()) {
                         try {
                             pid_t script_pid = std::stoi(pid_content);
-                            if (script_pid != initial_pid && script_pid > 0) {
-                                final_pid = script_pid;
+                            if (script_pid != pid && script_pid > 0) {
+                                pid = script_pid;
                             }
                         } catch (const std::exception& e) {
                             // Invalid PID in file, use initial_pid
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            root["pid"] = final_pid;
+            root["pid"] = pid;
         } else {
             root["pid"] = nullptr;
         }
