@@ -238,9 +238,10 @@ if IS_LINUX:
     subprocess.run(
         [
             "g++",
+            "-std=c++17",
             f"-I{include_dir.as_posix()}",
             "app_launcher.cpp",
-            "-o", "app_launcher"
+            "-o", "app_launcher",
         ],
         cwd=ayon_root.as_posix(),
     )
