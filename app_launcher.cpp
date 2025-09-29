@@ -16,6 +16,7 @@ g++ app_launcher.cpp -o app_launcher
 #include <stdlib.h>
 #include <unistd.h>
 #include <spawn.h>
+#include <thread>
 #include <sys/wait.h>
 #include <string.h>
 #include <fstream>
