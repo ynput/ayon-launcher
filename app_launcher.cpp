@@ -45,11 +45,24 @@ int main(int argc, char *argv[]) {
     }
     json_file.close();
 
+    // Check if pid_file exists for environment variable
+    std::string pidFileValue;
+    bool hasPidFile = false;
+    auto pidFileIt = root.find("pid_file");
+    if (pidFileIt != root.end() && pidFileIt->is_string()) {
+        pidFileValue = pidFileIt->get<std::string>();
+        if (!pidFileValue.empty()) {
+            hasPidFile = true;
+        }
+    }
+
     auto env = root.find("env");
     char **new_environ = NULL;
+    int env_count = 0;
     if (env != root.end() && env->is_object()) {
         int env_size = env->size();
-        new_environ = (char **)malloc((env_size + 1) * sizeof(char *));
+        int total_size = env_size + (hasPidFile ? 1 : 0);
+        new_environ = (char **)malloc((total_size + 1) * sizeof(char *));
         int i = 0;
 
         for (auto& [key, value] : env->items()) {
@@ -59,7 +72,22 @@ int main(int argc, char *argv[]) {
                 i++;
             }
         }
-        new_environ[env_size] = NULL;
+
+        if (hasPidFile) {
+            std::string pid_env = "AYON_PID_FILE=" + pidFileValue;
+            new_environ[i] = strdup(pid_env.c_str());
+            i++;
+        }
+
+        env_count = i;
+        new_environ[env_count] = NULL;
+    } else if (hasPidFile) {
+        // No env object but we need to pass AYON_PID_FILE
+        new_environ = (char **)malloc(2 * sizeof(char *));
+        std::string pid_env = "AYON_PID_FILE=" + pidFileValue;
+        new_environ[0] = strdup(pid_env.c_str());
+        new_environ[1] = NULL;
+        env_count = 1;
     }
     auto stdoutIt = root.find("stdout");
     std::string outPathStr;
@@ -168,8 +196,11 @@ int main(int argc, char *argv[]) {
 
         posix_spawn_file_actions_destroy(&file_actions);
 
-        for (int i = 0; i < env->size(); i++) {
-            free(new_environ[i]);
+        if (new_environ) {
+            for (int i = 0; i < env_count; i++) {
+                free(new_environ[i]);
+            }
+            free(new_environ);
         }
         free(exec_args);
     }
