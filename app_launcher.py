@@ -3,12 +3,14 @@
 This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.
 """
+import contextlib
 
 import os
 import sys
 import json
 import shlex
 import tempfile
+import time
 
 
 def main(input_json_path):
@@ -31,6 +33,12 @@ def main(input_json_path):
 
     # Change environment variables
     env = data.get("env") or {}
+
+    # Add AYON_PID_FILE environment variable if pid_file is specified
+    pid_file_path = data.get("pid_file")
+    if pid_file_path:
+        env["AYON_PID_FILE"] = pid_file_path
+
     for key, value in env.items():
         os.environ[key] = value
 
@@ -43,7 +51,30 @@ def main(input_json_path):
     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
         pid_path = tmpfile.name
 
-    shell_cmd = args + f" & && echo $! > {pid_path}"
+    stdout_path = stderr_path = "/dev/null"
+    if "stdout" in data:
+        stdout_path = data["stdout"]
+
+    if "stderr" in data:
+        stderr_path = data["stderr"]
+
+    post_args = []
+    if stdout_path:
+        stdout = f">{stdout_path}"
+        post_args.append(stdout)
+
+    if stderr_path:
+        if stdout_path == stderr_path:
+            stderr_path = "&1"
+        stderr = f"2>{stderr_path}"
+        post_args.append(stderr)
+
+    post_args_s = ""
+    if post_args:
+        joined_args = " ".join(post_args)
+        post_args_s = f" {joined_args}"
+
+    shell_cmd = f"{args}{post_args_s} & echo $! > {pid_path}"
     os.system(shell_cmd)
 
     with open(pid_path, "r") as stream:
@@ -51,11 +82,25 @@ def main(input_json_path):
     os.remove(pid_path)
 
     try:
-        pid = int(content)
+        initial_pid = int(content)
     except Exception:
-        pid = None
+        initial_pid = None
 
-    data["pid"] = pid
+    # Check if shell script provided actual application PID via PID file
+    final_pid = initial_pid
+    if pid_file_path and final_pid is not None:
+        # Wait a short time for shell script to potentially write actual PID
+        time.sleep(0.5)  # Give shell script time to launch app and write PID
+
+        with contextlib.suppress(OSError, ValueError):
+            with open(pid_file_path, "r") as pid_file:
+                script_pid_content = pid_file.read().strip()
+                if script_pid_content.isdigit():
+                    script_pid = int(script_pid_content)
+                    # Only use if different from shell PID
+                    if script_pid != final_pid:
+                        final_pid = script_pid
+    data["pid"] = final_pid
     with open(input_json_path, "w") as stream:
         json.dump(data, stream)
     sys.exit(0)

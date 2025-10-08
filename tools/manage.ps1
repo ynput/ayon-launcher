@@ -117,6 +117,7 @@ function Install-Poetry() {
     }
 
     $env:POETRY_HOME=$poetry_home
+    $env:POETRY_VERSION="2.1.2"
     (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python)
 }
 
@@ -166,13 +167,13 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
     }
 }
 
-function Get-Container {
-    if (-not (Test-Path -PathType Leaf -Path "$($repo_root)\build\docker-image.id")) {
+function Get-Container($build_dir) {
+    if (-not (Test-Path -PathType Leaf -Path "$($build_dir)\docker-image.id")) {
         Write-Color -Text "!!! ", "Docker command failed, cannot find image id." -Color Red, Yellow
         Restore-Cwd
         Exit-WithCode 1
     }
-    $id = Get-Content "$($repo_root)\build\docker-image.id"
+    $id = Get-Content "$($build_dir)\docker-image.id"
     Write-Color -Text ">>> ", "Creating container from image id ", "[", $id, "]" -Color Green, Gray, White, Cyan, White
     $cid = docker create $id bash
     if ($LASTEXITCODE -ne 0) {
@@ -183,10 +184,10 @@ function Get-Container {
     return $cid
 }
 
-function Get-BuildLog {
-    $cid = Get-Container
-    Write-Color -Text ">>> ", "Copying build log to", "$($repo_root)\build\build.log" -Color Green, Gray, White
-    docker cp "$($cid):/opt/ayon-launcher/build/build.log" "$($repo_root)\build\build.log"
+function Get-BuildLog($build_dir) {
+    $cid = Get-Container($build_dir)
+    Write-Color -Text ">>> ", "Copying build log to", "$($build_dir)\build.log" -Color Green, Gray, White
+    docker cp "$($cid):/opt/ayon-launcher/build/build.log" "$($build_dir)\build.log"
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Cannot copy log from container." -Color Red, Yellow
         Restore-Cwd
@@ -199,7 +200,10 @@ function New-DockerBuild {
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
     Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
     $variant = $args[0]
-    if (($variant -eq $null) -or ($variant -eq "ubuntu")) {
+    if ($null -eq $variant) {
+        $variant = "ubuntu"
+    }
+    if ($variant -eq "ubuntu") {
         $dockerfile = "$($repo_root)\Dockerfile"
     } else {
         $dockerfile = "$($repo_root)\Dockerfile.$variant"
@@ -213,10 +217,17 @@ function New-DockerBuild {
 
     Write-Color -Text ">>> ", "Using Dockerfile for ", "[ ", $variant, " ]" -Color Green, Gray, White, Cyan, White
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
-    $build_dir = "$($repo_root)\build"
+
+    $build_dir = "$($repo_root)\build_$($variant)"
+    $qtbindingValue = ""
+    if ($arguments -contains "--use-pyside2") {
+        $qtbindingValue = "pyside2"
+        $build_dir = "$($build_dir)_pyside2"
+    }
+
     if (Test-Path $build_dir) {
         try {
-            Remove-Item -Recurse -Force "$($repo_root)\build\*"
+            Remove-Item -Recurse -Force "$($build_dir)\*"
         }
         catch {
             Write-Color -Text "!!! ", "Cannot clean build directory, possibly because process is using it." -Color Red, Gray
@@ -227,26 +238,21 @@ function New-DockerBuild {
         New-Item -ItemType Directory -Path $build_dir
     }
 
-    $qtbindingValue = ""
-    if ($arguments -contains "--use-pyside2") {
-        $qtbindingValue = "pyside2"
-    }
-
     Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
 
-    docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
+    docker build --pull --iidfile $build_dir/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Docker command failed.", $LASTEXITCODE -Color Red, Yellow, Red
         Restore-Cwd
         Exit-WithCode 1
     }
     Write-Color -Text ">>> ", "Copying build from container ..." -Color Green, Gray, White
-    $cid = Get-Container
+    $cid = Get-Container($build_dir)
 
-    docker cp "$($cid):/opt/ayon-launcher/build/output" "$($repo_root)/build"
-    docker cp "$($cid):/opt/ayon-launcher/build/build.log" "$($repo_root)/build"
-    docker cp "$($cid):/opt/ayon-launcher/build/metadata.json" "$($repo_root)/build"
-    docker cp "$($cid):/opt/ayon-launcher/build/installer" "$($repo_root)/build"
+    docker cp "$($cid):/opt/ayon-launcher/build/output" $build_dir
+    docker cp "$($cid):/opt/ayon-launcher/build/build.log" $build_dir
+    docker cp "$($cid):/opt/ayon-launcher/build/metadata.json" $build_dir
+    docker cp "$($cid):/opt/ayon-launcher/build/installer" $build_dir
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {

@@ -35,7 +35,7 @@ Temporary Items
 
 # CX_Freeze
 ###########
-/build
+/build*/
 /dist/
 /shim/venv
 /shim/build
