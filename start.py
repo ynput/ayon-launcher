@@ -101,16 +101,16 @@ if "--bundle" in sys.argv:
         raise RuntimeError((
             "Expect value after \"--bundle\" argument."
         ))
-    os.environ["AYON_BUNDLE_NAME"] = sys.argv.pop(idx)
+    os.environ["AYON_STUDIO_BUNDLE_NAME"] = sys.argv.pop(idx)
 
-if "--studio-bundle" in sys.argv:
-    idx = sys.argv.index("----studio-bundle")
+if "--project-bundle" in sys.argv:
+    idx = sys.argv.index("--project-bundle")
     sys.argv.pop(idx)
     if idx >= len(sys.argv):
         raise RuntimeError((
-            "Expect value after \"----studio-bundle\" argument."
+            "Expect value after \"---project-bundle\" argument."
         ))
-    os.environ["AYON_STUDIO_BUNDLE_NAME"] = sys.argv.pop(idx)
+    os.environ["AYON_BUNDLE_NAME"] = sys.argv.pop(idx)
 
 if "--project" in sys.argv:
     idx = sys.argv.index("--project") + 1
