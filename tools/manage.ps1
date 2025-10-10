@@ -23,11 +23,8 @@ $arguments=@()
 if ($ARGS.Length -gt 1) {
     $arguments = $ARGS[1..($ARGS.Length - 1)]
 }
-$poetry_verbosity=$null
 $disable_submodule_update=""
-if($arguments -eq "--verbose") {
-    $poetry_verbosity="-vvv"
-}
+
 if($arguments -eq "--no-submodule-update") {
     $disable_submodule_update=$true
 }
@@ -36,7 +33,6 @@ $current_dir = Get-Location
 $script_dir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $repo_root = (Get-Item $script_dir).parent.FullName
 $app_logo = "$repo_root/common/ayon_common/resources/AYON.png"
-$poetry_home = "$repo_root\.poetry"
 
 & git submodule update --init --recursive
 # Install PSWriteColor to support colorized output to terminal
@@ -55,15 +51,15 @@ $art = @"
 
 "@
 
-function Print-AsciiArt() {
+function Write-AsciiArt() {
     Write-Host $art -ForegroundColor DarkGreen
 }
 
-function Change-Cwd() {
+function Set-Cwd() {
     Set-Location -Path $repo_root
 }
 
-function Change-Shim-Cwd() {
+function Set-ShimCwd() {
     Set-Location -Path "$($repo_root)\shim"
 }
 
@@ -92,7 +88,7 @@ function Show-PSWarning() {
     }
 }
 
-function Get-Ayon-Version() {
+function Get-AyonVersion() {
     $ayon_version = Invoke-Expression -Command "python -c ""import os;import sys;content={};f=open(r'$($repo_root)\version.py');exec(f.read(),content);f.close();print(content['__version__'])"""
     if (-not $ayon_version) {
       Write-Color -Text "!!! ", "Cannot determine AYON version." -Color Yellow, Gray
@@ -101,31 +97,10 @@ function Get-Ayon-Version() {
     return $ayon_version
 }
 
-function Install-Poetry() {
-    Write-Color -Text ">>> ", "Installing Poetry ... " -Color Green, Gray
-    $python = "python"
-    if (Get-Command "pyenv" -ErrorAction SilentlyContinue) {
-        if (-not (Test-Path -PathType Leaf -Path "$($repo_root)\.python-version")) {
-            $result = & pyenv global
-            if ($result -eq "no global version configured") {
-                Write-Color -Text "!!! ", "Using pyenv but having no local or global version of Python set." -Color Red, Yellow
-                Exit-WithCode 1
-            }
-        }
-        $python = & pyenv which python
-
-    }
-
-    $env:POETRY_HOME=$poetry_home
-    $env:POETRY_VERSION="2.1.2"
-    (Invoke-WebRequest -Uri https://install.python-poetry.org/ -UseBasicParsing).Content | & $($python)
-}
-
 function Install-Uv() {
     Write-Color -Text ">>> ", "Installing uv ... " -Color Green, Gray
     powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 }
-
 
 function Test-Python() {
     Write-Color -Text ">>> ", "Detecting host Python ... " -Color Green, Gray -NoNewline
@@ -155,7 +130,7 @@ print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
       Exit-WithCode 1
     }
     # We are supporting python 3.9 only
-    if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 11)) {
+    if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
       Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  " is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
       Restore-Cwd
       Exit-WithCode 1
@@ -196,7 +171,7 @@ function Get-BuildLog($build_dir) {
 }
 
 function New-DockerBuild {
-    Change-Cwd
+    Set-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
     Write-Color -Text ">>> ", "Building AYON using Docker ..." -Color Green, Gray, White
     $variant = $args[0]
@@ -240,7 +215,7 @@ function New-DockerBuild {
 
     Write-Color -Text ">>> ", "Running Docker build ..." -Color Green, Gray, White
 
-    docker build --pull --iidfile $build_dir/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-Ayon-Version) -t ynput/ayon-launcher:$(Get-Ayon-Version) -f $dockerfile .
+    docker build --pull --iidfile $build_dir/docker-image.id --build-arg CUSTOM_QT_BINDING=$($qtbindingValue) --build-arg BUILD_DATE=$(Get-Date -UFormat %Y-%m-%dT%H:%M:%SZ) --build-arg VERSION=$(Get-AyonVersion) -t ynput/ayon-launcher:$(Get-AyonVersion) -f $dockerfile .
     if ($LASTEXITCODE -ne 0) {
         Write-Color -Text "!!! ", "Docker command failed.", $LASTEXITCODE -Color Red, Yellow, Red
         Restore-Cwd
@@ -261,8 +236,8 @@ function New-DockerBuild {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
-function Default-Func {
-    $ayon_version = Get-Ayon-Version
+function Write-DefaultFunc {
+    $ayon_version = Get-AyonVersion
     Write-Host ""
     Write-Host "Ayon desktop application tool"
     Write-Color -Text "    version ", "$($ayon_version)" -Color White, Cyan
@@ -284,8 +259,8 @@ function Default-Func {
     Write-Host ""
 }
 
-function Create-UvEnv {
-    Change-Cwd
+function New-UvEnv {
+    Set-Cwd
     Write-Color -Text ">>> ", "Test if UV is installed ... " -Color Green, Gray -NoNewline
     if (Get-Command "uv" -ErrorAction SilentlyContinue)
     {
@@ -300,17 +275,16 @@ function Create-UvEnv {
             Write-Color -Text "INSTALLED" -Color Cyan
         }
     }
-    $python_arg = ""
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     # note that uv venv can use .python-version marker file to determine what python version to use
     # so you can safely use pyenv to manage python versions
     Write-Color -Text ">>> ", "Creating and activating venv ... " -Color Green, Gray
-    uv venv --allow-existing .venv
+    & uv venv --allow-existing .venv
     Write-Color -Text ">>> ", "Compiling dependencies ... " -Color Green, Gray
-    uv pip compile pyproject.toml windows-requirements.in -o requirements.txt
+    & uv pip compile pyproject.toml -o requirements.txt
     Write-Color -Text ">>> ", "Installing dependencies ... " -Color Green, Gray
-    uv pip install -r requirements.txt
+    & uv pip install -r requirements.txt
     Install-PrecommitHook
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     Restore-Cwd
@@ -321,70 +295,20 @@ function Create-UvEnv {
     Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
 }
 
-
-function Create-Env {
-    Change-Cwd
-    Write-Color -Text ">>> ", "Reading Poetry ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$poetry_home\bin")) {
-        Write-Color -Text "NOT FOUND" -Color Yellow
-        Install-Poetry
-        Write-Color -Text "INSTALLED" -Color Cyan
-    } else {
-        Write-Color -Text "OK" -Color Green
-    }
-
-    if (-not (Test-Path -PathType Leaf -Path "$($repo_root)\poetry.lock")) {
-        Write-Color -Text ">>> ", "Installing virtual environment and creating lock." -Color Green, Gray
-    } else {
-        Write-Color -Text ">>> ", "Installing virtual environment from lock." -Color Green, Gray
-    }
-    $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-    & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
-    & "$poetry_home\bin\poetry" config virtualenvs.create true --local
-    & "$poetry_home\bin\poetry" install --no-root $poetry_verbosity --ansi
-    if ($LASTEXITCODE -ne 0) {
-        Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
-        Restore-Cwd
-        Exit-WithCode 1
-    }
-    Install-PrecommitHook
-
-    Change-Shim-Cwd
-    & "$poetry_home\bin\poetry" config virtualenvs.in-project true --local
-    & "$poetry_home\bin\poetry" config virtualenvs.create true --local
-    & "$poetry_home\bin\poetry" install --no-root $poetry_verbosity --ansi
-    if ($LASTEXITCODE -ne 0) {
-        Write-Color -Text "!!! ", "Poetry command failed." -Color Red, Yellow
-        Restore-Cwd
-        Exit-WithCode 1
-    }
-
-    $endTime = [int][double]::Parse((Get-Date -UFormat %s))
-    Restore-Cwd
-    try
-    {
-        New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
-    } catch {}
-    Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
-}
-
-
-    function Install-PrecommitHook {
-        if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
-            Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
-            & $repo_root\.venv\Scripts\pre-commit install
-            if ($LASTEXITCODE -ne 0)
-            {
-                Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
-            }
+function Install-PrecommitHook {
+    if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
+        Write-Color -Text ">>> ", "Installing pre-commit hooks ..." -Color Green, White
+        & uv run pre-commit install
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-Color -Text "!!! ", "Installation of pre-commit hooks failed." -Color Red, Yellow
         }
-
     }
+}
 
-
-function Build-Ayon($MakeInstaller = $false) {
-    Change-Cwd
-    $ayon_version = Get-Ayon-Version
+function Invoke-AyonBuild($MakeInstaller = $false) {
+    Set-Cwd
+    $ayon_version = Get-AyonVersion
     if (-not $ayon_version) {
         Exit-WithCode 1
     }
@@ -420,14 +344,14 @@ function Build-Ayon($MakeInstaller = $false) {
     } else {
         Write-Color -Text "*** ", "Not updating submodules ..." -Color Green, Gray
     }
-    $ayon_version = Get-Ayon-Version
+    $ayon_version = Get-AyonVersion
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Testing venv presence ... " -Color Green, Gray -NoNewline
     if (-not (Test-Path -PathType Container -Path "$($repo_root)\bin")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to create virtual env first ..." -Color Yellow, Gray
-        Create-UvEnv
+        New-UvEnv
     } else {
         Write-Color -Text "OK" -Color Green
     }
@@ -441,7 +365,7 @@ function Build-Ayon($MakeInstaller = $false) {
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
-    Change-Shim-Cwd
+    Set-ShimCwd
     $out = & uv run python setup.py build 2>&1
     Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
@@ -453,12 +377,12 @@ function Build-Ayon($MakeInstaller = $false) {
         Exit-WithCode $LASTEXITCODE
     }
 
-    Change-Cwd
+    Set-Cwd
     Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     $FreezeContent = & uv --no-color pip freeze
-    & $repo_root\.venv\Scripts\python "$($repo_root)\tools\_venv_deps.py"
+    & uv run python "$($repo_root)\tools\_venv_deps.py"
     # Make sure output is UTF-8 without BOM
     $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
     [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
@@ -478,7 +402,7 @@ function Build-Ayon($MakeInstaller = $false) {
     & uv run python "$($repo_root)\tools\build_post_process.py" "build"
 
     if ($MakeInstaller) {
-        Make-Ayon-Installer-Raw
+        New-AyonInstallerRaw
     }
 
     Restore-Cwd
@@ -490,17 +414,17 @@ function Build-Ayon($MakeInstaller = $false) {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
-function Installer-Post-Process() {
+function Invoke-InstallerPostProcess() {
     & uv run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
-function Make-Ayon-Installer-Raw() {
+function New-AyonInstallerRaw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     & uv run python "$($repo_root)\tools\build_post_process.py" "make-installer"
 }
 
-function Make-Ayon-Installer() {
-    Change-Cwd
+function New-AyonInstaller() {
+    Set-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
     Make-Ayon-Installer-Raw
@@ -512,12 +436,12 @@ function Make-Ayon-Installer() {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
-function Install-Runtime-Dependencies() {
+function Install-RuntimeDependencies() {
     Write-Color -Text ">>> ", "Testing venv ... " -Color Green, Gray -NoNewline
     if (-not (Test-Path -PathType Container -Path "$repo_root\.venv")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to  create virtual env first ..." -Color Yellow, Gray
-        Create-UvEnv
+        New-UvEnv
     } else {
         Write-Color -Text "OK" -Color Green
     }
@@ -529,43 +453,43 @@ function Install-Runtime-Dependencies() {
     } catch {}
 }
 
-function Run-From-Code() {
-    Change-Cwd
-    & $repo_root\.venv\Scripts\python "$($repo_root)\start.py" @arguments
+function Start-FromCode() {
+    Set-Cwd
+    & uv run python "$($repo_root)\start.py" @arguments
 }
 
 function Main {
-    if ($FunctionName -eq $null) {
-        Default-Func
+    if ($null -eq $FunctionName) {
+        Write-DefaultFunc
         return
     }
     $FunctionName = $FunctionName.ToLower() -replace "\W"
     if ($FunctionName -eq "run") {
-        Run-From-Code
+        Start-FromCode
     } elseif ($FunctionName -eq "createenv") {
-        Create-UvEnv
+        New-UvEnv
     } elseif (($FunctionName -eq "installruntimedependencies") -or ($FunctionName -eq "installruntime")) {
-        Install-Runtime-Dependencies @arguments
+        Install-RuntimeDependencies @arguments
     } elseif ($FunctionName -eq "build") {
-        Build-Ayon
+        Invoke-AyonBuild
     } elseif ($FunctionName -eq "makeinstaller") {
-        Make-Ayon-Installer
+        Invoke-AyonInstaller
     } elseif ($FunctionName -eq "buildmakeinstaller") {
-        Build-Ayon -MakeInstaller true
+        Invoke-AyonBuild -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
-        Installer-Post-Process "upload" @arguments
+        Invoke-InstallerPostProcess "upload" @arguments
     } elseif ($FunctionName -eq "dockerbuild") {
         New-DockerBuild @arguments
     } else {
         Write-Host "Unknown function ""$FunctionName"""
-        Default-Func
+        Write-DefaultFunc
     }
 }
 
 # Enable if PS 7.x is needed.
 # Show-PSWarning
 
-Print-AsciiArt
+Write-AsciiArt
 Test-Python
 try {
     Main

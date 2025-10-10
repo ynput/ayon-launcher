@@ -1,8 +1,7 @@
 [project]
 name = "AYON"
-requires-python = "~=3.11"
+requires-python = "~=3.9"
 version = "1.4.2-dev"
-package-mode = false
 description = "Open VFX and Animation pipeline with support."
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
@@ -38,6 +37,7 @@ dependencies = [
     "distro == 1.9.0; sys_platform == 'linux'",
     "pip ~= 24.0",
     "pre-commit>=3.8.0",
+    "tomli",  # remove for python 3.11
 ]
 
 [project.urls]
@@ -50,7 +50,7 @@ dev = [
     "flake8 ~= 6.0",
     "autopep8 ~= 2.0",
     "coverage",
-    "cx_Freeze ~= 8.3.0",
+    "cx_Freeze ~= 8.4",
     "GitPython ~= 3.1.17",
     "hatchling",
     "jedi ~= 0.13",

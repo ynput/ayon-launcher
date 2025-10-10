@@ -11,7 +11,10 @@ import os
 import platform
 import site
 import json
-import tomllib
+if platform.python_version_tuple() >= ("3", "11"):
+    import tomli as tomllib
+else:
+    import tomli as tomllib  # For Python 3.10
 from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))

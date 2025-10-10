@@ -104,3 +104,5 @@ tools/dev_*
 
 # ignore mkdocs build
 site/
+
+/AYON.egg-info
