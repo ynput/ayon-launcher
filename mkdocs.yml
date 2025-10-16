@@ -4,6 +4,10 @@ repo_url: https://github.com/ynput/ayon-launcher
 nav:
   - Home: index.md
   - License: license.md
+  - Build Guides:
+    - Windows: build_guides\windows.md
+    - Linux: build_guides\linux.md
+    - Mac OS: build_guides\macos.md
 
 theme:
   name: material
@@ -49,6 +53,8 @@ plugins:
         - stubs/**/*        # mocha fix
         - ./**/pythonrc.py  # houdini fix
         - .*/**/*
+        - mkdocs_hooks.py
+        - vendor/**/*.py
         # - ./*.py
   - mkdocstrings:
       handlers:
