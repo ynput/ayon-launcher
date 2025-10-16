@@ -5,9 +5,9 @@ nav:
   - Home: index.md
   - License: license.md
   - Build Guides:
-    - Windows: build_guides\windows.md
-    - Linux: build_guides\linux.md
-    - Mac OS: build_guides\macos.md
+    - Windows: docs/build_guides/windows.md
+    - Linux: build_guides/linux.md
+    - Mac OS: build_guides/macos.md
 
 theme:
   name: material
