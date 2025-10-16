@@ -34,7 +34,6 @@ extra_css: [css/custom.css]
 markdown_extensions:
   - mdx_gh_links
   - pymdownx.snippets
-  - mkdocs-click
 
 plugins:
   - search
