@@ -4,6 +4,10 @@ repo_url: https://github.com/ynput/ayon-launcher
 nav:
   - Home: index.md
   - License: license.md
+  - Build Guides:
+    - Windows: build_guides/windows.md
+    - Linux: build_guides/linux.md
+    - Mac OS: build_guides/macos.md
 
 theme:
   name: material
@@ -11,12 +15,12 @@ theme:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       toggle:
-        icon: material/toggle-switch-off-outline
+        icon: material/weather-sunny
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle:
-        icon: material/toggle-switch
+        icon: material/weather-night
         name: Switch to dark mode
   logo: img/ay-symbol-blackw-full.png
   favicon: img/favicon.ico
@@ -34,7 +38,6 @@ extra_css: [css/custom.css]
 markdown_extensions:
   - mdx_gh_links
   - pymdownx.snippets
-  - mkdocs-click
 
 plugins:
   - search
@@ -50,6 +53,8 @@ plugins:
         - stubs/**/*        # mocha fix
         - ./**/pythonrc.py  # houdini fix
         - .*/**/*
+        - mkdocs_hooks.py
+        - vendor/**/*.py
         # - ./*.py
   - mkdocstrings:
       handlers:
