@@ -119,7 +119,6 @@ def show_missing_bundle_information(
 
     if is_project_bundle:
         args.append("--is-project")
-    print(args)
     subprocess.call(args)
 
 

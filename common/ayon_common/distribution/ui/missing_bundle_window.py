@@ -158,7 +158,6 @@ def main():
     The function expects that 'is_dev_mode_enabled' will return value
         for the bundle name passed in.
     """
-    print(sys.argv)
     url = None
     bundle_name = None
     username = None
