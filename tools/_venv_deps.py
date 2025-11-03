@@ -11,10 +11,7 @@ import os
 import platform
 import site
 import json
-if platform.python_version_tuple() >= ("3", "11"):
-    import tomllib
-else:
-    import toml as tomllib  # For Python 3.10
+import toml
 from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -42,8 +39,8 @@ site.addsitedir(str(get_poetry_venv_root()))
 def main():
     uv_lock_file = REPO_ROOT_DIR / "uv.lock"
     if uv_lock_file.exists():
-        with open(uv_lock_file, "rb") as stream:
-            uv_lock_data = tomllib.load(stream)
+        with open(uv_lock_file, "r") as stream:
+            uv_lock_data = toml.load(stream)
 
     packages = {}
     package_data = uv_lock_data["package"]
