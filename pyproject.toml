@@ -1,7 +1,7 @@
 [project]
 name = "AYON"
 requires-python = "~=3.9"
-version = "1.4.2-dev"
+version = "1.4.3-dev"
 description = "Open VFX and Animation pipeline with support."
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
@@ -12,9 +12,9 @@ readme = "README.md"
 keywords = ["Pipeline", "AYON", "Avalon", "VFX", "animation", "automation", "tracking", "asset management"]
 
 dependencies = [
-    "ayon-python-api == 1.2.1",
+    "ayon-python-api == 1.2.4",
     "arrow ~= 0.17",
-    "Unidecode ~= 1.3.0",
+    "Unidecode ~= 1.2.0",
     "aiohttp ~= 3.7",
     # local settings
     "appdirs @ git+https://github.com/ActiveState/appdirs.git",
@@ -37,13 +37,8 @@ dependencies = [
     "distro == 1.9.0; sys_platform == 'linux'",
     "pip ~= 24.0",
     "pre-commit>=3.8.0",
-    "tomli",  # remove for python 3.11
+    "toml",  # remove for python 3.11
 ]
-
-[project.urls]
-"Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"
-"Discussions" = "https://github.com/ynput/ayon-launcher/discussions"
-
 
 [project.optional-dependencies]
 dev = [
@@ -67,9 +62,14 @@ dev = [
     "pytest-print",
     "wheel",
     "enlighten",  # cool terminal progress bars
-    "toml ~= 0.10.2", # for parsing pyproject.toml
-
 ]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"
+"Discussions" = "https://github.com/ynput/ayon-launcher/discussions"
+"homepage" = "https://ynput.io"
+"documentation" = "https://ayon.ynput.io"
+"repository" = "https://github.com/ynput/ayon-launcher"
 
 [tool.uv]
 python-preference = "only-managed"
@@ -106,9 +106,6 @@ toml = "^0.10.2" # for parsing pyproject.toml
 pre-commit = "*"
 
 
-"homepage" = "https://ynput.io"
-"documentation" = "https://ayon.ynput.io"
-"repository" = "https://github.com/ynput/ayon-launcher"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
