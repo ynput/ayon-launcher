@@ -645,8 +645,17 @@ def _start_distribution():
                 )
 
         if not HEADLESS_MODE_ENABLED:
+            missing_bundle_name = studio_bundle_name
+            is_project_bundle = False
+            if studio_bundle is not None:
+                missing_bundle_name = project_bundle_name
+                is_project_bundle = True
+
             show_missing_bundle_information(
-                url, project_bundle_name, username
+                url,
+                missing_bundle_name,
+                username,
+                is_project_bundle=is_project_bundle,
             )
 
         sys.exit(1)

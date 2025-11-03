@@ -80,7 +80,12 @@ def show_blocked_auto_update(launcher: bool):
     )
 
 
-def show_missing_bundle_information(url, bundle_name=None, username=None):
+def show_missing_bundle_information(
+    url: str,
+    bundle_name: Optional[str],
+    username: Optional[str],
+    is_project_bundle: bool,
+) -> None:
     """Show missing bundle information window.
 
     This function should be called when server does not have set bundle for
@@ -92,18 +97,28 @@ def show_missing_bundle_information(url, bundle_name=None, username=None):
 
     Args:
         url (str): Server url where bundle is not set.
-        bundle_name (Optional[str]): Name of bundle that was not found.
+        bundle_name (Optional[str]): Name of bundle that was not found. Or
+            'None' if is missing bundle.
         username (Optional[str]): Username. Is used only when dev mode is
             enabled.
-    """
+        is_project_bundle (bool): Missing bundle is project bundle.
 
+    """
     ui_dir = os.path.join(os.path.dirname(__file__), "ui")
     script_path = os.path.join(ui_dir, "missing_bundle_window.py")
-    args = get_ayon_launch_args(script_path, "--skip-bootstrap", "--url", url)
+    args = get_ayon_launch_args(
+        script_path,
+        "--skip-bootstrap",
+        "--url", url,
+    )
     if bundle_name:
-        args.extend(["--bundle", bundle_name])
+        args.extend(["--missing-bundle", bundle_name])
+
     if username:
         args.extend(["--user", username])
+
+    if is_project_bundle:
+        args.append("--is-project")
     subprocess.call(args)
 
 
