@@ -430,7 +430,7 @@ function New-AyonInstaller() {
     Set-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    Make-Ayon-Installer-Raw
+    New-AyonInstallerRaw
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {
