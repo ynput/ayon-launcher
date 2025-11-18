@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 
 from qtpy import QtWidgets, QtGui
 
@@ -16,12 +17,13 @@ class MissingBundleWindow(QtWidgets.QDialog):
 
     def __init__(
         self,
-        url=None,
-        bundle_name=None,
-        username=None,
-        use_staging=None,
-        use_dev=None,
-        parent=None
+        url: str,
+        bundle_name: Optional[str],
+        username: Optional[str],
+        is_project_bundle: bool,
+        use_staging: bool,
+        use_dev: bool,
+        parent: QtWidgets.QWidget = None,
     ):
         super().__init__(parent)
 
@@ -33,6 +35,7 @@ class MissingBundleWindow(QtWidgets.QDialog):
         self._url = url
         self._bundle_name = bundle_name
         self._username = username
+        self._is_project_bundle = is_project_bundle
         self._use_staging = use_staging
         self._use_dev = use_dev
         self._first_show = True
@@ -121,8 +124,11 @@ class MissingBundleWindow(QtWidgets.QDialog):
         url_part = f" <b>{self._url}</b>" if self._url else ""
 
         if self._bundle_name:
+            p_bundle_info = ""
+            if self._is_project_bundle:
+                p_bundle_info = " project"
             return (
-                f"Requested release bundle <b>{self._bundle_name}</b>"
+                f"Requested{p_bundle_info} bundle <b>{self._bundle_name}</b>"
                 f" is not available on server{url_part}."
                 "<br/><br/>Try to restart AYON desktop launcher. Please"
                 " contact your administrator if issue persist."
@@ -136,7 +142,7 @@ class MissingBundleWindow(QtWidgets.QDialog):
             else:
                 mode = "dev for your user"
         return (
-            f"No release bundle is set as {mode} on the AYON"
+            f"No bundle is set as {mode} on the AYON"
             f" server{url_part} so there is nothing to launch."
             "<br/><br/>Please contact your administrator"
             " to resolve the issue."
@@ -152,7 +158,6 @@ def main():
     The function expects that 'is_dev_mode_enabled' will return value
         for the bundle name passed in.
     """
-
     url = None
     bundle_name = None
     username = None
@@ -161,8 +166,8 @@ def main():
         if url_index < len(sys.argv):
             url = sys.argv[url_index]
 
-    if "--bundle" in sys.argv:
-        bundle_index = sys.argv.index("--bundle") + 1
+    if "--missing-bundle" in sys.argv:
+        bundle_index = sys.argv.index("--missing-bundle") + 1
         if bundle_index < len(sys.argv):
             bundle_name = sys.argv[bundle_index]
 
@@ -171,11 +176,13 @@ def main():
         if user_index < len(sys.argv):
             username = sys.argv[user_index]
 
+    is_project_bundle = "--is-project" in sys.argv
+
     use_staging = is_staging_enabled()
     use_dev = is_dev_mode_enabled()
     app = get_qt_app()
     window = MissingBundleWindow(
-        url, bundle_name, username, use_staging, use_dev
+        url, bundle_name, username, is_project_bundle, use_staging, use_dev
     )
     window.show()
     app.exec_()

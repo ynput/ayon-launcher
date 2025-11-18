@@ -645,8 +645,17 @@ def _start_distribution():
                 )
 
         if not HEADLESS_MODE_ENABLED:
+            missing_bundle_name = studio_bundle_name
+            is_project_bundle = False
+            if studio_bundle is not None:
+                missing_bundle_name = project_bundle_name
+                is_project_bundle = True
+
             show_missing_bundle_information(
-                url, project_bundle_name, username
+                url,
+                missing_bundle_name,
+                username,
+                is_project_bundle=is_project_bundle,
             )
 
         sys.exit(1)
@@ -1104,17 +1113,19 @@ def get_info(use_staging=None, use_dev=None) -> list:
     """Print additional information to console."""
 
     inf = []
-    project_bundle_name = os.getenv("AYON_BUNDLE_NAME")
     studio_bundle_name = os.getenv("AYON_STUDIO_BUNDLE_NAME")
+    project_bundle_name = os.getenv("AYON_BUNDLE_NAME")
 
     variant = "production"
     if use_dev:
-        variant = "dev ({})".format(project_bundle_name)
+        variant = f"dev ({project_bundle_name})"
     elif use_staging:
         variant = "staging"
     inf.append(("AYON variant", variant))
-    inf.append(("AYON project bundle", project_bundle_name))
     inf.append(("AYON studio bundle", studio_bundle_name))
+    if project_bundle_name == studio_bundle_name:
+        project_bundle_name = "None"
+    inf.append(("AYON project bundle", project_bundle_name))
 
     # NOTE add addons information
 
