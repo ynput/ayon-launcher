@@ -2831,19 +2831,20 @@ class AYONDistribution:
         if bundle is None:
             raise BundleNotFoundError(self._project_bundle_name)
 
-        if studio_bundle_name:
-            key_values = {
-                "summary": "true",
-                "bundle": studio_bundle_name,
-            }
-            query = urlencode(key_values)
-            response = ayon_api.get(f"settings?{query}")
-            # NOTE This does modify the bundle data
-            # - should be fine as it really does fill up the project bundle
-            for addon in response.data["addons"]:
-                addon_name = addon["name"]
-                addon_version = addon["version"]
-                bundle.addon_versions[addon_name] = addon_version
+        key_values = {
+            "summary": "true",
+            "bundle_name": studio_bundle_name,
+            "project_bundle_name": self._project_bundle_name,
+        }
+        query = urlencode(key_values)
+
+        response = ayon_api.get(f"settings?{query}")
+        # NOTE This does modify the bundle data
+        # - should be fine as it really does fill up the project bundle
+        bundle.addon_versions = {
+            addon["name"]: addon["version"]
+            for addon in response.data["addons"]
+        }
 
         self._project_bundle = bundle
         return bundle
