@@ -281,10 +281,13 @@ function New-UvEnv {
     # so you can safely use pyenv to manage python versions
     Write-Color -Text ">>> ", "Creating and activating venv ... " -Color Green, Gray
     & uv venv --allow-existing .venv
-    Write-Color -Text ">>> ", "Compiling dependencies ... " -Color Green, Gray
-    & uv pip compile pyproject.toml -o requirements.txt
-    Write-Color -Text ">>> ", "Installing dependencies ... " -Color Green, Gray
-    & uv pip install -r requirements.txt
+    # Do we need this? Maybe we can just do uv sync --all-extras
+    # Write-Color -Text ">>> ", "Compiling dependencies ... " -Color Green, Gray
+    # & uv pip compile pyproject.toml -o requirements.txt --no-strip-extras
+    # Write-Color -Text ">>> ", "Installing dependencies ... " -Color Green, Gray
+    # & uv pip install -r requirements.txt
+    & uv sync --all-extras
+
     Install-PrecommitHook
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     Restore-Cwd
@@ -427,7 +430,7 @@ function New-AyonInstaller() {
     Set-Cwd
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    Make-Ayon-Installer-Raw
+    New-AyonInstallerRaw
 
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
     try {

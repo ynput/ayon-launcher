@@ -37,7 +37,7 @@ dependencies = [
     "distro == 1.9.0; sys_platform == 'linux'",
     "pip ~= 24.0",
     "pre-commit>=3.8.0",
-    "tomli",  # remove for python 3.11
+    "toml",  # remove for python 3.11
 ]
 
 [project.urls]
@@ -67,9 +67,14 @@ dev = [
     "pytest-print",
     "wheel",
     "enlighten",  # cool terminal progress bars
-    "toml ~= 0.10.2", # for parsing pyproject.toml
-
 ]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"
+"Discussions" = "https://github.com/ynput/ayon-launcher/discussions"
+"homepage" = "https://ynput.io"
+"documentation" = "https://ayon.ynput.io"
+"repository" = "https://github.com/ynput/ayon-launcher"
 
 [tool.uv]
 python-preference = "only-managed"
@@ -106,9 +111,6 @@ toml = "^0.10.2" # for parsing pyproject.toml
 pre-commit = "*"
 
 
-"homepage" = "https://ynput.io"
-"documentation" = "https://ayon.ynput.io"
-"repository" = "https://github.com/ynput/ayon-launcher"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
