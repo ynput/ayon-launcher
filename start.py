@@ -87,6 +87,26 @@ from urllib.parse import urlparse, parse_qs
 
 from version import __version__
 
+
+class _Timing:
+    """Helper to time the process."""
+    start_time = time.time()
+    last_time = start_time
+
+    @classmethod
+    def next(cls) -> float:
+        """Return time since the last call to this method."""
+        new_time = time.time()
+        output = new_time - cls.last_time
+        cls.last_time = new_time
+        return output
+
+    @classmethod
+    def total_time(cls) -> float:
+        """Return total time since start of process."""
+        return time.time() - cls.start_time
+
+
 ORIGINAL_ARGS = list(sys.argv)
 
 PREVIOUS_AYON_VERSION = os.getenv("AYON_VERSION", "")
@@ -579,7 +599,8 @@ def _start_distribution():
     except PermissionError:
         _print(
             "!!! Failed to initialize distribution"
-            " because of permissions error."
+            " because of permissions error"
+            f" (Total: {_Timing.total_time():.2f}s)."
         )
         if not HEADLESS_MODE_ENABLED:
             show_missing_permissions()
@@ -658,6 +679,7 @@ def _start_distribution():
                 is_project_bundle=is_project_bundle,
             )
 
+        _print(f">>> Finished in (Total: {_Timing.total_time():.2f}s).")
         sys.exit(1)
 
     # With known bundle and states we can define default settings variant
@@ -675,7 +697,8 @@ def _start_distribution():
     if distribution.need_distribution and not skip_auto_update:
         if block_auto_update:
             _print(
-                "!!! Automatic update is blocked by 'AYON_AUTO_UPDATE'."
+                "!!! Automatic update is blocked by 'AYON_AUTO_UPDATE'"
+                f" (Total: {_Timing.total_time():.2f}s)."
             )
             if not HEADLESS_MODE_ENABLED:
                 show_blocked_auto_update(
@@ -686,7 +709,8 @@ def _start_distribution():
         if distribution.is_missing_permissions:
             _print(
                 "!!! Failed to initialize distribution"
-                " because of permissions error."
+                " because of permissions error"
+                f" (Total: {_Timing.total_time():.2f}s)."
             )
             if not HEADLESS_MODE_ENABLED:
                 show_missing_permissions()
@@ -719,6 +743,7 @@ def _start_distribution():
                     error,
                     distribution.installer_filepath
                 )
+            _print(f">>> Finished in (Total: {_Timing.total_time():.2f}s).")
             sys.exit(1)
 
         # Use new executable to relaunch different AYON launcher version
@@ -744,6 +769,10 @@ def _start_distribution():
 
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
+        _print(
+            ">>> Launching different AYON launcher version"
+            f" (Total: {_Timing.total_time():.2f}s)."
+        )
         sys.exit(subprocess.call(args, env=env))
 
     # TODO check failed distribution and inform user
@@ -803,6 +832,9 @@ def boot():
 
     _connect_to_ayon_server()
     create_global_connection()
+    _print(
+        f">>> Global AYON connection created ({_Timing.total_time():.2f}s)."
+    )
     _start_distribution()
     fill_pythonpath()
 
@@ -1025,6 +1057,7 @@ def main_cli():
         for i in info:
             _print(i)
 
+    _print(f">>> Initializing done ({_Timing.next()}s).")
     try:
         cli.main()
     except Exception:  # noqa
@@ -1139,8 +1172,10 @@ def get_info(use_staging=None, use_dev=None) -> list:
 
 def main():
     # AYON launcher was started to initialize itself
+    _print(f">>> Reached main entry point ({_Timing.next():.2f}s).")
     if "init-ayon-launcher" in sys.argv:
         init_launcher_executable(ensure_protocol_is_registered=True)
+        _print(f">>> Launcher initialized in ({_Timing.total_time():.2f}s).")
         sys.exit(0)
 
     if SHOW_LOGIN_UI:
@@ -1151,16 +1186,24 @@ def main():
             ))
             sys.exit(1)
         _connect_to_ayon_server(True)
+        _print(f">>> Connected to AYON server ({_Timing.next():.2f}s).")
 
     if process_uri():
+        _print(f">>> URI processed (Total: {_Timing.total_time():.2f}s).")
         sys.exit(0)
 
     with webaction_event_handler():
         if SKIP_BOOTSTRAP:
             fill_pythonpath()
+            _print(
+                f">>> Starting script (Total: {_Timing.total_time():.2f}s)."
+            )
             return script_cli()
 
         boot()
+        _print(
+            f">>> Bootstrap finished (Total: {_Timing.total_time():.2f}s)."
+        )
 
         start_arg = StartArgScript.from_args(sys.argv)
         if start_arg.is_valid:
