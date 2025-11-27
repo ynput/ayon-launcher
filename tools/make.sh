@@ -135,24 +135,6 @@ detect_python () {
   fi
 }
 
-install_poetry () {
-  echo -e "${BIGreen}>>>${RST} Installing Poetry ..."
-  export POETRY_HOME=$poetry_home_root
-  export POETRY_VERSION=2.1.2
-  command -v curl >/dev/null 2>&1 || { echo -e "${BIRed}!!!${RST}${BIYellow} Missing ${RST}${BIBlue}curl${BIYellow} command.${RST}"; return 1; }
-  curl -sSL https://install.python-poetry.org/ | python -
-
-  # Force poetry to use older urllib3 if OpenSSL has version < 1.1.1
-  local ssl_command
-  ssl_command="import ssl;print(1 if ssl.OPENSSL_VERSION_INFO < (1, 1, 1) else 0)"
-  local downgrade_urllib
-  downgrade_urllib="$("$poetry_home_root/venv/bin/python" <<< ${ssl_command})"
-  if [ "$downgrade_urllib" -eq "1" ]; then
-    echo -e "${BIGreen}>>>${RST} Installing older urllib3 ..."
-    "$poetry_home_root/venv/bin/python" -m pip install urllib3==1.26.16
-  fi
-}
-
 ##############################################################################
 # Clean pyc files in specified directory
 # Globals:
@@ -175,30 +157,8 @@ create_env () {
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
 
-  echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$poetry_home_root/bin/poetry" ]; then
-    echo -e "${BIGreen}OK${RST}"
-  else
-    echo -e "${BIYellow}NOT FOUND${RST}"
-    install_poetry || { echo -e "${BIRed}!!!${RST} Poetry installation failed"; return 1; }
-  fi
 
-  if [ -f "$repo_root/poetry.lock" ]; then
-    echo -e "${BIGreen}>>>${RST} Updating dependencies ..."
-  else
-    echo -e "${BIGreen}>>>${RST} Installing dependencies ..."
-  fi
-
-  current_dir=$(pwd)
-  pushd "$repo_root/shim"
-  "$poetry_home_root/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
-    if [ $? -ne 0 ] ; then
-    echo -e "${BIRed}!!!${RST} Virtual environment creation for shim failed."
-    return 1
-  fi
-
-  popd
-  "$poetry_home_root/bin/poetry" install --no-root $poetry_verbosity || { echo -e "${BIRed}!!!${RST} Poetry environment installation failed"; return 1; }
+  uv venv && uv sync || { echo -e "${BIRed}!!!${RST} Venv installation failed"; return 1; }
   if [ $? -ne 0 ] ; then
     echo -e "${BIRed}!!!${RST} Virtual environment creation failed."
     return 1
@@ -209,7 +169,7 @@ create_env () {
 
   if [ -d "$repo_root/.git" ]; then
     echo -e "${BIGreen}>>>${RST} Installing pre-commit hooks ..."
-    "$poetry_home_root/bin/poetry" run pre-commit install
+    uv run pre-commit install
   fi
 }
 
@@ -227,7 +187,7 @@ install_runtime_dependencies () {
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Installing runtime dependencies ..."
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/runtime_dependencies.py" "$@"
+  uv run python "$repo_root/tools/runtime_dependencies.py" "$@"
 }
 
 fix_macos_build () {
