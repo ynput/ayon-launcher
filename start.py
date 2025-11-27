@@ -606,7 +606,6 @@ def _start_distribution():
             show_missing_permissions()
         sys.exit(1)
 
-
     project_bundle = studio_bundle = None
     project_bundle_name = studio_bundle_name = None
 
@@ -724,6 +723,7 @@ def _start_distribution():
         try:
             distribution.distribute()
         finally:
+            _print(f">>> Distributed resources ({_Timing.next():.2f}s).")
             update_window_manager.stop()
 
         # Skip validation of addons and dep packages if launcher
@@ -796,6 +796,7 @@ def _start_distribution():
         sys.path.insert(0, path)
 
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+    _print(f">>> Distribution finished ({_Timing.next():.2f}s).")
 
 
 def init_launcher_executable(ensure_protocol_is_registered=False):
