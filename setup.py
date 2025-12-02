@@ -33,7 +33,6 @@ if IS_WINDOWS:
 # Build options for cx_Freeze. Manually add/exclude packages and binaries
 
 install_requires = [
-    "appdirs",
     "platformdirs",
     "cx_Freeze",
     "keyring",

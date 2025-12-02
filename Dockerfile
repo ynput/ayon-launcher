@@ -50,32 +50,17 @@ RUN apt-get update \
 
 SHELL ["/bin/bash", "-c"]
 
+# download and install uv
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
 
 RUN mkdir /opt/ayon-launcher
-
-# download and install pyenv
-RUN curl https://pyenv.run | bash \
-    && echo 'export PATH="$HOME/.pyenv/bin:$PATH"'>> $HOME/init_pyenv.sh \
-    && echo 'eval "$(pyenv init -)"' >> $HOME/init_pyenv.sh \
-    && echo 'eval "$(pyenv virtualenv-init -)"' >> $HOME/init_pyenv.sh \
-    && echo 'eval "$(pyenv init --path)"' >> $HOME/init_pyenv.sh
-
-# install python with pyenv
-RUN source $HOME/init_pyenv.sh \
-    && pyenv install ${PYTHON_VERSION}
-
+WORKDIR /opt/ayon-launcher
 COPY . /opt/ayon-launcher/
-
 RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
-WORKDIR /opt/ayon-launcher
-
-# set local python version
-RUN source $HOME/init_pyenv.sh \
-    && pyenv local ${PYTHON_VERSION}
-
 # build launcher and installer
-RUN source $HOME/init_pyenv.sh \
-    && ./tools/make.sh create-env \
+RUN ./tools/make.sh create-env \
     && ./tools/make.sh install-runtime \
     && ./tools/make.sh build-make-installer
