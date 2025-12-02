@@ -14,7 +14,7 @@ from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT_DIR = CURRENT_DIR.parent
-OUTPUT_PATH = REPO_ROOT_DIR / "build" / "poetry_lock.json"
+OUTPUT_PATH = REPO_ROOT_DIR / "build" / "locked_requirements.json"
 
 
 def main():
