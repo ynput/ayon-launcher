@@ -8,8 +8,6 @@ with dictionary ready for pyproject.toml file.
 """
 
 import os
-import platform
-import site
 import json
 import toml
 from pathlib import Path
@@ -17,23 +15,6 @@ from pathlib import Path
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT_DIR = CURRENT_DIR.parent
 OUTPUT_PATH = REPO_ROOT_DIR / "build" / "poetry_lock.json"
-
-def get_poetry_venv_root():
-    venv_root = REPO_ROOT_DIR / ".poetry" / "venv"
-    if platform.system().lower() == "windows":
-        return venv_root / "Lib" / "site-packages"
-
-    lib_root = venv_root / "lib"
-    for subfolder in lib_root.iterdir():
-        site_packages = subfolder / "site-packages"
-        if site_packages.exists():
-            return site_packages
-    raise RuntimeError("Could not find site-packages in poetry venv")
-
-
-site.addsitedir(str(get_poetry_venv_root()))
-
-# from poetry.factory import Factory  # noqa E402
 
 
 def main():
