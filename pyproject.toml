@@ -35,7 +35,6 @@ dependencies = [
     "pywin32 == 310; sys_platform == 'win32'",
     "python3-xlib; sys_platform == 'linux'",
     "distro == 1.9.0; sys_platform == 'linux'",
-    "pip ~= 24.0",
     "pre-commit>=3.8.0",
     "toml",  # remove for python 3.11
 ]
