@@ -54,22 +54,6 @@ while :; do
   shift
 done
 
-poetry_verbosity=""
-while :; do
-  case $1 in
-    --verbose)
-      poetry_verbosity="-vvv"
-      ;;
-    --)
-      shift
-      break
-      ;;
-    *)
-      break
-  esac
-  shift
-done
-
 ##############################################################################
 # Return absolute path
 # Globals:
@@ -84,7 +68,6 @@ realpath () {
 }
 
 repo_root=$(dirname $(dirname "$(realpath ${BASH_SOURCE[0]})"))
-poetry_home_root="$repo_root/.poetry"
 
 print_art() {
   echo -e "${BGreen}"
@@ -104,36 +87,12 @@ EOF
 }
 
 ##############################################################################
-# Detect required version of python
-# Globals:
-#   colors
-#   PYTHON
+# Install UV
 # Arguments:
 #   None
 # Returns:
 #   None
 ###############################################################################
-detect_python () {
-  echo -e "${BIGreen}>>>${RST} Using python \c"
-  command -v python >/dev/null 2>&1 || { echo -e "${BIRed}- NOT FOUND${RST} ${BIYellow}You need Python 3.9 installed to continue.${RST}"; return 1; }
-  local version_command
-  version_command="import sys;print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))"
-  local python_version
-  python_version="$(python <<< ${version_command})"
-  oIFS="$IFS"
-  IFS=.
-  set -- $python_version
-  IFS="$oIFS"
-  if [ "$1" -ge "3" ] && [ "$2" -ge "9" ] ; then
-    if [ "$2" -gt "9" ] ; then
-      echo -e "${BIWhite}[${RST} ${BIRed}$1.$2 ${BIWhite}]${RST} - ${BIRed}FAILED${RST} ${BIYellow}Version is new and unsupported, use${RST} ${BIPurple}3.9.x${RST}"; return 1;
-    else
-      echo -e "${BIWhite}[${RST} ${BIGreen}$1.$2${RST} ${BIWhite}]${RST}"
-    fi
-  else
-    command -v python >/dev/null 2>&1 || { echo -e "${BIRed}$1.$2$ - ${BIRed}FAILED${RST} ${BIYellow}Version is old and unsupported${RST}"; return 1; }
-  fi
-}
 
 ##############################################################################
 # Clean pyc files in specified directory
@@ -157,8 +116,8 @@ create_env () {
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
 
-
-  uv venv && uv sync || { echo -e "${BIRed}!!!${RST} Venv installation failed"; return 1; }
+  uv venv --allow-existing .venv
+  uv sync --all-extras || { echo -e "${BIRed}!!!${RST} Venv installation failed"; return 1; }
   if [ $? -ne 0 ] ; then
     echo -e "${BIRed}!!!${RST} Virtual environment creation failed."
     return 1
@@ -174,16 +133,6 @@ create_env () {
 }
 
 install_runtime_dependencies () {
-  # Directories
-  echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$poetry_home_root/bin/poetry" ]; then
-    echo -e "${BIGreen}OK${RST}"
-  else
-    echo -e "${BIYellow}NOT FOUND${RST}"
-    echo -e "${BIYellow}***${RST} We need to install Poetry and virtual env ..."
-    create_env
-  fi
-
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Installing runtime dependencies ..."
@@ -227,7 +176,7 @@ build_ayon () {
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   version_command="import os;import re;version={};exec(open(os.path.join('$repo_root', 'version.py')).read(), version);print(version['__version__']);"
-  ayon_version="$(python <<< ${version_command})"
+  ayon_version="$(uv run python <<< ${version_command})"
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
@@ -237,24 +186,15 @@ build_ayon () {
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
   clean_pyc
 
-  echo -e "${BIGreen}>>>${RST} Reading Poetry ... \c"
-  if [ -f "$poetry_home_root/bin/poetry" ]; then
-    echo -e "${BIGreen}OK${RST}"
-  else
-    echo -e "${BIYellow}NOT FOUND${RST}"
-    echo -e "${BIYellow}***${RST} We need to install Poetry and virtual env ..."
-    create_env
-  fi
-
   if [ "$disable_submodule_update" == 1 ]; then
     echo -e "${BIYellow}***${RST} Not updating submodules ..."
   else
     echo -e "${BIGreen}>>>${RST} Making sure submodules are up-to-date ..."
-    git submodule update --init --recursive || { echo -e "${BIRed}!!!${RST} Poetry installation failed"; return 1; }
+    git submodule update --init --recursive || { echo -e "${BIRed}!!!${RST} Git submodule update failed"; return 1; }
   fi
   echo -e "${BIGreen}>>>${RST} Building ..."
-  "$poetry_home_root/bin/poetry" run python -m pip --no-color freeze > "$repo_root/build/requirements.txt"
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/_venv_deps.py"
+  uv --no-color pip freeze > "$repo_root/build/requirements.txt"
+  uv run python "$repo_root/tools/_venv_deps.py"
 
   build_command="build"
   if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -262,13 +202,14 @@ build_ayon () {
   fi
 
   pushd "$repo_root/shim"
-  "$poetry_home_root/bin/poetry" run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+
+  uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
     fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
   fi
   popd
-  "$poetry_home_root/bin/poetry" run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
+  "$repo_root/.venv/bin/python" "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  uv run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
     fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
   fi
@@ -282,7 +223,7 @@ build_ayon () {
 }
 
 make_installer_raw() {
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/build_post_process.py" "make-installer" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
+  uv run python "$repo_root/tools/build_post_process.py" "make-installer" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
 }
 
 make_installer() {
@@ -292,13 +233,13 @@ make_installer() {
 }
 
 installer_post_process() {
-  "$poetry_home_root/bin/poetry" run python "$repo_root/tools/installer_post_process.py" "$@"
+  uv run python "$repo_root/tools/installer_post_process.py" "$@"
 }
 
 run_from_code() {
   pushd "$repo_root" > /dev/null || return > /dev/null
   echo -e "${BIGreen}>>>${RST} Running AYON from code ..."
-  "$poetry_home_root/bin/poetry" run python "$repo_root/start.py" "$@"
+  uv run python "$repo_root/start.py" "$@"
 }
 
 create_container () {
@@ -349,7 +290,7 @@ docker_build() {
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
 
   local version_command="import os;exec(open(os.path.join('$repo_root', 'version.py')).read());print(__version__);"
-  local launcher_version="$(python <<< ${version_command})"
+  local launcher_version="$(uv run python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
   docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
@@ -383,7 +324,7 @@ default_help() {
   echo "Usage: ./make.sh [target]"
   echo ""
   echo "Runtime targets:"
-  echo "  create-env                    Install Poetry and update venv by lock file"
+  echo "  create-env                    Create UV venv and update venv by lock file"
   echo "  install-runtime-dependencies  Install runtime dependencies (Qt binding)"
   echo "      --use-pyside2                 Install PySide2 instead of PySide6."
   echo "  install-runtime               Alias for 'install-runtime-dependencies'"
@@ -399,12 +340,6 @@ default_help() {
 }
 
 main() {
-  return_code=0
-  detect_python || return_code=$?
-  if [ $return_code != 0 ]; then
-    exit $return_code
-  fi
-
   # Use first argument, lower and keep only characters
   function_name="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z]*//g')"
 
