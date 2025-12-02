@@ -93,6 +93,11 @@ EOF
 # Returns:
 #   None
 ###############################################################################
+install_uv () {
+  command -v uv >/dev/null 2>&1 || {
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  }
+}
 
 ##############################################################################
 # Clean pyc files in specified directory
@@ -340,6 +345,7 @@ default_help() {
 }
 
 main() {
+  install_uv
   # Use first argument, lower and keep only characters
   function_name="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z]*//g')"
 
