@@ -6,7 +6,7 @@ authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
 ]
 license = { text = "MIT License" }
-requires-python = "~=3.9"
+requires-python = "==3.9.11"
 
 dependencies = [
     "platformdirs ~= 3.0.0",

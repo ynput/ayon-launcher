@@ -1,6 +1,6 @@
 [project]
 name = "AYON"
-requires-python = ">=3.9.6, <3.10"
+requires-python = "==3.9.11"
 version = "1.4.4-dev"
 description = "Open VFX and Animation pipeline with support."
 authors = [
