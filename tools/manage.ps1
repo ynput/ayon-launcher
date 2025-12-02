@@ -102,46 +102,6 @@ function Install-Uv() {
     powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 }
 
-function Test-Python() {
-    Write-Color -Text ">>> ", "Detecting host Python ... " -Color Green, Gray -NoNewline
-    $python = "python"
-    if (Get-Command "pyenv" -ErrorAction SilentlyContinue) {
-        $pyenv_python = & pyenv which python
-        if (Test-Path -PathType Leaf -Path "$($pyenv_python)") {
-            $python = $pyenv_python
-        }
-    }
-    if (-not (Get-Command $python -ErrorAction SilentlyContinue)) {
-        Write-Host "!!! Python not detected" -ForegroundColor red
-        Restore-Cwd
-        Exit-WithCode 1
-    }
-    $version_command = @'
-import sys
-print('{0}.{1}'.format(sys.version_info[0], sys.version_info[1]))
-'@
-
-    $p = & $python -c $version_command
-    $env:PYTHON_VERSION = $p
-    $m = $p -match '(\d+)\.(\d+)'
-    if(-not $m) {
-      Write-Host "!!! Cannot determine version" -ForegroundColor red
-      Restore-Cwd
-      Exit-WithCode 1
-    }
-    # We are supporting python 3.9 only
-    if (([int]$matches[1] -lt 3) -or ([int]$matches[2] -lt 9)) {
-      Write-Color -Text "FAILED ", "Version ", "[ ", $p ," ]",  " is old and unsupported" -Color Red, Yellow, Cyan, White, Cyan, Yellow
-      Restore-Cwd
-      Exit-WithCode 1
-    } elseif (([int]$matches[1] -eq 3) -and ([int]$matches[2] -gt 9)) {
-        Write-Color -Text "WARNING Version ", "[ ",  $p, " ]",  " is unsupported, use at your own risk." -Color Yellow, Cyan, White, Cyan, Yellow
-        Write-Color -Text "*** ", "AYON launcher supports only Python 3.11" -Color Yellow, White
-    } else {
-        Write-Color "OK ", "[ ",  $p, " ]" -Color Green, Cyan, White, Cyan
-    }
-}
-
 function Get-Container($build_dir) {
     if (-not (Test-Path -PathType Leaf -Path "$($build_dir)\docker-image.id")) {
         Write-Color -Text "!!! ", "Docker command failed, cannot find image id." -Color Red, Yellow
@@ -493,7 +453,6 @@ function Main {
 # Show-PSWarning
 
 Write-AsciiArt
-Test-Python
 try {
     Main
 } finally {
