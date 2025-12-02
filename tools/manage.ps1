@@ -311,7 +311,7 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     Write-Color -Text ">>> ", "AYON [ ", $ayon_version, " ]" -Color Green, White, Cyan, White
 
     Write-Color -Text ">>> ", "Testing venv presence ... " -Color Green, Gray -NoNewline
-    if (-not (Test-Path -PathType Container -Path "$($repo_root)\bin")) {
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\.venv")) {
         Write-Color -Text "NOT FOUND" -Color Yellow
         Write-Color -Text "*** ", "We need to create virtual env first ..." -Color Yellow, Gray
         New-UvEnv
