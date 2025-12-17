@@ -50,6 +50,13 @@ RUN dnf -y install \
         xcb-util-renderutil \
     && dnf clean all
 
+# we need to build our own patchelf
+WORKDIR /opt/patchelf
+RUN git clone -b 0.18.0 --single-branch https://github.com/NixOS/patchelf.git . \
+    && ./bootstrap.sh \
+    && ./configure \
+    && make \
+    && make install
 
 # download and install uv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
@@ -74,5 +81,4 @@ RUN source $HOME/.bashrc \
 RUN cp /usr/lib64/libffi* ./build/output/lib \
     && cp /usr/lib64/libssl* ./build/output/lib \
     && cp /usr/lib64/libcrypto* ./build/output/lib \
-    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
     && cp /usr/lib64/libxcb* ./build/output/lib
