@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Script to fix frozen dependencies.
 
 Because Pype code needs to run under different versions of Python interpreter
@@ -18,9 +17,10 @@ Note: Speedcopy can be used for copying if server-side copy is important for
 speed.
 """
 
+
+import contextlib
 import os
 import sys
-import re
 import json
 import tempfile
 import time
@@ -29,6 +29,7 @@ import platform
 import subprocess
 import shutil
 import tarfile
+from typing import Any, Optional
 import hashlib
 import copy
 from pathlib import Path
@@ -65,7 +66,7 @@ def _print(msg: str, type: int = 0) -> None:
 
 
 def count_folders(path: Path) -> int:
-    """Recursively count items inside given Path.
+    """Recursively count items inside the given Path.
 
     Args:
         path (Path): Path to count.
@@ -82,8 +83,8 @@ def count_folders(path: Path) -> int:
     return cnt
 
 
-def get_site_pkg():
-    """Get path to site-packages.
+def get_site_pkg() -> Optional[Path]:
+    """Get the path to site-packages.
 
     Returns:
         Union[str, None]: Path to site-packages or None if not found.
@@ -94,16 +95,17 @@ def get_site_pkg():
 
     # WARNING: this assumes that all we've got is path to venv itself and
     # another path ending with 'site-packages' as is default. But because
-    # this must run under different platform, we cannot easily check if this
-    # path is the one, because under Linux and macOS site-packages are in
+    # this must run under a different platform, we cannot easily check if this
+    # path is the one, because under Linux and macOS site-packages are in a
     # different location.
     for s in sites:
         site_pkg = Path(s)
         if site_pkg.name == "site-packages":
             return site_pkg
+    return None
 
 
-def get_ayon_version(ayon_root):
+def get_ayon_version(ayon_root: Path) -> str:
     """Get AYON version from version.py file.
 
     Args:
@@ -129,7 +131,7 @@ def _build_shim_windows(
     inno_setup_path = shim_root / "inno_setup.iss"
     env = os.environ.copy()
     installer_basename = "shim"
-    filename = installer_basename + ".exe"
+    filename = f"{installer_basename}.exe"
     src_installer_path = shim_root / filename
     dst_installer_path = dst_shim_root / filename
     if dst_installer_path.exists():
@@ -183,8 +185,8 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
-    except FileNotFoundError:
-        raise ValueError("create-dmg is not available")
+    except FileNotFoundError as e:
+        raise ValueError("create-dmg is not available") from e
 
     dmg_path = dst_shim_root / "shim.dmg"
     app_filepath = dist_root.parent / "build" / "AYON.app"
@@ -287,10 +289,17 @@ def get_build_metadata(build_root):
         return json.load(stream)
 
 
-def store_build_metadata(root, metadata):
+def store_build_metadata(root: Path, metadata: dict[str, Any]) -> None:
+    """Store metadata about build.
+
+    Args:
+        root (Path): Path to the build directory.
+        metadata (dict[str, Any]): Metadata to store.
+
+    """
     filename = metadata.get("filename")
     if filename:
-        filepath = root / (filename + ".json")
+        filepath = root / f"{filename}.json"
     else:
         filepath = get_metadata_filepath(root)
     with open(filepath, "w") as stream:
@@ -320,7 +329,12 @@ def _fix_pyside2_linux(ayon_root, build_root):
         )
 
 
-def copy_files(ayon_root, build_content_root, deps_dir, site_pkg):
+def copy_files(
+        ayon_root: Path,
+        build_content_root: Path,
+        deps_dir: Path,
+        site_pkg: Path) -> None:
+    """Copy files from source to build output.  """
     vendor_dir = build_content_root / "vendor"
     vendor_src = ayon_root / "vendor"
 
@@ -363,31 +377,36 @@ def copy_files(ayon_root, build_content_root, deps_dir, site_pkg):
     progress_bar.close()
 
 
-def _delete_path_items(path_items, progress=None):
+def _delete_path_items(
+        path_items: list[Path],
+        progress: Optional[enlighten.Counter]=None) -> None:
     for d in path_items:
         if d.is_dir():
             shutil.rmtree(d)
         else:
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 d.unlink()
-            except FileNotFoundError:
-                # skip non-existent silently
-                pass
         if progress is not None:
             progress.update()
     if progress is not None:
         progress.close()
 
-def cleanup_files(deps_dir, libs_dir):
+def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
+    """Clean up files from a build output.
+
+    Args:
+        deps_dir (Path): Path to the dependencies' directory.
+        libs_dir (Path): Path to libraries directory.
+
+    """
     # _print("Finding duplicates ...")
     # Delete modules from 'dependencies' that don't need source code
     #   and can be kept as compiled files
     # - At this moment only 'cx_Freeze' is deleted from dependencies
     deps_to_remove = []
-    for d in deps_dir.iterdir():
-        # There is 'cx_Freeze' and 'cx_Freeze.dist...'
-        if d.name.startswith("cx_Freeze"):
-            deps_to_remove.append(d)
+    deps_to_remove.extend(
+        d for d in deps_dir.iterdir() if d.name.startswith("cx_Freeze")
+    )
     _delete_path_items(deps_to_remove)
 
     deps_items = list(deps_dir.iterdir())
@@ -407,10 +426,9 @@ def cleanup_files(deps_dir, libs_dir):
 
     find_progress_bar.close()
 
-    to_delete.append(libs_dir / "ayon")
-    to_delete.append(libs_dir / "ayon.pth")
-    to_delete.append(deps_dir / "ayon.pth")
-
+    to_delete.extend(
+        (libs_dir / "ayon", libs_dir / "ayon.pth", deps_dir / "ayon.pth")
+    )
     # delete duplicates
     # _print(f"Deleting {len(to_delete)} duplicates ...")
     delete_progress_bar = enlighten.Counter(
@@ -468,7 +486,7 @@ class _RuntimeModulesCache:
     cache = None
 
 
-def get_runtime_modules(root):
+def get_runtime_modules(root: Path):
     """Get runtime modules and their versions.
 
     Todos:
@@ -509,81 +527,55 @@ def get_runtime_modules(root):
     _RuntimeModulesCache.cache = data
     return data
 
-
-def get_packages_info(build_root):
-    """Read lock file to get packages.
-
-    Combine requirements freeze from venv and from poetry export. Requirements
-    freezed with pip 24 do not contain git urls, instead are pointing to
-    source folder on a disk. In that case is used poetry export which contains
-    the git url.
-
-    Notes:
-        This is not ideal solution. The most ideal would be to get all the
-            information from poetry. But poetry export is limited only to
-            requirements.txt and using custom export logic would require
-            to implement it on our own.
-        The custom logic would also require to run venv located inside poetry
-            because poetry does not have mechanism to run internal python
-            via poetry executable. Parsing poetry lock on our own is also not
-            ideal because it can change based on poetry version.
-        We might hit an issue that newer poetry export won't be able to export
-            the urls either.
+def get_uv_packages() -> list[tuple[str, str]]:
+    """Get Python packages from uv environment.
 
     Returns:
-        list[tuple[str, Union[str, None]]]: List of tuples containing package
-            name and version.
+        list[tuple[str, str]]: List of tuples containing package name and version.
+
+    Raises:
+        RuntimeError: If uv command fails or output cannot be parsed.
+
     """
-
-    requirements_path = build_root / "requirements.txt"
-    poetry_requirements_path = build_root / "locked_requirements.json"
-    if not requirements_path.exists():
-        raise RuntimeError(
-            "Failed to get packages info -> couldn't find 'requirements.txt'."
+    try:
+        result = subprocess.run(
+            ["uv", "pip", "list", "--format=json"],
+            capture_output=True,
+            text=True,
+            check=True
         )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to get uv packages: {e}") from e
+    except FileNotFoundError as e:
+        raise RuntimeError("uv is not installed or not in PATH") from e
 
-    if not poetry_requirements_path.exists():
-        raise RuntimeError(
-            "Failed to get packages info"
-            " -> couldn't find 'locked_requirements.json'."
-        )
+    try:
+        packages_data = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse uv output: {e}") from e
 
-    with open(str(requirements_path), "r", encoding="utf-8") as stream:
-        content = stream.read()
-
-    with open(str(poetry_requirements_path), "r", encoding="utf-8") as stream:
-        poetry_packages = json.load(stream)
-
-    packages = {}
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-
-        match = re.match(r"^(.+?)(?:==|>=|<=|~=|!=|@)(.+)$", line)
-        if not match:
-            print(f"Cannot parse package info '{line}'.")
-            continue
-        package_name, version = match.groups()
-        package_name = package_name.rstrip()
-        version = version.lstrip()
-
-        if version.startswith("file:"):
-            version = poetry_packages[package_name]
-        packages[package_name] = version.lstrip()
+    packages = []
+    for package in packages_data:
+        name = package.get("name")
+        version = package.get("version")
+        if name and version:
+            packages.append((name, version))
 
     return packages
 
 
-def store_base_metadata(build_root, build_content_root, ayon_version):
+def store_base_metadata(
+        build_root: Path,
+        build_content_root: Path,
+        ayon_version: str) -> None:
     """Store metadata about build.
 
-    The information are needed for server installer information. The build
-    process does not create installer. The installer is created by other
+    The information is needed for server installer information. The build
+    process does not create the installer. The installer is created by other
     tools.
 
     Args:
-        build_root (Path): Path to build directory.
+        build_root (Path): Path to the build directory.
         build_content_root (Path): Path build content directory.
         ayon_version (str): AYON version.
     """
@@ -597,16 +589,21 @@ def store_base_metadata(build_root, build_content_root, ayon_version):
         "platform": platform_name,
         "distro_short": distro_short,
         "python_version": platform.python_version(),
-        "python_modules": get_packages_info(build_root),
+        "python_modules": get_uv_packages(),
         "runtime_python_modules": get_runtime_modules(build_content_root),
     }
     store_build_metadata(build_root, metadata)
 
 
-def post_build_process(ayon_root, build_root):
-    """Post build process.
+def post_build_process(ayon_root: Path, build_root: Path) -> None:
+    """Implements Post build process.
 
-    Cleanup dependencies, fix build issues and store base build metadata.
+    Clean up dependencies, fix build issues and store base build metadata.
+
+    Args:
+        ayon_root (Path): Path to ayon root.
+        build_root (Path): Path to the build root directory.
+
     """
 
     ayon_version = get_ayon_version(ayon_root)
@@ -617,8 +614,8 @@ def post_build_process(ayon_root, build_root):
     store_base_metadata(build_root, build_content_root, ayon_version)
 
 
-def _find_iscc():
-    """Find Inno Setup headless executable for windows installer.
+def _find_iscc() -> str:
+    """Find Inno Setup headless executable for the Windows installer.
 
     Returns:
         str: Path to ISCC.exe.
@@ -628,13 +625,9 @@ def _find_iscc():
     """
 
     basename = "ISCC.exe"
-    try:
+    with contextlib.suppress(FileNotFoundError):
         subprocess.call([basename])
         return basename
-    except FileNotFoundError:
-        pass
-
-
     # Find automatically in program files
     program_files = os.getenv("PROGRAMFILES")
     program_files_x86 = os.getenv("PROGRAMFILES(X86)")
@@ -655,18 +648,18 @@ def _find_iscc():
 
 
 def _create_windows_installer(
-    ayon_root,
-    _build_root,
-    installer_root,
-    build_content_root,
-    ayon_version,
-    _distro_short,
-    pyside2_used,
-):
-    """Create Windows installer.
+    ayon_root: Path,
+    _build_root: Path,
+    installer_root: Path,
+    build_content_root: Path,
+    ayon_version: str,
+    _distro_short: str,
+    pyside2_used: bool,
+) -> Path:
+    """Create a Windows installer.
 
     Returns:
-        Path: Path to installer file.
+        Path: Path to the installer file.
     """
 
     pyside2_suffix = "-pyside2" if pyside2_used else ""
@@ -681,25 +674,25 @@ def _create_windows_installer(
     env["BUILD_VERSION"] = ayon_version
     env["BUILD_DST_FILENAME"] = installer_basename
     subprocess.call([iscc_executable, inno_setup_path], env=env)
-    output_file = installer_root / (installer_basename + ".exe")
+    output_file = installer_root / f"{installer_basename}.exe"
     if output_file.exists():
         return output_file
     raise ValueError("Installer was not created")
 
 
 def _create_linux_installer(
-    _,
-    _build_root,
-    installer_root,
-    build_content_root,
-    ayon_version,
-    distro_short,
-    pyside2_used,
-):
-    """Linux installer is just tar file.
+    _ayon_root: Path,
+    _build_root: Path,
+    installer_root: Path,
+    build_content_root: Path,
+    ayon_version: str,
+    distro_short: str,
+    pyside2_used: bool,
+) -> Path:
+    """Create a Linux installer (.tar.gz) containing the desktop application.
 
     Returns:
-        Path: Path to installer file.
+        Path: Path to the installer file.
 
     """
     pyside2_suffix = "-pyside2" if pyside2_used else ""
@@ -717,18 +710,18 @@ def _create_linux_installer(
 
 
 def _create_darwin_installer(
-    _ayon_root,
-    build_root,
-    installer_root,
-    _build_content_root,
-    ayon_version,
-    _distro_short,
-    pyside2_used,
-):
-    """Create MacOS installer (.dmg).
+    _ayon_root: Path,
+    build_root: Path,
+    installer_root: Path,
+    _build_content_root: Path,
+    ayon_version: str,
+    _distro_short: str,
+    pyside2_used: bool,
+) -> Path:
+    """Create a macOS installer (.dmg).
 
     Returns:
-        Path: Path to installer file.
+        Path: Path to the installer file.
 
     Raises:
         ValueError: If 'create-dmg' is not available.
@@ -741,8 +734,8 @@ def _create_darwin_installer(
     # TODO check if 'create-dmg' is available
     try:
         subprocess.call(["create-dmg"])
-    except FileNotFoundError:
-        raise ValueError("create-dmg is not available")
+    except FileNotFoundError as e:
+        raise ValueError("create-dmg is not available") from e
 
     _print("Creating dmg image ...")
     args = [
@@ -760,14 +753,14 @@ def _create_darwin_installer(
     return output_path
 
 
-def _create_installer(*args, **kwargs):
+def _create_installer(*args, **kwargs) -> Path:
     """Create single file installer of desktop application.
 
     Returns:
-        Path: Path to installer file.
+        Path: Path to the installer file.
 
     Raises:
-        ValueError: If platform is not supported.
+        ValueError: If a platform is not supported.
     """
 
     platform_name = platform.system().lower()
@@ -783,13 +776,16 @@ def _create_installer(*args, **kwargs):
     raise ValueError(f"Unknown platform '{platform_name}'.")
 
 
-def store_installer_metadata(build_root, installer_root, installer_path):
+def store_installer_metadata(
+        build_root: Path,
+        installer_root: Path,
+        installer_path: Path):
     """Update base build metadata with installer information.
 
     Args:
-        build_root (Path): Path to build root directory.
-        installer_root (Path): Path to installer root directory.
-        installer_path (str): Path to installer file.
+        build_root (Path): Path to the build root directory.
+        installer_root (Path): Path to the installer root directory.
+        installer_path (Path): Path to the installer file.
     """
 
     metadata = get_build_metadata(build_root)
@@ -801,12 +797,19 @@ def store_installer_metadata(build_root, installer_root, installer_path):
         "checksum": file_hash,
         "checksum_algorithm": "sha256",
         "size": os.path.getsize(installer_path),
-        "filename": os.path.basename(installer_path),
+        "filename": installer_path.name,
     })
     store_build_metadata(installer_root, metadata)
 
 
-def create_installer(ayon_root, build_root):
+def create_installer(ayon_root: Path, build_root: Path) -> None:
+    """Create installer for desktop application.
+
+    Args:
+        ayon_root (Path): Path to ayon root.
+        build_root (Path): Path to the build root directory.
+
+    """
     metadata = get_build_metadata(build_root)
     ayon_version = metadata["version"]
     distro_short = metadata["distro_short"]
@@ -827,7 +830,7 @@ def create_installer(ayon_root, build_root):
         pyside2_used,
     )
     store_installer_metadata(
-        build_root, installer_root, str(installer_path.absolute())
+        build_root, installer_root, installer_path.absolute()
     )
 
 
