@@ -611,7 +611,23 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
     copy_shim_to_build(ayon_root, build_content_root)
 
     dependency_cleanup(ayon_root, build_content_root)
+
+    print("--- restoring cx_freeze libs")
+    # cx_freeze_libs = "freeze_core.libs"  # for cx_Freeze >= 8.5
+    cx_freeze_libs = "cx_freeze.libs"  # for cx_Freeze <= 8.4.x
+    # restore cx_freeze libs that were removed during cleanup
+    libs_dir = build_content_root / "lib"
+    cx_freeze_dir = libs_dir / cx_freeze_libs
+    freeze_core = Path(site.getsitepackages()[0]) / cx_freeze_libs
+    if freeze_core.exists():
+        shutil.copytree(
+            str(freeze_core),
+            str(cx_freeze_dir),
+            dirs_exist_ok=True
+        )
+
     store_base_metadata(build_root, build_content_root, ayon_version)
+    print("--- done")
 
 
 def _find_iscc() -> str:
