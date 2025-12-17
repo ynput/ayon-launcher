@@ -716,12 +716,28 @@ def _create_linux_installer(
     filename = f"{basename}.tar.gz"
     output_path = installer_root / filename
 
-    # Open file in write mode to be sure that it exists
+    # Count total files to add
+    total_files = sum(bool(_.is_file())
+                  for _ in build_content_root.rglob('*'))
+
+    progress_bar = enlighten.Counter(
+        total=total_files,
+        desc="Creating tar.gz",
+        units="files",
+        color=(53, 178, 202)
+    )
+
+    # Open the file in write mode to be sure that it exists
     with open(output_path, "w"):
         pass
 
     with tarfile.open(output_path, mode="w:gz") as tar:
-        tar.add(build_content_root, arcname=basename)
+        for item in build_content_root.rglob('*'):
+            if item.is_file():
+                arcname = basename / item.relative_to(build_content_root)
+                tar.add(item, arcname=arcname)
+                progress_bar.update()
+    progress_bar.close()
     return output_path
 
 
