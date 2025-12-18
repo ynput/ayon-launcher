@@ -82,5 +82,4 @@ RUN source $HOME/.bashrc \
 RUN cp /usr/lib64/libffi* ./build/output/lib \
     && cp /usr/lib64/libssl* ./build/output/lib \
     && cp /usr/lib64/libcrypto* ./build/output/lib \
-    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
     && cp /usr/lib64/libxcb* ./build/output/lib
