@@ -33,12 +33,13 @@ def main():
             if source.get("git"):
                 url = source["git"]
                 package_version = f"git+{url}"
-            elif source in ["registry", "editable"]:
+            elif source.get("registry") or source.get("editable"):
                 # skip registry and editable sources
                 # is there something to do with them?
                 ...
             else:
-                raise ValueError(f"Unknown source type {source}")
+                msg = f"Unknown source type {source}"
+                raise ValueError(msg)
         packages[package_name] = package_version
 
     with open(OUTPUT_PATH, "w") as stream:
