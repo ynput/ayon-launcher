@@ -612,22 +612,56 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
 
     dependency_cleanup(ayon_root, build_content_root)
 
-    print("--- restoring cx_freeze libs")
-    # cx_freeze_libs = "freeze_core.libs"  # for cx_Freeze >= 8.5
-    cx_freeze_libs = "cx_freeze.libs"  # for cx_Freeze <= 8.4.x
-    # restore cx_freeze libs that were removed during cleanup
-    libs_dir = build_content_root / "lib"
-    cx_freeze_dir = libs_dir / cx_freeze_libs
-    freeze_core = Path(site.getsitepackages()[0]) / cx_freeze_libs
+    if platform.system().lower() == "linux":
+        _restore_cx_freeze_libs(build_content_root)
+    store_base_metadata(build_root, build_content_root, ayon_version)
+    print("--- done")
+
+def _restore_cx_freeze_libs(build_content_root: Path) -> None:
+    """Restore cx_Freeze libs from the build output.
+
+    Cx_Freeze is copying and running patchelf on libs from its base.
+    These libs are in venv site-packages, they have hash in their name,
+    and are built for the specific version of python cx_freeze is using.
+
+    Patchelf sometimes mangles the library, so the workaround is to copy
+    all these libraries again after the cleanup. It seems no patchelf
+    processing is needed.
+
+    This is needed only on Linux most likely.
+
+    Note:
+        cx_freeze changed the name of the folder where it stores libraries.
+        In versions before 8.5 it was `cx_freeze.libs`,
+        in 8.5 it is `cx_freeze.libs`. We can either detect the version or
+        hardcode the name.
+
+    Args:
+        build_content_root (Path): Path to the build output directory.
+
+    """
+    # Check which folder name exists in site-packages
+    site_packages = Path(site.getsitepackages()[0])
+
+    # Try newer version first (cx_Freeze >= 8.5)
+    freeze_core = site_packages / "freeze_core.libs"
+    cx_freeze_libs = "freeze_core.libs"
+
+    if not freeze_core.exists():
+        # Fall back to the older version (cx_Freeze <= 8.4.x)
+        freeze_core = site_packages / "cx_freeze.libs"
+        cx_freeze_libs = "cx_freeze.libs"
+
     if freeze_core.exists():
+        libs_dir = build_content_root / "lib"
+        cx_freeze_dir = libs_dir / cx_freeze_libs
         shutil.copytree(
             str(freeze_core),
             str(cx_freeze_dir),
             dirs_exist_ok=True
         )
-
-    store_base_metadata(build_root, build_content_root, ayon_version)
-    print("--- done")
+    else:
+        _print("Warning: cx_freeze libs not found in site-packages", 1)
 
 
 def _find_iscc() -> str:
