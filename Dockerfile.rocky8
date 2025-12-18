@@ -52,6 +52,14 @@ RUN dnf -y install \
         findutils \
     && dnf clean all
 
+# we need to build our own patchelf
+WORKDIR /opt/patchelf
+RUN git clone -b 0.18.0 --single-branch https://github.com/NixOS/patchelf.git . \
+    && ./bootstrap.sh \
+    && ./configure \
+    && make \
+    && make install
+
 # download and install uv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh

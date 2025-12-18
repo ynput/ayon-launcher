@@ -46,9 +46,22 @@ RUN apt-get update \
         libxmlsec1-dev \
         libffi-dev \
         liblzma-dev \
-        patchelf
+        autoconf \
+        binutils \
+        automake \
+        autotools-dev \
+        libtool \
+    && apt-get clean
 
 SHELL ["/bin/bash", "-c"]
+
+# we need to build our own patchelf
+WORKDIR /opt/patchelf
+RUN git clone -b 0.18.0 --single-branch https://github.com/NixOS/patchelf.git . \
+    && ./bootstrap.sh \
+    && ./configure \
+    && make \
+    && make install
 
 # download and install uv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
