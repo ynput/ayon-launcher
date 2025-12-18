@@ -426,8 +426,13 @@ def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
 
     find_progress_bar.close()
 
+    # add AYON package to the list of duplicates to delete
     to_delete.extend(
-        (libs_dir / "ayon", libs_dir / "ayon.pth", deps_dir / "ayon.pth")
+        (
+            libs_dir / "ayon",
+            libs_dir / "ayon.pth",
+            deps_dir / "ayon.pth"
+        )
     )
     # delete duplicates
     # _print(f"Deleting {len(to_delete)} duplicates ...")
@@ -615,7 +620,6 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
     if platform.system().lower() == "linux":
         _restore_cx_freeze_libs(build_content_root)
     store_base_metadata(build_root, build_content_root, ayon_version)
-    print("--- done")
 
 def _restore_cx_freeze_libs(build_content_root: Path) -> None:
     """Restore cx_Freeze libs from the build output.
@@ -643,25 +647,28 @@ def _restore_cx_freeze_libs(build_content_root: Path) -> None:
     # Check which folder name exists in site-packages
     site_packages = Path(site.getsitepackages()[0])
 
-    # Try newer version first (cx_Freeze >= 8.5)
-    freeze_core = site_packages / "freeze_core.libs"
-    cx_freeze_libs = "freeze_core.libs"
+    freeze_core = "freeze_core.libs"  # cx_Freeze >= 8.5
+    cx_freeze = "cx_freeze.libs"  # cx_Freeze <= 8.4.x
+    dst_root = build_content_root / "lib"
 
-    if not freeze_core.exists():
-        # Fall back to the older version (cx_Freeze <= 8.4.x)
-        freeze_core = site_packages / "cx_freeze.libs"
-        cx_freeze_libs = "cx_freeze.libs"
+    # Try newer version first
+    libs_dir = site_packages / freeze_core
+    destination_path = dst_root/ freeze_core
 
-    if freeze_core.exists():
-        libs_dir = build_content_root / "lib"
-        cx_freeze_dir = libs_dir / cx_freeze_libs
-        shutil.copytree(
-            str(freeze_core),
-            str(cx_freeze_dir),
-            dirs_exist_ok=True
-        )
-    else:
+    if not libs_dir.exists():
+        # Fall back to the older version
+        libs_dir = site_packages / cx_freeze
+        destination_path = dst_root / cx_freeze
+
+    if not libs_dir.exists():
         _print("Warning: cx_freeze libs not found in site-packages", 1)
+        return
+
+    shutil.copytree(
+        str(libs_dir),
+        str(destination_path),
+        dirs_exist_ok=True
+    )
 
 
 def _find_iscc() -> str:
