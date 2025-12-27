@@ -1,20 +1,11 @@
 <#
 .SYNOPSIS
-  Helper script create virtual environment using Poetry.
+  Helper script create virtual environment using uv.
 
 .DESCRIPTION
-  This script will detect Python installation, create venv with Poetry
-  and install all necessary packages from `poetry.lock` or `pyproject.toml`
+  This script will detect Python installation, create venv with uv
+  and install all necessary packages from `uv.lock` or `pyproject.toml`
   needed by AYON launcher to be included during application freeze on Windows.
-
-.EXAMPLE
-
-PS> .\manage.ps1
-
-.EXAMPLE
-
-Print verbose information from Poetry:
-PS> .\manage.ps1 create-env --verbose
 
 #>
 
@@ -205,7 +196,7 @@ function Write-DefaultFunc {
     Write-Color -Text "Usage: ", "./manage.ps1 ", "[target]" -Color Gray, White, Cyan
     Write-Host ""
     Write-Host "Runtime targets:"
-    Write-Color -text "  create-env                    ", "Install Poetry and update venv by lock file" -Color White, Cyan
+    Write-Color -text "  create-env                    ", "Install uv and update venv by lock file" -Color White, Cyan
     Write-Color -text "  install-runtime-dependencies  ", "Install runtime dependencies (Qt binding)" -Color White, Cyan
     Write-Color -text "      --use-pyside2                 Install ", "PySide2", " instead of ", "PySide6", "." -Color White, Cyan, White, Cyan, White
     Write-Color -text "  install-runtime               ", "Alias for '", "install-runtime-dependencies", "'" -Color White, Cyan, White, Cyan
@@ -241,12 +232,13 @@ function New-UvEnv {
     # so you can safely use pyenv to manage python versions
     Write-Color -Text ">>> ", "Creating and activating venv ... " -Color Green, Gray
     & uv venv --allow-existing .venv
-    # Do we need this? Maybe we can just do uv sync --all-extras
-    # Write-Color -Text ">>> ", "Compiling dependencies ... " -Color Green, Gray
-    # & uv pip compile pyproject.toml -o requirements.txt --no-strip-extras
-    # Write-Color -Text ">>> ", "Installing dependencies ... " -Color Green, Gray
-    # & uv pip install -r requirements.txt
     & uv sync --all-extras
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Color -Text "!!! ", "Creation of virtual environment failed." -Color Red, Yellow
+        Restore-Cwd
+        Exit-WithCode $LASTEXITCODE
+    }
 
     Install-PrecommitHook
     $endTime = [int][double]::Parse((Get-Date -UFormat %s))
@@ -256,7 +248,8 @@ function New-UvEnv {
         New-BurntToastNotification -AppLogo "$app_logo" -Text "AYON", "Virtual environment created.", "All done in $( $endTime - $startTime ) secs."
     } catch {}
     Write-Color -Text ">>> ", "Virtual environment created." -Color Green, White
-}
+
+    }
 
 function Install-PrecommitHook {
     if (Test-Path -PathType Container -Path "$($repo_root)\.git") {
@@ -436,7 +429,7 @@ function Main {
     } elseif ($FunctionName -eq "build") {
         Invoke-AyonBuild
     } elseif ($FunctionName -eq "makeinstaller") {
-        Invoke-AyonInstaller
+        New-AyonInstaller
     } elseif ($FunctionName -eq "buildmakeinstaller") {
         Invoke-AyonBuild -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
