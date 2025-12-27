@@ -121,8 +121,7 @@ create_env () {
   # Directories
   pushd "$repo_root" > /dev/null || return > /dev/null
 
-  uv venv --allow-existing .venv
-  uv sync --all-extras || { echo -e "${BIRed}!!!${RST} Venv installation failed"; return 1; }
+  uv venv --allow-existing && uv sync --all-extras || { echo -e "${BIRed}!!!${RST} Venv installation failed"; return 1; }
   if [ $? -ne 0 ] ; then
     echo -e "${BIRed}!!!${RST} Virtual environment creation failed."
     return 1
@@ -167,6 +166,13 @@ fix_macos_build () {
   fi
 
   # fix code signing issue
+  if [ $("arch"a) == "arm64" ]; then
+    echo -e "${BIGreen}>>>${RST} Fixing code signatures for ARM64 ...\c"
+    codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+    if [ -f "$ayonmacosexe" ]; then
+      codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+    fi
+  fi
   echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
   codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
   if [ -f "$ayonmacosexe" ]; then
@@ -220,6 +226,7 @@ build_ayon () {
   fi
 
   if [[ "$should_make_installer" == 1 ]]; then
+    echo -e "${BIGreen}>>>${RST} Making installer ..."
     make_installer_raw
   fi
 
