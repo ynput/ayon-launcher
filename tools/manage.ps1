@@ -80,12 +80,19 @@ function Show-PSWarning() {
 }
 
 function Get-AyonVersion() {
-    $ayon_version = Invoke-Expression -Command "python -c ""import os;import sys;content={};f=open(r'$($repo_root)\version.py');exec(f.read(),content);f.close();print(content['__version__'])"""
-    if (-not $ayon_version) {
-      Write-Color -Text "!!! ", "Cannot determine AYON version." -Color Yellow, Gray
-      return $null
+    $version_file = "$($repo_root)\version.py"
+    if (-not (Test-Path -PathType Leaf -Path $version_file)) {
+        Write-Color -Text "!!! ", "Cannot find version.py file." -Color Yellow, Gray
+        return $null
     }
-    return $ayon_version
+
+    $content = Get-Content $version_file -Raw
+    if ($content -match '__version__\s*=\s*["\`]([^"\`]+)["\`]') {
+        return $matches[1]
+    }
+
+    Write-Color -Text "!!! ", "Cannot determine AYON version." -Color Yellow, Gray
+    return $null
 }
 
 function Install-Uv() {
@@ -262,6 +269,35 @@ function Install-PrecommitHook {
     }
 }
 
+function Ensure-InnoSetupPresent {
+    Write-Color -Text ">>> ", "Checking for Inno Setup (ISCC.exe) ... " -Color Green, Gray -NoNewline
+    $iscc = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+    if ($iscc) {
+        Write-Color -Text "OK" -Color Green
+        return
+    }
+
+    # Check common install locations for Inno Setup and add to PATH if found.
+    $commonPaths = @(
+        "$Env:ProgramFiles (x86)\Inno Setup 6\ISCC.exe",
+        "$Env:ProgramFiles\Inno Setup 6\ISCC.exe"
+    )
+    foreach ($p in $commonPaths) {
+        if ($p -and (Test-Path -Path $p -PathType Leaf)) {
+            Write-Color -Text "Found at ", $p -Color Gray, White
+            $env:PATH = "$($env:PATH);$([System.IO.Path]::GetDirectoryName($p))"
+            return
+        }
+    }
+
+    Write-Color -Text "NOT FOUND" -Color Yellow
+    Write-Color -Text "!!! ", "Inno Setup (ISCC.exe) was not found in PATH." -Color Red, Yellow
+    Write-Color -Text "    ", "Please install Inno Setup and ensure ISCC.exe is available on PATH." -Color Yellow, White
+    Write-Color -Text "    ", "Download: https://jrsoftware.org/isinfo.php" -Color Yellow, Cyan
+    Write-Color -Text "    ", "Common install locations: 'C:\\Program Files (x86)\\Inno Setup 6\\' or 'C:\\Program Files\\Inno Setup 6\\'" -Color Yellow, White
+    Exit-WithCode 1
+}
+
 function Invoke-AyonBuild($MakeInstaller = $false) {
     Set-Cwd
     $ayon_version = Get-AyonVersion
@@ -429,8 +465,10 @@ function Main {
     } elseif ($FunctionName -eq "build") {
         Invoke-AyonBuild
     } elseif ($FunctionName -eq "makeinstaller") {
+        Ensure-InnoSetupPresent
         New-AyonInstaller
     } elseif ($FunctionName -eq "buildmakeinstaller") {
+        Ensure-InnoSetupPresent
         Invoke-AyonBuild -MakeInstaller true
     } elseif ($FunctionName -eq "upload") {
         Invoke-InstallerPostProcess "upload" @arguments
