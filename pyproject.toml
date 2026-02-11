@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AYON"
-version = "1.4.3-dev"
+version = "1.4.4-dev"
 package-mode = false
 description = "Open VFX and Animation pipeline with support."
 authors = ["Ynput s.r.o. <info@ynput.io>"]
