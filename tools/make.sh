@@ -166,14 +166,14 @@ fix_macos_build () {
   fi
 
   # fix code signing issue
-  if [ $("arch"a) == "arm64" ]; then
-    echo -e "${BIGreen}>>>${RST} Fixing code signatures for ARM64 ...\c"
+  if [ $("arch") == "arm64" ]; then
+    echo -e "${BIGreen}>>>${RST} Fixing code signatures for ARM64 ..."
     codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
     if [ -f "$ayonmacosexe" ]; then
       codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
     fi
   fi
-  echo -e "${BIGreen}>>>${RST} Fixing code signatures ...\c"
+  echo -e "${BIGreen}>>>${RST} Fixing code signatures ..."
   codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
   if [ -f "$ayonmacosexe" ]; then
     codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
