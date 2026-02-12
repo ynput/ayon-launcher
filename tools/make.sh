@@ -149,8 +149,6 @@ fix_macos_build () {
   ayonexe="$macosdir/ayon"
   ayonmacosexe="$macosdir/ayon_macos"
   tmp_ayonexe="$macosdir/ayon_tmp"
-  # force hide icon from Dock
-  defaults write "$macoscontents/Info" LSUIElement 1
 
   # Fix codesign bug by creating copy of executable, removing source
   #   executable and replacing by the copy
