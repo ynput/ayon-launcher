@@ -52,25 +52,23 @@ RUN dnf -y install \
         findutils \
     && dnf clean all
 
+# we need to build our own patchelf
+WORKDIR /opt/patchelf
+RUN git clone -b 0.18.0 --single-branch https://github.com/NixOS/patchelf.git . \
+    && ./bootstrap.sh \
+    && ./configure \
+    && make \
+    && make install
+
+# download and install uv
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
+
 RUN mkdir /opt/ayon-launcher
-
-RUN curl https://pyenv.run | bash
-# ENV PYTHON_CONFIGURE_OPTS --enable-shared
-
-RUN echo 'export PATH="$HOME/.pyenv/bin:$PATH"'>> $HOME/.bashrc \
-    && echo 'eval "$(pyenv init -)"' >> $HOME/.bashrc \
-    && echo 'eval "$(pyenv virtualenv-init -)"' >> $HOME/.bashrc \
-    && echo 'eval "$(pyenv init --path)"' >> $HOME/.bashrc
-RUN source $HOME/.bashrc && pyenv install ${PYTHON_VERSION}
-
-COPY . /opt/ayon-launcher/
-RUN rm -rf /opt/ayon-launcher/.poetry || echo "No Poetry installed yet."
-RUN chmod +x /opt/ayon-launcher/tools/make.sh
-
 WORKDIR /opt/ayon-launcher
-
-RUN source $HOME/.bashrc \
-    && pyenv local ${PYTHON_VERSION}
+COPY . /opt/ayon-launcher/
+RUN chmod +x /opt/ayon-launcher/tools/make.sh
 
 RUN source $HOME/.bashrc \
     && ./tools/make.sh create-env
@@ -84,5 +82,4 @@ RUN source $HOME/.bashrc \
 RUN cp /usr/lib64/libffi* ./build/output/lib \
     && cp /usr/lib64/libssl* ./build/output/lib \
     && cp /usr/lib64/libcrypto* ./build/output/lib \
-    && cp /root/.pyenv/versions/${PYTHON_VERSION}/lib/libpython* ./build/output/lib \
     && cp /usr/lib64/libxcb* ./build/output/lib

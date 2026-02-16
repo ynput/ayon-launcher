@@ -1,28 +1,22 @@
-[tool.poetry]
+[project]
 name = "AYON-shim"
 version = "1.0.0"
 description = "Open VFX and Animation pipeline with support."
-authors = ["Ynput s.r.o. <info@ynput.io>"]
-license = "MIT License"
-homepage = "https://ynput.io"
-documentation = "https://ayon.ynput.io"
-repository = "https://github.com/ynput/ayon-launcher"
-package-mode = false
-packages = [
-    {include = "shim_start.py"},
-    {include = "setup.py"},
-    {include = "pyproject.toml"},
-    {include = "poetry.lock"}
+authors = [
+    {name = "Ynput s.r.o.", email = "info@ynput.io"}
+]
+license = { text = "MIT License" }
+requires-python = "==3.9.13"
+
+dependencies = [
+    "platformdirs ~= 3.0.0",
+    "semver ~= 2.13.0",
+    "cx_freeze ~= 8.4",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9.1,<3.10"
-platformdirs = "^3.0.0"
-semver = "^2.13.0"
-
-[tool.poetry.group.dev.dependencies]
-cx_freeze = "6.15.16"
-
-[tool.poetry.urls]
+[project.urls]
 "Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"
 "Discussions" = "https://github.com/ynput/ayon-launcher/discussions"
+"documentation" = "https://ayon.ynput.io"
+"repository" = "https://github.com/ynput/ayon-launcher"
+"homepage" = "https://ynput.io"

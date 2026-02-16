@@ -8,51 +8,38 @@ with dictionary ready for pyproject.toml file.
 """
 
 import os
-import platform
-import site
 import json
+import toml
 from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT_DIR = CURRENT_DIR.parent
-OUTPUT_PATH = REPO_ROOT_DIR / "build" / "poetry_lock.json"
-
-def get_poetry_venv_root():
-    venv_root = REPO_ROOT_DIR / ".poetry" / "venv"
-    if platform.system().lower() == "windows":
-        return venv_root / "Lib" / "site-packages"
-
-    lib_root = venv_root / "lib"
-    for subfolder in lib_root.iterdir():
-        site_packages = subfolder / "site-packages"
-        if site_packages.exists():
-            return site_packages
-    raise RuntimeError("Could not find site-packages in poetry venv")
-
-
-site.addsitedir(str(get_poetry_venv_root()))
-
-from poetry.factory import Factory  # noqa E402
+OUTPUT_PATH = REPO_ROOT_DIR / "build" / "locked_requirements.json"
 
 
 def main():
-    poetry = Factory().create_poetry(REPO_ROOT_DIR)
-    locker = poetry.locker
+    uv_lock_file = REPO_ROOT_DIR / "uv.lock"
+    if uv_lock_file.exists():
+        with open(uv_lock_file, "r") as stream:
+            uv_lock_data = toml.load(stream)
+
     packages = {}
-    package_data = locker.lock_data["package"]
+    package_data = uv_lock_data["package"]
     for package in package_data:
         package_name = package["name"]
         package_version = package["version"]
         source = package.get("source")
         if source:
-            source_type = source["type"]
-            if source_type == "git":
-                ref = source["resolved_reference"]
-                url = source["url"]
-                package_version = f"git+{url}@{ref}"
+            if source.get("git"):
+                url = source["git"]
+                package_version = f"git+{url}"
+            elif source.get("registry") or source.get("editable"):
+                # skip registry and editable sources
+                # is there something to do with them?
+                ...
             else:
-                raise ValueError(f"Unknown source type {source_type}")
-
+                msg = f"Unknown source type {source}"
+                raise ValueError(msg)
         packages[package_name] = package_version
 
     with open(OUTPUT_PATH, "w") as stream:
