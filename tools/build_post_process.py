@@ -546,7 +546,7 @@ def get_uv_packages() -> list[tuple[str, str]]:
         # excluding editable packages as they can't be resolved by
         # the dependency package tool
         result = subprocess.run(
-            ["uv", "pip", "--exclude-editable", "list", "--format=json"],
+            ["uv", "pip", "list", "--format=json", "--exclude-editable"],
             capture_output=True,
             text=True,
             check=True
