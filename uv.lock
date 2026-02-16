@@ -12,11 +12,6 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "acre"
-version = "1.0.0"
-source = { git = "https://github.com/pypeclub/acre.git#5f55105deafd79165a4b59780475de82c06184e9" }
-
-[[package]]
 name = "aiohappyeyeballs"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -88,11 +83,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { git = "https://github.com/ActiveState/appdirs.git#8734277956c1df3b85385e6b308e954910533884" }
-
-[[package]]
 name = "arrow"
 version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -160,9 +150,7 @@ name = "ayon"
 version = "1.4.3.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "acre" },
     { name = "aiohttp" },
-    { name = "appdirs" },
     { name = "arrow" },
     { name = "ayon-python-api" },
     { name = "blessed" },
@@ -210,9 +198,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "acre", git = "https://github.com/pypeclub/acre.git" },
     { name = "aiohttp", specifier = "~=3.7" },
-    { name = "appdirs", git = "https://github.com/ActiveState/appdirs.git" },
     { name = "arrow", specifier = "~=0.17" },
     { name = "autopep8", marker = "extra == 'dev'", specifier = "~=2.0" },
     { name = "ayon-python-api", specifier = "==1.2.10" },
