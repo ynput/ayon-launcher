@@ -552,13 +552,14 @@ def _run_disk_mapping(
         '_set_default_settings_variant' must be called first, so correct
         settings are received from server.
     """
-
     low_platform = platform.system().lower()
 
     key_values = {
         "bundle_name": studio_bundle_name,
-        "project_bundle_name": project_bundle_name,
     }
+    if project_bundle_name and studio_bundle_name != project_bundle_name:
+        key_values["project_bundle_name"] = project_bundle_name
+
     query = urlencode(key_values)
 
     core_settings = {}
