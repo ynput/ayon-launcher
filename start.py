@@ -789,8 +789,9 @@ def _start_distribution():
 
     for path in distribution.get_python_paths():
         sys.path.insert(0, path)
-        if path not in python_paths:
-            python_paths.append(path)
+        while path in python_paths:
+            python_paths.remove(path)
+        python_paths.insert(0, path)
 
     for path in distribution.get_sys_paths():
         sys.path.insert(0, path)
