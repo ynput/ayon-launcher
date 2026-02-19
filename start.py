@@ -811,7 +811,6 @@ def _start_distribution():
     #   already in PYTHONPATH
     addons_dir = Path(get_addons_dir())
     dependencies_dir = Path(get_dependencies_dir())
-    dep_dir_idx = None
     python_paths = []
     idx = 0
     for path in os.getenv("PYTHONPATH", "").split(os.pathsep):
