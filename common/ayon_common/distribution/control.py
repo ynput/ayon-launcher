@@ -480,6 +480,7 @@ class BaseDistributionItem(ABC):
         progress_dir (Optional[str]): Directory where progress is stored for
             other processes.
         logger (Optional[logging.Logger]): Logger object.
+        change_permissions (bool): Change permissions of download directory.
 
     """
     def __init__(
@@ -494,6 +495,7 @@ class BaseDistributionItem(ABC):
         item_label: str,
         progress_dir: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
+        change_permissions: bool = True,
     ):
         if logger is None:
             logger = logging.getLogger(self.__class__.__name__)
@@ -506,6 +508,7 @@ class BaseDistributionItem(ABC):
         self.sources = self._prepare_sources(sources)
         self.downloader_data: dict[str, Any] = downloader_data
         self.item_label: str = item_label
+        self._change_permissions = change_permissions
 
         self._need_distribution = state != UpdateState.UPDATED
         self._current_source_progress = None
@@ -595,7 +598,8 @@ class BaseDistributionItem(ABC):
         if not os.path.exists(self.download_dirpath):
             os.makedirs(self.download_dirpath, exist_ok=True)
 
-        change_permissions_recursive(self.download_dirpath)
+        if self._change_permissions:
+            change_permissions_recursive(self.download_dirpath)
 
     def _receive_file(
         self,
@@ -927,7 +931,7 @@ class InstallerDistributionItem(BaseDistributionItem):
     """Distribution of new version of AYON launcher/Installer."""
 
     def __init__(self, cleanup_on_fail: bool, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, change_permissions=False)
         self._cleanup_on_fail = cleanup_on_fail
         self._executable = None
         self._installer_path = None

@@ -205,12 +205,6 @@ python_builtins = [
     "zipimport",
     "zoneinfo",
 ]
-for module_name in python_builtins:
-    try:
-        __import__(module_name)
-        install_requires.append(module_name)
-    except ImportError:
-        pass
 
 includes = []
 excludes = [
@@ -245,6 +239,24 @@ if IS_LINUX:
         cwd=ayon_root.as_posix(),
     )
     include_files.append("app_launcher")
+
+
+if IS_LINUX or IS_MACOS:
+    python_builtins.extend([
+        "bz2",
+        # TODO: remove when moving to py3.13+
+        "crypt",
+        "resource",
+        "readline",
+    ])
+
+
+for module_name in python_builtins:
+    try:
+        __import__(module_name)
+        install_requires.append(module_name)
+    except ImportError:
+        print(f"WARNING: Failed to import '{module_name}'. Built-in module will not be included in build.")
 
 icon_path = None
 mac_icon_path = resources_dir / "AYON.icns"
