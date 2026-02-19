@@ -278,7 +278,7 @@ docker_build() {
     variant="ubuntu"
   fi
   dockerfile="Dockerfile"
-  if [ $variant -ne "ubuntu" ]
+  if [ $variant -ne "ubuntu" ]; then
     dockerfile="Dockerfile.$1"
   fi
 
