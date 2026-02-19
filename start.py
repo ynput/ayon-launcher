@@ -810,7 +810,8 @@ def _start_distribution():
     dependencies_dir = Path(get_dependencies_dir())
     dep_dir_idx = None
     python_paths = []
-    for idx, path in enumerate(os.getenv("PYTHONPATH", "").split(os.pathsep)):
+    idx = 0
+    for path in os.getenv("PYTHONPATH", "").split(os.pathsep):
         if not path:
             continue
 
@@ -826,6 +827,7 @@ def _start_distribution():
                 dep_dir_idx = idx
             continue
         python_paths.append(path)
+        idx += 1
 
     addon_paths, dep_package_path = distribution.get_python_paths()
 
