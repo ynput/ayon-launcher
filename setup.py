@@ -244,6 +244,7 @@ if IS_LINUX:
 if IS_LINUX or IS_MACOS:
     python_builtins.extend([
         "bz2",
+        # TODO: remove when moving to py3.13+
         "crypt",
         "resource",
         "readline",
