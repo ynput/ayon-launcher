@@ -348,7 +348,7 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
-import ayon_api
+import ayon_api  # noqa E402
 from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
