@@ -801,7 +801,11 @@ def _start_distribution():
     os.environ["AYON_BUNDLE_NAME"] = project_bundle_name
     os.environ["AYON_STUDIO_BUNDLE_NAME"] = studio_bundle_name
 
-    # TODO probably remove paths to other addons?
+    # Remove any path leading to addons or dependecy packages directory
+    # - makes sure that any addon in PYTHONPATH is removed, addons from
+    #   current bundle are added below.
+    # - also make sure to keep order of dependency package if there is any
+    #   already in PYTHONPATH
     addons_dir = Path(get_addons_dir())
     dependencies_dir = Path(get_dependencies_dir())
     dep_dir_idx = None
@@ -811,11 +815,12 @@ def _start_distribution():
             continue
 
         p_path = Path(path)
-        # Ignore addons
+        # Ignore addons directories
         if p_path.is_relative_to(addons_dir):
             continue
 
-        # Ignore dependencies dir and store index of the path
+        # Ignore dependencies dir and store index of the path to keep it in
+        #   same order
         if p_path.is_relative_to(dependencies_dir):
             if dep_dir_idx is None:
                 dep_dir_idx = idx
