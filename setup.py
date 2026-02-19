@@ -245,6 +245,7 @@ if IS_LINUX:
         cwd=ayon_root.as_posix(),
     )
     include_files.append("app_launcher")
+    install_requires.append("resource")
 
 icon_path = None
 mac_icon_path = resources_dir / "AYON.icns"
