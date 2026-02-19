@@ -205,12 +205,6 @@ python_builtins = [
     "zipimport",
     "zoneinfo",
 ]
-for module_name in python_builtins:
-    try:
-        __import__(module_name)
-        install_requires.append(module_name)
-    except ImportError:
-        pass
 
 includes = []
 excludes = [
@@ -245,16 +239,19 @@ if IS_LINUX:
         cwd=ayon_root.as_posix(),
     )
     include_files.append("app_launcher")
-    install_requires.extend([
+    python_builtins.extend([
         "bz2",
-        "curses",
         "crypt",
-        "dbm",
-        "lzma",
         "resource",
         "readline",
-        "sqlite3"
     ])
+
+for module_name in python_builtins:
+    try:
+        __import__(module_name)
+        install_requires.append(module_name)
+    except ImportError:
+        pass
 
 icon_path = None
 mac_icon_path = resources_dir / "AYON.icns"
