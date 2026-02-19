@@ -239,12 +239,16 @@ if IS_LINUX:
         cwd=ayon_root.as_posix(),
     )
     include_files.append("app_launcher")
+
+
+if IS_LINUX or IS_MACOS:
     python_builtins.extend([
         "bz2",
         "crypt",
         "resource",
         "readline",
     ])
+
 
 for module_name in python_builtins:
     try:
