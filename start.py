@@ -83,7 +83,7 @@ import time
 import traceback
 import subprocess
 from contextlib import contextmanager
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlencode, urlparse, parse_qs
 
 from version import __version__
 
@@ -348,10 +348,10 @@ if not os.getenv("SSL_CERT_FILE"):
 elif os.getenv("SSL_CERT_FILE") != certifi.where():
     _print("--- your system is set to use custom CA certificate bundle.")
 
+import ayon_api  # noqa E402
 from ayon_api import (  # noqa E402
     get_base_url,
     set_default_settings_variant,
-    get_addons_studio_settings,
     get_event,
     update_event,
     take_web_action_event,
@@ -542,17 +542,32 @@ def _prepare_disk_mapping_args(src_path, dst_path):
     return []
 
 
-def _run_disk_mapping(bundle_name):
+def _run_disk_mapping(
+    studio_bundle_name: str,
+    project_bundle_name: str,
+) -> None:
     """Run disk mapping logic.
 
     Mapping of disks is taken from core addon settings. To run this logic
         '_set_default_settings_variant' must be called first, so correct
         settings are received from server.
     """
-
     low_platform = platform.system().lower()
-    settings = get_addons_studio_settings(bundle_name)
-    core_settings = settings.get("core") or {}
+
+    key_values = {
+        "bundle_name": studio_bundle_name,
+    }
+    if project_bundle_name and studio_bundle_name != project_bundle_name:
+        key_values["project_bundle_name"] = project_bundle_name
+
+    query = urlencode(key_values)
+
+    core_settings = {}
+    response = ayon_api.get(f"settings?{query}")
+    for addon in response.data["addons"]:
+        if addon["name"] == "core":
+            core_settings = addon["settings"] or {}
+
     disk_mapping = core_settings.get("disk_mapping") or {}
     platform_disk_mapping = disk_mapping.get(low_platform)
     if not platform_disk_mapping:
@@ -688,7 +703,10 @@ def _start_distribution():
         distribution.use_staging,
         project_bundle_name
     )
-    _run_disk_mapping(project_bundle_name)
+    _run_disk_mapping(
+        studio_bundle_name,
+        project_bundle_name
+    )
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
     skip_auto_update = auto_update == "skip"
