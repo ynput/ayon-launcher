@@ -83,6 +83,7 @@ import time
 import traceback
 import subprocess
 from contextlib import contextmanager
+from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from version import __version__
@@ -377,6 +378,8 @@ from ayon_common.connection.credentials import (  # noqa E402
 from ayon_common.distribution import (  # noqa E402
     AYONDistribution,
     BundleNotFoundError,
+    get_addons_dir,
+    get_dependencies_dir,
     show_missing_bundle_information,
     show_blocked_auto_update,
     show_missing_permissions,
@@ -799,16 +802,36 @@ def _start_distribution():
     os.environ["AYON_STUDIO_BUNDLE_NAME"] = studio_bundle_name
 
     # TODO probably remove paths to other addons?
-    python_paths = [
-        path
-        for path in os.getenv("PYTHONPATH", "").split(os.pathsep)
-        if path
-    ]
+    addons_dir = Path(get_addons_dir())
+    dependencies_dir = Path(get_dependencies_dir())
+    dep_dir_idx = None
+    python_paths = []
+    for idx, path in enumerate(os.getenv("PYTHONPATH", "").split(os.pathsep)):
+        if not path:
+            continue
 
-    for path in distribution.get_python_paths():
+        p_path = Path(path)
+        # Ignore addons
+        if p_path.is_relative_to(addons_dir):
+            continue
+
+        # Ignore dependencies dir and store index of the path
+        if p_path.is_relative_to(dependencies_dir):
+            if dep_dir_idx is None:
+                dep_dir_idx = idx
+            continue
+        python_paths.append(path)
+
+    addon_paths, dep_package_path = distribution.get_python_paths()
+
+    sys.path.insert(0, dep_package_path)
+    if dep_dir_idx is not None:
+        python_paths.insert(dep_dir_idx, dep_package_path)
+    else:
+        python_paths.append(dep_package_path)
+
+    for path in addon_paths:
         sys.path.insert(0, path)
-        while path in python_paths:
-            python_paths.remove(path)
         python_paths.insert(0, path)
 
     for path in distribution.get_sys_paths():
