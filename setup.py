@@ -256,7 +256,7 @@ for module_name in python_builtins:
         __import__(module_name)
         install_requires.append(module_name)
     except ImportError:
-        print(f"WARNING: Failed to import '{module_name}'")
+        print(f"WARNING: Failed to import '{module_name}'. Built-in module will not be included in build.")
 
 icon_path = None
 mac_icon_path = resources_dir / "AYON.icns"
