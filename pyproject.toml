@@ -80,15 +80,15 @@ build-backend = "hatchling.build"
 [ayon]
 [ayon.qtbinding.windows]
 package = "PySide6"
-version = "6.10.2"
+version = "6.8.3"
 
 [ayon.qtbinding.darwin]
 package = "PySide6"
-version = "6.10.2"
+version = "6.8.3"
 
 [ayon.qtbinding.linux]
 package = "PySide6"
-version = "6.10.2"
+version = "6.8.3"
 
 [ayon.qtbinding.pyside2]
 package = "PySide2"
