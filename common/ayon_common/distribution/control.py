@@ -2542,38 +2542,38 @@ class AYONDistribution:
                 output.append(runtime_dir)
         return output
 
-    def get_python_paths(self) -> list[str]:
+    def get_python_paths(self) -> tuple[list[str], Optional[str]]:
         """Get all paths to python packages that should be added to python.
 
         These paths lead to addon directories and python dependencies in
         dependency package.
 
         Returns:
-            List[str]: Paths that should be added to 'sys.path' and
-                'PYTHONPATH'.
+            tuple[list[str], Optional[str]]: Paths that should be added
+                to 'sys.path' and 'PYTHONPATH'.
 
         """
-        output = []
+        addon_paths = []
         for item in self.get_addon_dist_items():
             dist_item = item["dist_item"]
             if dist_item.state != UpdateState.UPDATED:
                 continue
             target_dirpath = dist_item.target_dirpath
             if target_dirpath and os.path.exists(target_dirpath):
-                output.append(target_dirpath)
+                addon_paths.append(target_dirpath)
 
-        output.extend(self._get_dev_sys_paths())
+        addon_paths.extend(self._get_dev_sys_paths())
 
+        dependencies_dir = None
         dependency_dist_item = self.get_dependency_dist_item()
         if dependency_dist_item is not None:
-            dependencies_dir = None
             target_dirpath = dependency_dist_item.target_dirpath
             if target_dirpath:
                 dependencies_dir = os.path.join(target_dirpath, "dependencies")
 
-            if dependencies_dir and os.path.exists(dependencies_dir):
-                output.append(dependencies_dir)
-        return output
+            if not dependencies_dir or not os.path.exists(dependencies_dir):
+                dependencies_dir = None
+        return addon_paths, dependencies_dir
 
     def _get_dev_sys_paths(self) -> list[str]:
         output = []
