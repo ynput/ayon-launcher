@@ -90,10 +90,6 @@ version = "6.10.2"
 package = "PySide6"
 version = "6.10.2"
 
-[ayon.qtbinding.centos7]
-package = "PySide2"
-version = "5.15.2"
-
 [ayon.qtbinding.pyside2]
 package = "PySide2"
 version = "5.15.2"
