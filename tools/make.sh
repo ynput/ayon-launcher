@@ -273,18 +273,20 @@ retrieve_build_log () {
 }
 
 docker_build() {
-  if [ -z "$1" ]; then
-    dockerfile="Dockerfile"
-    echo -e "${BIGreen}>>>${RST} Using default Dockerfile ..."
-  else
-    dockerfile="Dockerfile.$1"
-    if [ ! -f "$repo_root/$dockerfile" ]; then
-      echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
-      exit 1
-    else
-      echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
-    fi
+  variant=$1
+  if [ -z "$variant" ]; then
+    variant="ubuntu"
   fi
+  dockerfile="Dockerfile"
+  if [ $variant -ne "ubuntu" ]; then
+    dockerfile="Dockerfile.$1"
+  fi
+
+  if [ ! -f "$repo_root/$dockerfile" ]; then
+    echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
+    exit 1
+  fi
+  echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
 
   qtenv=""
   for var in "$@"
@@ -303,7 +305,7 @@ docker_build() {
   local launcher_version="$(uv run python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher-$variant:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
