@@ -252,12 +252,13 @@ run_from_code() {
   uv run python "$repo_root/start.py" "$@"
 }
 
-create_container () {
-  if [ ! -f "$repo_root/build/docker-image.id" ]; then
+create_container_id () {
+  outdir=$1
+  if [ ! -f "$outdir/docker-image.id" ]; then
     echo -e "${BIRed}!!!${RST} Docker command failed, cannot find image id."
     exit 1
   fi
-  local id=$(<"$repo_root/build/docker-image.id")
+  local id=$(<"$outdir/docker-image.id")
   echo -e "${BIYellow}---${RST} Creating container from $id ..."
   cid="$(docker create $id bash)"
   if [ $? -ne 0 ] ; then
@@ -268,7 +269,7 @@ create_container () {
 
 retrieve_build_log () {
   outdir=$1
-  create_container
+  create_container_id $outdir
   echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}${outdir}/build.log${RST}"
   docker cp "$cid:/opt/ayon-launcher/build/build.log" $outdir
 }
@@ -318,7 +319,7 @@ docker_build() {
   fi
 
   echo -e "${BIGreen}>>>${RST} Copying build from container to ${outdir} ..."
-  create_container
+  create_container_id $outdir
   echo -e "${BIYellow}---${RST} Copying ..."
   docker cp "$cid:/opt/ayon-launcher/build/output" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
   docker cp "$cid:/opt/ayon-launcher/build/build.log" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
