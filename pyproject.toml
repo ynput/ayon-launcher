@@ -1,7 +1,7 @@
 [project]
 name = "AYON"
 requires-python = "==3.9.13"
-version = "1.5.2-dev"
+version = "1.5.2"
 description = "Open VFX and Animation pipeline with support."
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
