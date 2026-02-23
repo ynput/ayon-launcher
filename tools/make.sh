@@ -292,7 +292,7 @@ docker_build() {
   for var in "$@"
   do
     if [[ "$var" == '--use-pyside2' ]]; then
-      $qtenv="pyside2"
+      qtenv="pyside2"
       break
     fi
   done
