@@ -11,7 +11,7 @@ on:
         type: string
 
 jobs:
-  build:
+  build-linux:
     name: Build (${{ matrix.variant }}${{ matrix.use-pyside2 && ' - PySide 2' || '' }})
     runs-on: ubuntu-latest
     strategy:
@@ -45,6 +45,40 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: build_${{ matrix.variant }}${{ matrix.use-pyside2 && '_pyside2' || '' }}/installer/*
+          tag_name: ${{ inputs.tag_name || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name || github.ref }}
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create Environment
+        run: |
+          powershell -File ./tools/manage.ps1 create-env
+
+      - name: Install Runtime Dependencies
+        run: |
+          powershell -File ./tools/manage.ps1 install-runtime
+
+      - name: Build and Make Installer
+        run: |
+          powershell -File ./tools/manage.ps1 build-make-installer
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/installer/*
           tag_name: ${{ inputs.tag_name || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
