@@ -275,19 +275,20 @@ retrieve_build_log () {
 
 docker_build() {
   variant=$1
-  if [ -z "$variant" ]; then
+  if [ -z $variant ]; then
     variant="ubuntu"
   fi
-  dockerfile="Dockerfile"
-  if [ "$variant" != "ubuntu" ]; then
+  if [ $variant == "ubuntu" ]; then
+    dockerfile="Dockerfile"
+  else
     dockerfile="Dockerfile.$variant"
   fi
 
   if [ ! -f "$repo_root/$dockerfile" ]; then
-    echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
+    echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$variant${RST} doesn't exist."
     exit 1
   fi
-  echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
+  echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$variant${RST} ..."
 
   outdir="$repo_root/build_$variant"
   qtenv=""
