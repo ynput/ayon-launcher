@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./tools/make.sh
-          ./tools/make.sh docker-build ${{ matrix.variant }} ${{ matrix.use-pyside2 && '--use-pyside2' || '' }}
+          ./tools/make.sh docker-build ${{ matrix.variant }} ${{ matrix.use-pyside2 == true && '--use-pyside2' || '' }}
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
