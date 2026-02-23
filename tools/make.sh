@@ -279,7 +279,7 @@ docker_build() {
   fi
   dockerfile="Dockerfile"
   if [ $variant -ne "ubuntu" ]; then
-    dockerfile="Dockerfile.$1"
+    dockerfile="Dockerfile.$variant"
   fi
 
   if [ ! -f "$repo_root/$dockerfile" ]; then
@@ -288,11 +288,13 @@ docker_build() {
   fi
   echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
 
+  outdir="$repo_root/build_$variant"
   qtenv=""
   for var in "$@"
   do
     if [[ "$var" == '--use-pyside2' ]]; then
       qtenv="pyside2"
+      outdir="$outdir_pyside2"
       break
     fi
   done
@@ -313,17 +315,18 @@ docker_build() {
     return 1
   fi
 
+
   echo -e "${BIGreen}>>>${RST} Copying build from container ..."
   create_container
   echo -e "${BIYellow}---${RST} Copying ..."
-  docker cp "$cid:/opt/ayon-launcher/build/output" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/installer" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/output" $outdir || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" $outdir || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" $outdir || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/installer" $outdir || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
 
   echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
   local username="$(logname)"
-  chown -R $username ./build
+  chown -R $username $outdir
 
   echo -e "${BIGreen}>>>${RST} All done, you can delete container:"
   echo -e "${BIYellow}$cid${RST}"
