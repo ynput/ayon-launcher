@@ -317,14 +317,13 @@ docker_build() {
     return 1
   fi
 
-
-  echo -e "${BIGreen}>>>${RST} Copying build from container ..."
+  echo -e "${BIGreen}>>>${RST} Copying build from container to ${outdir} ..."
   create_container
   echo -e "${BIYellow}---${RST} Copying ..."
-  docker cp "$cid:/opt/ayon-launcher/build/output" $outdir || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" $outdir || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" $outdir || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/installer" $outdir || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/output" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
 
   echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
   local username="$(logname)"
