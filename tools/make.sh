@@ -278,7 +278,7 @@ docker_build() {
     variant="ubuntu"
   fi
   dockerfile="Dockerfile"
-  if [ $variant -ne "ubuntu" ]; then
+  if [ "$variant" != "ubuntu" ]; then
     dockerfile="Dockerfile.$variant"
   fi
 
@@ -294,14 +294,14 @@ docker_build() {
   do
     if [[ "$var" == '--use-pyside2' ]]; then
       qtenv="pyside2"
-      outdir="$outdir_pyside2"
+      outdir="${outdir}_pyside2"
       break
     fi
   done
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
-  rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
+  rm -rf "$outdir" && mkdir "$outdir" > /dev/null
 
   local version_command="import os;exec(open(os.path.join('$repo_root', 'version.py')).read());print(__version__);"
   local launcher_version="$(uv run python <<< ${version_command})"
