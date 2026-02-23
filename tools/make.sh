@@ -267,9 +267,10 @@ create_container () {
 }
 
 retrieve_build_log () {
+  outdir=$1
   create_container
-  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$repo_root/build/build.log${RST}"
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build"
+  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}${outdir}/build.log${RST}"
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" $outdir
 }
 
 docker_build() {
@@ -307,11 +308,11 @@ docker_build() {
   local launcher_version="$(uv run python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher-$variant:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile ${outdir}/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher-$variant:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
-    retrieve_build_log
+    retrieve_build_log $outdir
     return 1
   fi
 
