@@ -29,6 +29,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag_name || github.ref }}
           submodules: recursive
 
       - name: Set up Docker
