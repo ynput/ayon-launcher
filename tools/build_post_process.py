@@ -532,11 +532,12 @@ def get_runtime_modules(root: Path):
     _RuntimeModulesCache.cache = data
     return data
 
-def get_uv_packages() -> list[tuple[str, str]]:
+
+def get_uv_packages() -> dict[str, str]:
     """Get Python packages from uv environment.
 
     Returns:
-        list[tuple[str, str]]: List of tuples containing package name and version.
+        dict[str, str]: Package version by name.
 
     Raises:
         RuntimeError: If uv command fails or output cannot be parsed.
@@ -561,12 +562,12 @@ def get_uv_packages() -> list[tuple[str, str]]:
     except json.JSONDecodeError as e:
         raise RuntimeError(f"Failed to parse uv output: {e}") from e
 
-    packages = []
+    packages = {}
     for package in packages_data:
         name = package.get("name")
         version = package.get("version")
         if name and version:
-            packages.append((name, version))
+            packages[name] = version
 
     return packages
 
