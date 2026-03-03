@@ -132,9 +132,14 @@ def _read_progress_file(progress_dir: str):
 def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     if not os.path.exists(progress_dir):
-        os.makedirs(progress_dir, exist_ok=True)
+        os.makedirs(progress_dir, exist_ok=True, mode=0o777)
     with open(progress_path, "w") as stream:
         json.dump(progress_info, stream)
+
+    try:
+        os.chmod(progress_path, 0o777)
+    except Exception:
+        pass
 
 
 def _create_progress_file(
@@ -267,9 +272,26 @@ def change_permissions_recursive(path: str, mode: int = 0o777):
 # --- Distribution download directories ---
 # Where to store downloaded files before extration.
 def _get_dist_download_dir(*args):
-    return os.path.join(
-        tempfile.gettempdir(), "ayon_dist_downloads", *args
-    )
+    downloads_dir = os.path.join(tempfile.gettempdir(), "ayon_dist_downloads")
+    output = os.path.join(downloads_dir, *args)
+    # Don't care about permissions on windows
+    if IS_WINDOWS:
+        return output
+
+    # Directory does not exist, create it with 777 permission
+    if not os.path.exists(downloads_dir):
+        os.makedirs(downloads_dir, exist_ok=True, mode=0o777)
+        return output
+
+    # Directory exists and user has all required rights
+    if os.access(output, os.W_OK) and os.access(output, os.R_OK):
+        return output
+
+    # Create new variant of the directory
+    downloads_dir += "_v2"
+    output = os.path.join(downloads_dir, *args)
+    os.makedirs(downloads_dir, exist_ok=True, mode=0o777)
+    return output
 
 
 def _create_dist_expire_file(process_dir: str):
@@ -287,7 +309,7 @@ def _create_dist_expire_file(process_dir: str):
         return
 
     if not os.path.exists(process_dir):
-        os.makedirs(process_dir, exist_ok=True)
+        os.makedirs(process_dir, exist_ok=True, mode=0o777)
 
     with open(info_path, "w") as stream:
         json.dump(
@@ -328,13 +350,20 @@ def _cleanup_dist_expire_dirs(process_dir: str):
         return
     for subname in os.listdir(process_dir):
         path = os.path.join(process_dir, subname)
-        if os.path.isdir(path) and _dist_expire_file_expired(path):
+        if not os.path.isdir(path):
+            continue
+        if _dist_expire_file_expired(path):
             try:
                 shutil.rmtree(path)
             except Exception:
                 print(
                     f"Failed to remove expired distribution directory: {path}"
                 )
+        else:
+            try:
+                os.chmod(path, 0o777)
+            except Exception:
+                pass
 
 
 def _cleanup_dist_download_dirs():
@@ -596,7 +625,7 @@ class BaseDistributionItem(ABC):
 
     def _pre_source_process(self):
         if not os.path.exists(self.download_dirpath):
-            os.makedirs(self.download_dirpath, exist_ok=True)
+            os.makedirs(self.download_dirpath, exist_ok=True, mode=0o777)
 
         if self._change_permissions:
             change_permissions_recursive(self.download_dirpath)
@@ -1097,7 +1126,7 @@ class InstallerDistributionItem(BaseDistributionItem):
         )
 
         if not os.path.exists(install_root):
-            os.makedirs(install_root, exist_ok=True)
+            os.makedirs(install_root, exist_ok=True, mode=0o777)
 
         try:
             extract_archive_file(filepath, install_root)
@@ -1301,7 +1330,7 @@ class DistributionItem(BaseDistributionItem):
             filepath = new_filepath
 
         # Create directory
-        os.makedirs(unzip_dirpath, exist_ok=True)
+        os.makedirs(unzip_dirpath, exist_ok=True, mode=0o777)
         change_permissions_recursive(unzip_dirpath)
 
         try:
@@ -1344,14 +1373,14 @@ class DistributionItem(BaseDistributionItem):
             os.path.dirname(self.target_dirpath), uuid.uuid4().hex
         )
         if not os.path.exists(self.target_dirpath):
-            os.makedirs(self.target_dirpath, exist_ok=True)
+            os.makedirs(self.target_dirpath, exist_ok=True, mode=0o777)
             change_permissions_recursive(self.target_dirpath)
 
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
             if not os.path.exists(tmp_subfolder):
-                os.makedirs(tmp_subfolder, exist_ok=True)
+                os.makedirs(tmp_subfolder, exist_ok=True, mode=0o777)
                 change_permissions_recursive(tmp_subfolder)
 
             current_path = os.path.join(self.target_dirpath, name)
@@ -2292,9 +2321,10 @@ class AYONDistribution:
 
         """
         dirpath = os.path.dirname(filepath)
-        os.makedirs(dirpath, exist_ok=True)
+        os.makedirs(dirpath, exist_ok=True, mode=0o777)
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
+
         change_permissions_recursive(dirpath)
 
     def get_dependency_metadata(self) -> dict[str, Any]:
@@ -2640,7 +2670,7 @@ class AYONDistribution:
 
         unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
         if not os.path.exists(unzip_temp):
-            os.makedirs(unzip_temp)
+            os.makedirs(unzip_temp, exist_ok=True, mode=0o777)
             change_permissions_recursive(unzip_temp)
 
         for addon_name, addon_item in self.addon_items.items():
