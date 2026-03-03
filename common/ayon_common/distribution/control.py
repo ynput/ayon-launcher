@@ -372,7 +372,21 @@ def _cleanup_dist_download_dirs():
     If distribution crashed in past this function makes sure they are removed.
 
     """
-    _cleanup_dist_expire_dirs(_get_dist_download_dir())
+
+    download_dir = _get_dist_download_dir()
+    _cleanup_dist_expire_dirs(download_dir)
+    if download_dir.endswith("_v2"):
+        return
+    # Handle v2 directory
+    download_dir += "_v2"
+    if os.path.exists(download_dir):
+        _cleanup_dist_expire_dirs(download_dir)
+    # Delete v2 directory if is empty
+    if len(os.listdir(download_dir)) == 0:
+        try:
+            os.remove(download_dir)
+        except Exception:
+            pass
 
 
 class DistributeTransferProgress:
