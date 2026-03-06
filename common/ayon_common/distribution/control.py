@@ -1768,8 +1768,9 @@ class AYONDistribution:
         """
         if not self._project_bundle:
             # Force to use studio bundle as project bundle in dev mode
-            if self.studio_bundle_to_use.is_dev:
-                self._project_bundle = self.studio_bundle_to_use
+            studio_bundle = self.studio_bundle_to_use
+            if not studio_bundle or studio_bundle.is_dev:
+                self._project_bundle = studio_bundle
                 return self._project_bundle
 
             project_bundle = self._get_project_bundle()
