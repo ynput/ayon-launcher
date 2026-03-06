@@ -83,6 +83,7 @@ import time
 import traceback
 import subprocess
 from contextlib import contextmanager
+from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from version import __version__
@@ -377,6 +378,8 @@ from ayon_common.connection.credentials import (  # noqa E402
 from ayon_common.distribution import (  # noqa E402
     AYONDistribution,
     BundleNotFoundError,
+    get_addons_dir,
+    get_dependencies_dir,
     show_missing_bundle_information,
     show_blocked_auto_update,
     show_missing_permissions,
@@ -798,17 +801,44 @@ def _start_distribution():
     os.environ["AYON_BUNDLE_NAME"] = project_bundle_name
     os.environ["AYON_STUDIO_BUNDLE_NAME"] = studio_bundle_name
 
-    # TODO probably remove paths to other addons?
-    python_paths = [
-        path
-        for path in os.getenv("PYTHONPATH", "").split(os.pathsep)
-        if path
-    ]
+    addon_paths, dep_package_path = distribution.get_python_paths()
+    if dep_package_path:
+        sys.path.insert(0, dep_package_path)
+    # Remove any path leading to addons or dependecy packages directory
+    # - makes sure that any addon in PYTHONPATH is removed, addons from
+    #   current bundle are added below.
+    # - also make sure to keep order of dependency package if there is any
+    #   already in PYTHONPATH
+    addons_dir = Path(get_addons_dir())
+    dependencies_dir = Path(get_dependencies_dir())
+    python_paths = []
+    idx = 0
+    for path in os.getenv("PYTHONPATH", "").split(os.pathsep):
+        if not path:
+            continue
 
-    for path in distribution.get_python_paths():
+        p_path = Path(path)
+        # Ignore addons directories
+        if p_path.is_relative_to(addons_dir):
+            continue
+
+        # Use current dependencies dir if is set otherwise skip it
+        if p_path.is_relative_to(dependencies_dir):
+            if not dep_package_path:
+                continue
+            # Unset 'dep_package_path' to not append it again when this loop
+            #   is over
+            path, dep_package_path = dep_package_path, None
+
+        python_paths.append(path)
+        idx += 1
+
+    if dep_package_path:
+        python_paths.append(dep_package_path)
+
+    for path in addon_paths:
         sys.path.insert(0, path)
-        if path not in python_paths:
-            python_paths.append(path)
+        python_paths.insert(0, path)
 
     for path in distribution.get_sys_paths():
         sys.path.insert(0, path)
