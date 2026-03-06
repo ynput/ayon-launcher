@@ -33,7 +33,9 @@ dependencies = [
     "python3-xlib; sys_platform == 'linux'",
     "distro == 1.9.0; sys_platform == 'linux'",
     "pre-commit>=3.8.0",
-    "toml",  # remove for python 3.11
+    "toml", # remove for python 3.11
+    "loguru>=0.7.3",
+    "rich>=14.3.3",
 ]
 
 [project.optional-dependencies]
@@ -116,3 +118,6 @@ ignore = [".git"]
 
 reportMissingImports = true
 reportMissingTypeStubs = false
+
+[tool.ruff.lint.per-file-ignores]
+"./start.py" = ["E402"]
