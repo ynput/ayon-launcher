@@ -47,13 +47,13 @@ jobs:
             if [ "${{ github.event.inputs.bump_minor }}" = "true" ]; then
               ARGS="--bump-minor"
             fi
-            VERSION=$(uv run tools/manage_version.py get-release-version $ARGS)
+            VERSION=$(uv run --no-project tools/manage_version.py get-release-version $ARGS)
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Update version for release
         run: |
-          uv run tools/manage_version.py update --version ${{ steps.get_version.outputs.version }}
+          uv run --no-project tools/manage_version.py update --version ${{ steps.get_version.outputs.version }}
           uv lock
 
       - name: Commit release version
@@ -88,8 +88,8 @@ jobs:
       - name: Bump version on develop
         run: |
           git checkout develop
-          NEW_VERSION=$(uv run tools/manage_version.py get-dev-version)
-          uv run tools/manage_version.py update --version $NEW_VERSION
+          NEW_VERSION=$(uv run --no-project tools/manage_version.py get-dev-version)
+          uv run --no-project tools/manage_version.py update --version $NEW_VERSION
           uv lock
           git add version.py pyproject.toml uv.lock
           git commit -m "Bump version to $NEW_VERSION"
