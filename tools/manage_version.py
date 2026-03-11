@@ -40,6 +40,7 @@ def update_version_in_src(
             version_found = True
             line = f"version = \"{new_version}\""
         new_lines.append(line)
+    new_lines.append("")
 
     pyproject_file.write_text("\n".join(new_lines), encoding="utf-8")
 
