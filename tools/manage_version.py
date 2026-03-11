@@ -1,3 +1,4 @@
+"""This script helps to manage the version of the project via CI action."""
 import re
 import sys
 import argparse
@@ -12,10 +13,9 @@ SEMVER_REGEX = re.compile(
 
 def get_current_version(version_file: Path) -> str:
     content = version_file.read_text(encoding="utf-8")
-    match = re.search(r'__version__\s*=\s*"(.*)"', content)
-    if match:
-        return match.group(1)
-    raise ValueError(f"Version not found in {version_file}")
+    vars = {}
+    exec(content, vars)
+    return vars["__version__"]
 
 
 def update_version_in_src(
