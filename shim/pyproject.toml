@@ -6,12 +6,12 @@ authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
 ]
 license = { text = "MIT License" }
-requires-python = "==3.9.13"
+requires-python = "==3.11.9"
 
 dependencies = [
-    "platformdirs ~= 3.0.0",
-    "semver ~= 2.13.0",
-    "cx_freeze ~= 8.4",
+    "platformdirs ~= 4.9.4",
+    "semver ~= 3.0.4",
+    "cx_freeze ~= 8.6",
 ]
 
 [project.urls]
