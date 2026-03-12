@@ -13,7 +13,7 @@ import time
 import subprocess
 from pathlib import Path
 
-import toml
+import tomllib as toml
 import enlighten
 import blessed
 
@@ -160,7 +160,8 @@ def main():
         _print("Removing existing vendor directory")
         shutil.rmtree(python_vendor_dir)
     python_vendor_dir.mkdir(parents=True, exist_ok=True)
-    pyproject = toml.load(repo_root / "pyproject.toml")
+    with open(repo_root / "pyproject.toml", "rb") as f:
+        pyproject = toml.load(f)
     platform_name = platform.system().lower()
     use_pyside2 = "--use-pyside2" in sys.argv
 
