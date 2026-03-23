@@ -1,6 +1,5 @@
 # Build AYON launcher docker image
 FROM rockylinux:9 AS builder
-ARG PYTHON_VERSION=3.11.9
 ARG BUILD_DATE
 ARG VERSION
 
