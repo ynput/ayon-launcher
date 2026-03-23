@@ -108,7 +108,7 @@ def install_qtbinding(
     if qt_package:
         qt_variants.append(qt_package)
 
-    # Special handling for specific distro (e.g. centos7 and rocky8)
+    # Special handling for specific distro (e.g. rocky8, rocky8)
     if platform_name == "linux":
         import distro
 
