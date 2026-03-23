@@ -1,8 +1,14 @@
-name: 🛠️ Create Release Build
+name: 🛠️ Build AYON launcher
 
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag_name:
+        description: 'Tag name'
+        required: true
+        type: string
 
 jobs:
   build-linux:
