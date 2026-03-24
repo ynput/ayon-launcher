@@ -106,3 +106,4 @@ tools/dev_*
 site/
 
 /AYON.egg-info
+/shim/AYON_shim.egg-info
