@@ -9,6 +9,12 @@ on:
         description: 'Tag name'
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name'
+        required: true
+        type: string
 
 jobs:
   build-linux:
