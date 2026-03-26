@@ -53,8 +53,6 @@ else:
 
 
 _logger = utils.get_logger(__name__)
-
-
 term = blessed.Terminal()
 manager = enlighten.get_manager()
 
