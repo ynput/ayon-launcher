@@ -17,52 +17,120 @@ Note: Speedcopy can be used for copying if server-side copy is important for
 speed.
 """
 
-
 import contextlib
-import os
-import sys
+import copy
+import hashlib
+import importlib
 import json
+import os
+import platform
+import re
+import shutil
+import site
+import subprocess
+import sys
+import tarfile
 import tempfile
 import time
-import site
-import platform
-import subprocess
-import shutil
-import tarfile
-from typing import Any, Optional
-import hashlib
-import copy
 from pathlib import Path
+from typing import Any, Optional, Callable
 
 import blessed
 import enlighten
+
+try:
+    from . import utils
+except ImportError:
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    utils = importlib.import_module("tools.utils")
+
 if platform.system().lower() == "linux":
-    import distro
+    import distro # type: ignore
 else:
     distro = None
 
+
+_logger = utils.get_logger(__name__)
 term = blessed.Terminal()
 manager = enlighten.get_manager()
 
 
-def _print(msg: str, type: int = 0) -> None:
-    """Print message to console.
+def _make_dmg_error_handler(
+    context: str,
+) -> Callable[[str], None]:
+    """Return an ``on_error`` callback for DMG creation failures.
+
+    The callback fetches the notarization log from Apple when a
+    notarization ID can be extracted from the command output, then
+    raises :class:`ValueError` with a message that includes *context*.
 
     Args:
-        msg (str): message to print
-        type (int): type of message (0 info, 1 error, 2 note)
+        context: A short label for the DMG being created
+            (e.g. ``"shim"`` or ``"installer"``).
 
+    Returns:
+        Callable that accepts the captured stdout string.
     """
-    if type == 0:
-        header = term.aquamarine3(">>> ")
-    elif type == 1:
-        header = term.orangered2("!!! ")
-    elif type == 2:
-        header = term.tan1("... ")
-    else:
-        header = term.darkolivegreen3("--- ")
+    log_file = f"{context}-notary-error-log.json"
 
-    print(f"{header}{msg}")
+    def _handler(std_out: str) -> None:
+        idm = re.search(r"id:\s*([\w\d-]+)", std_out)
+        if idm:
+            notarization_id = idm.group(1)
+            p = subprocess.run(
+                [
+                    "xcrun",
+                    "notarytool",
+                    "log",
+                    notarization_id,
+                    "--keychain-profile",
+                    os.environ["AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE"],
+                    log_file,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if p.returncode == 0:
+                _logger.warning(
+                    f"Notarization log saved to {log_file}"
+                )
+        raise ValueError(f"Failed to create {context} DMG image")
+
+    return _handler
+
+
+def run_with_output(
+    args: list[str], on_error: Optional[Callable[[str], None]] = None
+) -> None:
+    """Run command with output.
+
+    Args:
+        args (list[str]): Command to run.
+        on_error (Callable[[str], None], optional): Function to call when error occurs.
+    """
+    process = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # merge stderr into stdout
+    )
+
+    out = ""
+    for line in process.stdout:  # type: ignore
+        ln = line.decode("utf-8", errors="replace")
+        sys.stdout.write(f"{term.bright_black}  │  {ln}")
+        out += ln
+
+    process.wait()
+
+    if process.returncode != 0:
+        if not on_error:
+            raise RuntimeError(f"Command failed: {args}")
+
+        # 'on_error' is responsible for raising exceptions or not.
+        on_error(out)
+        
 
 
 def count_folders(path: Path) -> int:
@@ -180,42 +248,41 @@ def _build_shim_linux(
 
 
 def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
-    import plistlib
+    _logger.info("Creating shim DMG image ...")
 
-    # TODO check if 'create-dmg' is available
-    try:
-        subprocess.call(["create-dmg"])
-    except FileNotFoundError as e:
-        raise ValueError("create-dmg is not available") from e
+    if shutil.which("create-dmg") is None:
+        raise ValueError("create-dmg is not available")
 
     dmg_path = dst_shim_root / "shim.dmg"
     app_filepath = dist_root.parent / "build" / "AYON.app"
-    plist_path = app_filepath / "Contents" / "Info.plist"
 
-    with open(plist_path, "rb") as stream:
-        data = plistlib.load(stream)
-
-    data["CFBundleURLTypes"] = [
-        {
-            "CFBundleTypeRole": "Viewer",
-            "CFBundleURLName": "com.ayon.URLscheme",
-            "CFBundleURLSchemes": ["ayon-launcher"],
-        }
-    ]
-    with open(plist_path, "wb") as stream:
-        plistlib.dump(data, stream)
-
+    # fmt: off
     args = [
         "create-dmg",
         "--volname", "AYON-shim-installer",
         "--window-pos", "200", "120",
         "--window-size", "600", "300",
         "--app-drop-link", "100", "50",
-        str(dmg_path),
-        str(app_filepath)
     ]
-    if subprocess.call(args) != 0:
-        raise ValueError("Failed to create shim DMG image")
+    # fmt: on
+
+    if os.environ.get("AYON_APPLE_NOTARIZE", "0") == "1":
+        args += [
+            "--codesign",
+            os.environ["AYON_APPLE_SIGN_IDENTITY"],
+            "--notarize",
+            os.environ["AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE"],
+        ]
+
+    args += [
+        str(dmg_path),
+        str(app_filepath),
+    ]
+
+    _logger.info(f"creating shim.dmg: {app_filepath} -> {dmg_path}")
+
+    run_with_output(args, on_error=_make_dmg_error_handler("shim"))
+
     return dmg_path
 
 
@@ -230,6 +297,7 @@ def copy_shim_to_build(ayon_root, build_content_root):
         build_content_root (Path): Path to build content directory.
 
     """
+    _logger.info("Copying shim to build")
     dist_root = ayon_root / "shim" / "dist"
     dst_shim_root = build_content_root / "shim"
     os.makedirs(dst_shim_root, exist_ok=True)
@@ -256,7 +324,7 @@ def copy_shim_to_build(ayon_root, build_content_root):
     hash_obj = hashlib.sha256()
     with open(shim_installer_path, "rb") as stream:
         for chunk in iter(lambda: stream.read(1000), b""):
-            hash_obj.update(chunk)
+            hash_obj.update(chunk) # type: ignore
 
     shim_data = {
         "version": version,
@@ -339,7 +407,7 @@ def copy_files(
     vendor_src = ayon_root / "vendor"
 
     # copy vendor files
-    _print("Copying vendor files ...")
+    _logger.info("Copying vendor files ...")
 
     total_files = count_folders(vendor_src)
     progress_bar = enlighten.Counter(
@@ -360,7 +428,7 @@ def copy_files(
     progress_bar.close()
 
     # copy all files
-    _print("Copying dependencies ...")
+    _logger.info("Copying dependencies ...")
 
     total_files = count_folders(site_pkg)
     progress_bar = enlighten.Counter(
@@ -391,6 +459,7 @@ def _delete_path_items(
     if progress is not None:
         progress.close()
 
+
 def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
     """Clean up files from a build output.
 
@@ -399,7 +468,6 @@ def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
         libs_dir (Path): Path to libraries directory.
 
     """
-    # _print("Finding duplicates ...")
     # Delete modules from 'dependencies' that don't need source code
     #   and can be kept as compiled files
     # - At this moment only 'cx_Freeze' is deleted from dependencies
@@ -421,7 +489,7 @@ def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
     for d in libs_dir.iterdir():
         if (deps_dir / d.name) in deps_items:
             to_delete.append(d)
-            # _print(f"found {d}", 3)
+            # _logger.info(f"found {d}", 3)
         find_progress_bar.update()
 
     find_progress_bar.close()
@@ -435,7 +503,7 @@ def cleanup_files(deps_dir: Path, libs_dir: Path) -> None:
         )
     )
     # delete duplicates
-    # _print(f"Deleting {len(to_delete)} duplicates ...")
+    # _logger.info(f"Deleting {len(to_delete)} duplicates ...")
     delete_progress_bar = enlighten.Counter(
         total=len(to_delete), desc="Deleting duplicates", units="%",
         color=(251, 192, 32))
@@ -453,22 +521,23 @@ def dependency_cleanup(ayon_root, build_content_root):
         build_content_root (Path): Path to build output directory.
     """
 
-    _print(f"Using build at {build_content_root}", 2)
+    _logger.info(f"Using build at {build_content_root}")
 
-    _print("Starting dependency cleanup ...")
+    _logger.info("Starting dependency cleanup ...")
     start_time = time.time_ns()
 
-    _print("Getting venv site-packages ...")
+    _logger.info("Getting venv site-packages ...")
     site_pkg = get_site_pkg()
     if not site_pkg:
-        _print("No venv site-packages are found.")
+        _logger.error("No venv site-packages are found.")
         sys.exit(1)
 
-    _print(f"Working with: {site_pkg}", 2)
-
+    _logger.info(f"Working with: {site_pkg}")
     if not build_content_root.exists():
-        _print("Build directory doesn't exist", 1)
-        _print("Probably freezing of code failed. Check ./build/build.log", 3)
+        _logger.error("Build directory doesn't exist")
+        _logger.error(
+            "Probably freezing of code failed. Check ./build/build.log"
+        )
         sys.exit(1)
 
     # iterate over frozen libs and create list to delete
@@ -484,7 +553,7 @@ def dependency_cleanup(ayon_root, build_content_root):
     cleanup_files(deps_dir, libs_dir)
     end_time = time.time_ns()
     total_time = (end_time - start_time) / 1000000000
-    _print(f"Dependency cleanup done in {total_time} secs.")
+    _logger.info(f"Dependency cleanup done in {total_time} secs.")
 
 
 class _RuntimeModulesCache:
@@ -550,7 +619,7 @@ def get_uv_packages() -> dict[str, str]:
             ["uv", "pip", "list", "--format=json", "--exclude-editable"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to get uv packages: {e}") from e
@@ -613,7 +682,7 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
         build_root (Path): Path to the build root directory.
 
     """
-
+    _logger.info("Starting post build process")
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
     copy_shim_to_build(ayon_root, build_content_root)
@@ -623,6 +692,7 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
     if platform.system().lower() == "linux":
         _restore_cx_freeze_libs(build_content_root)
     store_base_metadata(build_root, build_content_root, ayon_version)
+
 
 def _restore_cx_freeze_libs(build_content_root: Path) -> None:
     """Restore cx_Freeze libs from the build output.
@@ -656,7 +726,7 @@ def _restore_cx_freeze_libs(build_content_root: Path) -> None:
 
     # Try newer version first
     libs_dir = site_packages / freeze_core
-    destination_path = dst_root/ freeze_core
+    destination_path = dst_root / freeze_core
 
     if not libs_dir.exists():
         # Fall back to the older version
@@ -664,13 +734,13 @@ def _restore_cx_freeze_libs(build_content_root: Path) -> None:
         destination_path = dst_root / cx_freeze
 
     if not libs_dir.exists():
-        _print("Warning: cx_freeze libs not found in site-packages", 1)
+        _logger.warning("Warning: cx_freeze libs not found in site-packages")
         return
 
     shutil.copytree(
         str(libs_dir),
         str(destination_path),
-        dirs_exist_ok=True
+        dirs_exist_ok=True,
     )
 
 
@@ -768,7 +838,7 @@ def _create_linux_installer(
         total=total_files,
         desc="Creating tar.gz",
         units="files",
-        color=(53, 178, 202)
+        color=(53, 178, 202),
     )
 
     # Open the file in write mode to be sure that it exists
@@ -807,25 +877,37 @@ def _create_darwin_installer(
     app_filepath = _get_darwin_output_path(build_root, ayon_version)
     filename = f"AYON-{ayon_version}-macos{pyside2_suffix}.dmg"
     output_path = installer_root / filename
-    # TODO check if 'create-dmg' is available
-    try:
-        subprocess.call(["create-dmg"])
-    except FileNotFoundError as e:
-        raise ValueError("create-dmg is not available") from e
 
-    _print("Creating dmg image ...")
+    if shutil.which("create-dmg") is None:
+        raise ValueError("create-dmg is not available")
+
+    _logger.info("Creating dmg image ...")
+    # fmt: off
     args = [
         "create-dmg",
         "--volname", f"AYON {ayon_version} Installer",
         "--window-pos", "200", "120",
         "--window-size", "600", "300",
         "--app-drop-link", "100", "50",
-        output_path,
-        app_filepath
     ]
-    if subprocess.call(args) != 0:
-        raise ValueError("Failed to create DMG image")
-    _print("DMG image created")
+    # fmt: on
+
+    if os.environ.get("AYON_APPLE_NOTARIZE", "0") == "1":
+        args += [
+            "--codesign",
+            os.environ["AYON_APPLE_SIGN_IDENTITY"],
+            "--notarize",
+            os.environ["AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE"]
+        ]
+
+    args += [
+        str(output_path),
+        str(app_filepath),
+    ]
+
+    run_with_output(args, on_error=_make_dmg_error_handler("installer"))
+    _logger.info("DMG image created")
+
     return output_path
 
 

@@ -9,6 +9,12 @@ on:
         description: 'Tag name'
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name'
+        required: true
+        type: string
 
 jobs:
   build-linux:
@@ -74,6 +80,64 @@ jobs:
       - name: Build and Make Installer
         run: |
           powershell -File ./tools/manage.ps1 build-make-installer
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/installer/*
+          tag_name: ${{ inputs.tag_name || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name || github.ref }}
+          submodules: recursive
+
+      - name: Install Homebrew dependencies
+        run: brew install cmake create-dmg
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Import code signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_ID_PASSWORD }}
+
+      - name: Set up notarization keychain profile
+        env:
+          APPLE_NOTARIZE_APPLE_ID: ${{ secrets.APPLE_NOTARIZE_APPLE_ID }}
+          APPLE_NOTARIZE_PASSWORD: ${{ secrets.APPLE_NOTARIZE_PASSWORD }}
+          APPLE_NOTARIZE_TEAM_ID: ${{ secrets.APPLE_NOTARIZE_TEAM_ID }}
+        run: |
+          xcrun notarytool store-credentials "ayon-ci" \
+            --apple-id "$APPLE_NOTARIZE_APPLE_ID" \
+            --password "$APPLE_NOTARIZE_PASSWORD" \
+            --team-id "$APPLE_NOTARIZE_TEAM_ID"
+
+      - name: Create environment
+        run: |
+          chmod +x ./tools/make.sh
+          ./tools/make.sh create-env
+
+      - name: Install runtime dependencies
+        run: ./tools/make.sh install-runtime
+
+      - name: Build and make installer
+        env:
+          AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AYON_APPLE_NOTARIZE: "1"
+          AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-ci"
+        run: ./tools/make.sh build-make-installer
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
