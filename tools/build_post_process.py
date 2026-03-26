@@ -127,11 +127,12 @@ def run_with_output(
     process.wait()
 
     if process.returncode != 0:
-        if on_error:
-            # on_error is responsible for raising exceptions or not.
-            on_error(out)
-            return
-        raise RuntimeError(f"Command failed: {args}")
+        if not on_error:
+            raise RuntimeError(f"Command failed: {args}")
+
+        # 'on_error' is responsible for raising exceptions or not.
+        on_error(out)
+        
 
 
 def count_folders(path: Path) -> int:
