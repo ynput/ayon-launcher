@@ -257,10 +257,6 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
     dmg_path = dst_shim_root / "shim.dmg"
     app_filepath = dist_root.parent / "build" / "AYON.app"
 
-    # NOTE: Info.plist patching (e.g. CFBundleURLTypes) must happen
-    # *before* the app bundle is code-signed.  It is done in make.sh
-    # prior to the fix_macos_build / sign_macos_build step.
-
     # fmt: off
     args = [
         "create-dmg",
