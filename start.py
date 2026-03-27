@@ -1076,7 +1076,7 @@ def main_cli():
         for i in info:
             _print(i)
 
-    _print(f">>> Initializing done ({_Timing.next()}s).")
+    _print(f">>> Initializing done ({_Timing.next():.2f}s).")
     try:
         cli.main()
     except Exception:  # noqa

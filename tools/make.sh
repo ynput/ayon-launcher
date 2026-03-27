@@ -252,12 +252,13 @@ run_from_code() {
   uv run python "$repo_root/start.py" "$@"
 }
 
-create_container () {
-  if [ ! -f "$repo_root/build/docker-image.id" ]; then
+create_container_id () {
+  outdir=$1
+  if [ ! -f "$outdir/docker-image.id" ]; then
     echo -e "${BIRed}!!!${RST} Docker command failed, cannot find image id."
     exit 1
   fi
-  local id=$(<"$repo_root/build/docker-image.id")
+  local id=$(<"$outdir/docker-image.id")
   echo -e "${BIYellow}---${RST} Creating container from $id ..."
   cid="$(docker create $id bash)"
   if [ $? -ne 0 ] ; then
@@ -267,63 +268,67 @@ create_container () {
 }
 
 retrieve_build_log () {
-  create_container
-  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}$repo_root/build/build.log${RST}"
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build"
+  outdir=$1
+  create_container_id $outdir
+  echo -e "${BIYellow}***${RST} Copying build log to ${BIWhite}${outdir}/build.log${RST}"
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" $outdir
 }
 
 docker_build() {
   variant=$1
-  if [ -z "$variant" ]; then
+  if [ -z $variant ]; then
     variant="ubuntu"
   fi
-  dockerfile="Dockerfile"
-  if [ $variant -ne "ubuntu" ]; then
-    dockerfile="Dockerfile.$1"
+  if [ $variant == "ubuntu" ]; then
+    dockerfile="Dockerfile"
+  else
+    dockerfile="Dockerfile.$variant"
   fi
 
   if [ ! -f "$repo_root/$dockerfile" ]; then
-    echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$1${RST} doesn't exist."
+    echo -e "${BIRed}!!!${RST} Dockerfile for specifed platform ${BIWhite}$variant${RST} doesn't exist."
     exit 1
   fi
-  echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$1${RST} ..."
+  echo -e "${BIGreen}>>>${RST} Using Dockerfile for ${BIWhite}$variant${RST} ..."
 
+  outdir="$repo_root/build_$variant"
   qtenv=""
   for var in "$@"
   do
     if [[ "$var" == '--use-pyside2' ]]; then
-      $qtenv="pyside2"
+      qtenv="pyside2"
+      outdir="${outdir}_pyside2"
       break
     fi
   done
   pushd "$repo_root" > /dev/null || return > /dev/null
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
-  rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
+  rm -rf "$outdir" && mkdir "$outdir" > /dev/null
 
   local version_command="import os;exec(open(os.path.join('$repo_root', 'version.py')).read());print(__version__);"
   local launcher_version="$(uv run python <<< ${version_command})"
 
   echo -e "${BIGreen}>>>${RST} Running docker build ..."
-  docker build --pull --iidfile $repo_root/build/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher-$variant:$launcher_version -f $dockerfile .
+  docker build --pull --iidfile ${outdir}/docker-image.id --build-arg CUSTOM_QT_BINDING=$qtenv --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') --build-arg VERSION=$launcher_version -t ynput/ayon-launcher-$variant:$launcher_version -f $dockerfile .
   if [ $? -ne 0 ] ; then
     echo $?
     echo -e "${BIRed}!!!${RST} Docker build failed."
-    retrieve_build_log
+    retrieve_build_log $outdir
     return 1
   fi
 
-  echo -e "${BIGreen}>>>${RST} Copying build from container ..."
-  create_container
+  echo -e "${BIGreen}>>>${RST} Copying build from container to ${outdir} ..."
+  create_container_id $outdir
   echo -e "${BIYellow}---${RST} Copying ..."
-  docker cp "$cid:/opt/ayon-launcher/build/output" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
-  docker cp "$cid:/opt/ayon-launcher/build/installer" "$repo_root/build" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/output" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying build failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/build.log" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying log failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/metadata.json" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying json failed."; return $?; }
+  docker cp "$cid:/opt/ayon-launcher/build/installer" "$outdir" || { echo -e "${BIRed}!!!${RST} Copying installer failed."; return $?; }
 
   echo -e "${BIGreen}>>>${RST} Fixing user ownership ..."
   local username="$(logname)"
-  chown -R $username ./build
+  chown -R $username $outdir
 
   echo -e "${BIGreen}>>>${RST} All done, you can delete container:"
   echo -e "${BIYellow}$cid${RST}"

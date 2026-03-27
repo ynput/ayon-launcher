@@ -1,0 +1,117 @@
+name: 🚀 Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_minor:
+        description: 'Bump minor version'
+        required: false
+        type: boolean
+        default: false
+      version:
+        description: 'Release version (optional)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.YNPUT_BOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.9.13'
+          enable-cache: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "${{ secrets.CI_USER }}"
+          git config --global user.email "${{ secrets.CI_EMAIL }}"
+
+      - name: Get release version
+        id: get_version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            ARGS=""
+            if [ "${{ github.event.inputs.bump_minor }}" = "true" ]; then
+              ARGS="--bump-minor"
+            fi
+            VERSION=$(uv run --no-project tools/manage_version.py get-release-version $ARGS)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update version for release
+        run: |
+          uv run --no-project tools/manage_version.py update --version ${{ steps.get_version.outputs.version }}
+          uv lock
+
+      - name: Commit release version
+        run: |
+          git add version.py pyproject.toml uv.lock
+          git commit -m "Release version ${{ steps.get_version.outputs.version }}"
+
+      - name: Push to protected develop branch
+        uses: CasperWA/push-protected@v2.10.0
+        with:
+          token: ${{ secrets.YNPUT_BOT_TOKEN }}
+          branch: develop
+          unprotect_reviews: true
+
+      - name: Rebase main on develop
+        run: |
+          git checkout main
+          git rebase develop
+
+      - name: Push to protected main branch
+        uses: CasperWA/push-protected@v2.10.0
+        with:
+          token: ${{ secrets.YNPUT_BOT_TOKEN }}
+          branch: main
+          unprotect_reviews: true
+
+      - name: Create and push tag
+        run: |
+          git tag ${{ steps.get_version.outputs.version }}
+          git push origin ${{ steps.get_version.outputs.version }}
+
+      - name: Bump version on develop
+        run: |
+          git checkout develop
+          NEW_VERSION=$(uv run --no-project tools/manage_version.py get-dev-version)
+          uv run --no-project tools/manage_version.py update --version $NEW_VERSION
+          uv lock
+          git add version.py pyproject.toml uv.lock
+          git commit -m "Bump version to $NEW_VERSION"
+
+      - name: Push to protected develop branch
+        uses: CasperWA/push-protected@v2.10.0
+        with:
+          token: ${{ secrets.YNPUT_BOT_TOKEN }}
+          branch: develop
+          unprotect_reviews: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          generate_release_notes: true
+
+  build:
+    needs: release
+    uses: ./.github/workflows/build_launcher.yml
+    with:
+      tag_name: ${{ needs.release.outputs.version }}
+    secrets: inherit
