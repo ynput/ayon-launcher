@@ -169,7 +169,7 @@ spctl --assess --verbose build/installer/AYON-*.dmg
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `AYON_APPLE_CODESIGN` | No | Set to `1` to enable code signing (default), or `0` to skip signing entirely |
+| `AYON_APPLE_CODESIGN` | No | Set to `1` to enable code signing, or `0` to skip signing entirely (default) |
 | `AYON_APPLE_SIGN_IDENTITY` | Yes (for signing) | Certificate identity (name or hash) |
 | `AYON_APPLE_TEAM_ID` | No | Team ID for hardened runtime (10 chars) |
 | `AYON_APPLE_ENTITLEMENTS` | No | Path to entitlements file (defaults to `tools/macos/ayon.entitlements`) |
