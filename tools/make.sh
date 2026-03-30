@@ -164,9 +164,13 @@ fix_macos_build () {
   fi
 
   # If signing is enabled, sign the app; otherwise remove old signatures
-  if [ -n "$AYON_APPLE_SIGN_IDENTITY" ]; then
+  # AYON_APPLE_CODESIGN defaults to enabled to preserve existing behavior.
+  if [ "${AYON_APPLE_CODESIGN:-1}" != "0" ] && [ -n "$AYON_APPLE_SIGN_IDENTITY" ]; then
     sign_macos_build "$macoscontents"
   else
+    if [ "${AYON_APPLE_CODESIGN:-1}" == "0" ]; then
+      echo -e "${BIYellow}***${RST} AYON_APPLE_CODESIGN=0, skipping code signing ..."
+    fi
     # Legacy behavior: remove old signatures to avoid build conflicts
     # fix code signing issue
     if [ $("arch") == "arm64" ]; then

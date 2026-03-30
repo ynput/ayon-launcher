@@ -58,6 +58,26 @@ term = blessed.Terminal()
 manager = enlighten.get_manager()
 
 
+def _apple_codesign_enabled() -> bool:
+    """Return True when macOS codesigning is enabled by environment."""
+    return os.environ.get("AYON_APPLE_CODESIGN", "1") == "1"
+
+
+def _apple_notarize_enabled() -> bool:
+    """Return True when notarization should be requested.
+
+    Notarization requires signed artifacts, so it is only considered enabled
+    when both AYON_APPLE_NOTARIZE and AYON_APPLE_CODESIGN are enabled.
+    """
+    notarize = os.environ.get("AYON_APPLE_NOTARIZE", "0") == "1"
+    if notarize and not _apple_codesign_enabled():
+        _logger.warning(
+            "AYON_APPLE_NOTARIZE=1 but AYON_APPLE_CODESIGN=0; "
+            "skipping notarization for unsigned build."
+        )
+    return notarize and _apple_codesign_enabled()
+
+
 def _make_dmg_error_handler(
     context: str,
 ) -> Callable[[str], None]:
@@ -271,7 +291,7 @@ def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
     ]
     # fmt: on
 
-    if os.environ.get("AYON_APPLE_NOTARIZE", "0") == "1":
+    if _apple_notarize_enabled():
         args += [
             "--codesign",
             os.environ["AYON_APPLE_SIGN_IDENTITY"],
@@ -897,7 +917,7 @@ def _create_darwin_installer(
     ]
     # fmt: on
 
-    if os.environ.get("AYON_APPLE_NOTARIZE", "0") == "1":
+    if _apple_notarize_enabled():
         args += [
             "--codesign",
             os.environ["AYON_APPLE_SIGN_IDENTITY"],
