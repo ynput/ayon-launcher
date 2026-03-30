@@ -273,6 +273,6 @@ Example GitHub Actions snippet:
     AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
     AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     AYON_APPLE_NOTARIZE: '1'
-    AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: ayon-ci
+    AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: ayon-notarize-ci
   run: ./tools/make.sh build-make-installer
 ```

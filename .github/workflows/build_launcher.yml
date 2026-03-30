@@ -118,7 +118,7 @@ jobs:
           APPLE_NOTARIZE_PASSWORD: ${{ secrets.APPLE_NOTARIZE_PASSWORD }}
           APPLE_NOTARIZE_TEAM_ID: ${{ secrets.APPLE_NOTARIZE_TEAM_ID }}
         run: |
-          xcrun notarytool store-credentials "ayon-ci" \
+          xcrun notarytool store-credentials "ayon-notarize-ci" \
             --apple-id "$APPLE_NOTARIZE_APPLE_ID" \
             --password "$APPLE_NOTARIZE_PASSWORD" \
             --team-id "$APPLE_NOTARIZE_TEAM_ID"
@@ -136,7 +136,7 @@ jobs:
           AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
           AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           AYON_APPLE_NOTARIZE: "1"
-          AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-ci"
+          AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-notarize-ci"
         run: ./tools/make.sh build-make-installer
 
       - name: Upload to Release
