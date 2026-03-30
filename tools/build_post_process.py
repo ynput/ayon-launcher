@@ -120,6 +120,7 @@ def run_with_output(
     for line in process.stdout:  # type: ignore
         ln = line.decode("utf-8", errors="replace")
         sys.stdout.write(f"{term.bright_black}  │  {ln}")
+        sys.stdout.flush()
         out += ln
 
     process.wait()
@@ -130,7 +131,6 @@ def run_with_output(
 
         # 'on_error' is responsible for raising exceptions or not.
         on_error(out)
-        
 
 
 def count_folders(path: Path) -> int:
