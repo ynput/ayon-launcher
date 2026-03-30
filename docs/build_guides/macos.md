@@ -285,13 +285,13 @@ Example GitHub Actions snippet:
     p12-password: ${{ secrets.APPLE_DEVELOPER_ID_PASSWORD }}
 
 - name: Build and Sign AYON
-   env:
-      AYON_APPLE_CODESIGN: '1'
-      AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
-      AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      AYON_APPLE_NOTARIZE: '1'
-      AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: ayon-notarize-ci
-   run: ./tools/make.sh build-make-installer
+  env:
+    AYON_APPLE_CODESIGN: '1'
+    AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+    AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    AYON_APPLE_NOTARIZE: '1'
+    AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: ayon-notarize-ci
+  run: ./tools/make.sh build-make-installer
 ```
 
 For non-release CI builds, set `AYON_APPLE_CODESIGN: '0'` and `AYON_APPLE_NOTARIZE: '0'`.
