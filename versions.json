@@ -1,10 +1,15 @@
 [
   {
-    "version": "1.5.3",
-    "title": "1.5.3",
+    "version": "mac1.5.3",
+    "title": "mac1.5.3",
     "aliases": [
       "latest"
     ]
+  },
+  {
+    "version": "1.5.3",
+    "title": "1.5.3",
+    "aliases": []
   },
   {
     "version": "1.5.2",
