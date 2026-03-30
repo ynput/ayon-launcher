@@ -13,7 +13,7 @@ import time
 import subprocess
 from pathlib import Path
 
-import toml
+import tomllib as toml
 import enlighten
 import blessed
 
@@ -108,7 +108,7 @@ def install_qtbinding(
     if qt_package:
         qt_variants.append(qt_package)
 
-    # Special handling for specific distro (e.g. centos7 and rocky8)
+    # Special handling for specific distro (e.g. rocky8, rocky9)
     if platform_name == "linux":
         import distro
 
@@ -160,7 +160,8 @@ def main():
         _print("Removing existing vendor directory")
         shutil.rmtree(python_vendor_dir)
     python_vendor_dir.mkdir(parents=True, exist_ok=True)
-    pyproject = toml.load(repo_root / "pyproject.toml")
+    with open(repo_root / "pyproject.toml", "rb") as f:
+        pyproject = toml.load(f)
     platform_name = platform.system().lower()
     use_pyside2 = "--use-pyside2" in sys.argv
 

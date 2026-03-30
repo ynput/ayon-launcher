@@ -1,6 +1,6 @@
 [project]
 name = "AYON"
-requires-python = "==3.9.13"
+requires-python = "==3.11.9"
 version = "1.5.4-dev"
 description = "Open VFX and Animation pipeline with support."
 authors = [
@@ -13,47 +13,44 @@ keywords = ["Pipeline", "AYON", "Avalon", "VFX", "animation", "automation", "tra
 
 dependencies = [
     "ayon-python-api == 1.2.14",
-    "arrow ~= 0.17",
-    "Unidecode ~= 1.3.0",
-    "aiohttp ~= 3.7",
+    "arrow >=0.4.4,<1",
+    "Unidecode ~= 1.4.0",
+    "aiohttp ~= 3.13",
     # local settings
     "platformdirs",
     "coolname",
-    "keyring ~= 22.0.1",
+    "keyring ~= 25.7.0",
     # terminal formatting
-    "blessed ~= 1.17", # Use only in helper scripts
-    "enlighten ~= 1.9.0",
+    "blessed ~= 1.33", # Use only in helper scripts
+    "enlighten ~= 1.14.1",
     # requirements
-    "cryptography ~= 39.0.0",
-    "dnspython ~= 2.1.0",
-    "urllib3 ~= 1.26.16",
-    "semver ~= 2.13.0",
-    "QtPy ~= 2.3.0",
-    "pywin32 == 310; sys_platform == 'win32'",
+    "cryptography ~= 46.0.5",
+    "dnspython ~= 2.8.0",
+    "urllib3 ~= 2.6.3",
+    "semver ~= 3.0.4",
+    "QtPy ~= 2.4.3",
+    "pywin32 == 311; sys_platform == 'win32'",
     "python3-xlib; sys_platform == 'linux'",
     "distro == 1.9.0; sys_platform == 'linux'",
-    "pre-commit>=3.8.0",
-    "toml",  # remove for python 3.11
+    "pre-commit>=4.5.1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "flake8 ~= 6.0",
-    "autopep8 ~= 2.0",
     "coverage",
-    "cx_Freeze ~= 8.4",
-    "GitPython ~= 3.1.17",
+    "cx_Freeze ~= 8.6",
+    "GitPython ~= 3.1.46",
     "hatchling",
-    "jedi ~= 0.13",
+    "jedi ~= 0.19",
     "Jinja2 ~= 3.1",
-    "markupsafe ~= 2.0.1",
+    "markupsafe ~= 3.0.3",
     "pycodestyle",
     "pydocstyle",
-    "linkify-it-py ~= 2.0.0",
-    "myst-parser ~= 0.18.1",
+    "linkify-it-py ~= 2.1.0",
+    "myst-parser ~= 5.0.0",
     "pre-commit",
-    "pylint ~= 2.5",
-    "pytest ~= 6.1",
+    "pylint ~= 4.0.5",
+    "pytest ~= 9.0.2",
     "pytest-cov",
     "pytest-print",
     "wheel",
@@ -89,10 +86,6 @@ version = "6.7.1"
 [ayon.qtbinding.linux]
 package = "PySide6"
 version = "6.7.1"
-
-[ayon.qtbinding.centos7]
-package = "PySide2"
-version = "5.15.2"
 
 [ayon.qtbinding.pyside2]
 package = "PySide2"

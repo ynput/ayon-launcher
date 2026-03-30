@@ -31,7 +31,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.9.13'
+          python-version: '3.11.9'
           enable-cache: true
 
       - name: Configure Git

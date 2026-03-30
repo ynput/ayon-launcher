@@ -6,12 +6,9 @@
 To build AYON you will need some tools and libraries. We do not provide any of these tools. You have to install them yourself.
 - **PowerShell** 5.0+ [GitHub repository](https://github.com/PowerShell/PowerShell)
 - [**git**](https://git-scm.com/downloads)
-- [**Python 3.9**](https://www.python.org/downloads/) or higher
+- [**uv**](https://docs.astral.sh/uv/)
+- [**Python 3.11**](https://www.python.org/downloads/)
 - [**Inno Setup**](https://jrsoftware.org/isdl.php) for installer
-
-Python 3.9.0 is not supported because of [this bug](https://github.com/python/cpython/pull/22670).
-
-It is recommended to use [**pyenv**](https://github.com/pyenv/pyenv) for python version control.
 
 ### More tools **might** be needed for installing python dependencies
 - [**CMake**](https://cmake.org/)
