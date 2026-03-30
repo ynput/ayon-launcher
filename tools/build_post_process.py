@@ -19,6 +19,7 @@ speed.
 
 import contextlib
 import copy
+import datetime
 import hashlib
 import importlib
 import json
@@ -110,6 +111,7 @@ def run_with_output(
         args (list[str]): Command to run.
         on_error (Callable[[str], None], optional): Function to call when error occurs.
     """
+    start = time.time()
     process = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
@@ -124,6 +126,9 @@ def run_with_output(
         out += ln
 
     process.wait()
+
+    elapsed = time.time() - start
+    _logger.info(f"Command took {datetime.timedelta(seconds=elapsed)}")
 
     if process.returncode != 0:
         if not on_error:
