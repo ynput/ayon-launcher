@@ -191,7 +191,7 @@ sign_macos_build () {
   echo -e "${BIGreen}>>>${RST} Signing app bundle..."
 
   # Get entitlements file path
-  entitlements_file="${AYON_APPLE_ENTITLEMENTS:-$(dirname "$repo_root")/tools/macos/ayon.entitlements}"
+  entitlements_file="${AYON_APPLE_ENTITLEMENTS:-$repo_root/tools/macos/ayon.entitlements}"
 
   if [ ! -f "$entitlements_file" ]; then
     echo -e "${BIRed}ERROR${RST} Entitlements file not found: $entitlements_file"
