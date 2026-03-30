@@ -163,21 +163,94 @@ fix_macos_build () {
     mv "$tmp_ayonexe" "$ayonmacosexe"
   fi
 
-  # fix code signing issue
-  if [ $("arch") == "arm64" ]; then
-    echo -e "${BIGreen}>>>${RST} Fixing code signatures for ARM64 ..."
+  # If signing is enabled, sign the app; otherwise remove old signatures
+  if [ -n "$AYON_APPLE_SIGN_IDENTITY" ]; then
+    sign_macos_build "$macoscontents"
+  else
+    # Legacy behavior: remove old signatures to avoid build conflicts
+    # fix code signing issue
+    if [ $("arch") == "arm64" ]; then
+      echo -e "${BIGreen}>>>${RST} Fixing code signatures for ARM64 ..."
+      codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+      if [ -f "$ayonmacosexe" ]; then
+        codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+      fi
+    fi
+    echo -e "${BIGreen}>>>${RST} Fixing code signatures ..."
     codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
     if [ -f "$ayonmacosexe" ]; then
       codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
     fi
   fi
-  echo -e "${BIGreen}>>>${RST} Fixing code signatures ..."
-  codesign --remove-signature "$ayonexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
-  if [ -f "$ayonmacosexe" ]; then
-    codesign --remove-signature "$ayonmacosexe" || { echo -e "${BIRed}FAILED${RST}"; return 1; }
+}
+
+sign_macos_build () {
+  macoscontents="$1"
+  app_bundle=$(dirname "$macoscontents")
+
+  echo -e "${BIGreen}>>>${RST} Signing app bundle..."
+
+  # Get entitlements file path
+  entitlements_file="${AYON_APPLE_ENTITLEMENTS:-$repo_root/tools/macos/ayon.entitlements}"
+
+  if [ ! -f "$entitlements_file" ]; then
+    echo -e "${BIRed}ERROR${RST} Entitlements file not found: $entitlements_file"
+    return 1
   fi
+
+  # Build codesign orchestrator command
+  sign_cmd="$repo_root/.venv/bin/python $repo_root/tools/macos/codesign_orchestrator.py"
+  sign_cmd="$sign_cmd --identity '$AYON_APPLE_SIGN_IDENTITY'"
+  sign_cmd="$sign_cmd --entitlements '$entitlements_file'"
+
+  if [ -n "$AYON_APPLE_TEAM_ID" ]; then
+    sign_cmd="$sign_cmd --team-id '$AYON_APPLE_TEAM_ID'"
+  fi
+
+  if [ "${AYON_APPLE_DRY_RUN:-0}" == "1" ]; then
+    sign_cmd="$sign_cmd --dry-run"
+  fi
+
+  if [ "${AYON_APPLE_VERBOSE:-0}" == "1" ]; then
+    sign_cmd="$sign_cmd --verbose"
+  fi
+
+  sign_cmd="$sign_cmd '$app_bundle'"
+
+  # Execute signing
+  eval $sign_cmd || { echo -e "${BIRed}FAILED${RST} Code signing failed"; return 1; }
+
+  echo -e "${BIGreen}>>>${RST} Code signing complete"
 }
 # Main
+##############################################################################
+# Thin any universal (fat) Mach-O binaries inside a directory to arm64 only.
+# Globals:
+#   None
+# Arguments:
+#   Directory to recursively process
+# Returns:
+#   None
+###############################################################################
+thin_macos_arm64 () {
+  local dir="$1"
+  echo -e "${BIGreen}>>>${RST} Thinning binaries to arm64 in [ ${BIWhite}$dir${RST} ] ..."
+  while IFS= read -r -d '' file; do
+    local archs
+    archs=$(lipo -archs "$file" 2>/dev/null) || continue
+    if echo "$archs" | grep -q "x86_64\|i386"; then
+      if echo "$archs" | grep -q "arm64"; then
+        echo -e "  ${BIYellow}lipo -thin arm64${RST}: $file"
+        lipo -thin arm64 "$file" -output "$file" || {
+          echo -e "${BIRed}WARN${RST} Failed to thin: $file"
+        }
+      else
+        echo -e "  ${BIYellow}SKIP${RST} (no arm64 slice): $file"
+      fi
+    fi
+  done < <(find "$dir" -type f -print0)
+}
+
 build_ayon () {
   should_make_installer=$1
 
@@ -206,20 +279,49 @@ build_ayon () {
   uv run python "$repo_root/tools/_venv_deps.py"
 
   build_command="build"
+#   macos_build_prefix=""
   if [[ "$OSTYPE" == "darwin"* ]]; then
     build_command="bdist_mac"
+    # # Force arm64-only output: set ARCHFLAGS so compiled C extensions target
+    # # arm64 and run the Python build process under the arm64 slice.
+    # export ARCHFLAGS="-arch arm64"
+    # export _PYTHON_HOST_PLATFORM="macosx-$(sw_vers -productVersion | cut -d. -f1-2)-arm64"
+    # macos_build_prefix="arch -arm64"
   fi
 
   pushd "$repo_root/shim"
 
+#   $macos_build_prefix uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
+    # Patch Info.plist BEFORE signing so the seal covers the final content.
+    echo -e "${BIGreen}>>>${RST} Patching shim Info.plist with URL scheme ..."
+    uv run python -c "
+import plistlib, pathlib, sys
+plist_path = pathlib.Path('$repo_root/shim/build/AYON.app/Contents/Info.plist')
+if not plist_path.exists():
+    print(f'ERROR: {plist_path} not found', file=sys.stderr)
+    sys.exit(1)
+with open(plist_path, 'rb') as f:
+    data = plistlib.load(f)
+data['CFBundleURLTypes'] = [{
+    'CFBundleTypeRole': 'Viewer',
+    'CFBundleURLName': 'com.ayon.URLscheme',
+    'CFBundleURLSchemes': ['ayon-launcher'],
+}]
+with open(plist_path, 'wb') as f:
+    plistlib.dump(data, f)
+print('Info.plist updated with URL scheme for AYON Launcher')
+" || { echo -e "${BIRed}!!!${RST} Failed to patch shim Info.plist"; return 1; }
+
+    # thin_macos_arm64 "$repo_root/shim/build/AYON.app"
     fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
   fi
   popd
-  "$repo_root/.venv/bin/python" "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  uv run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   uv run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
+    # thin_macos_arm64 "$repo_root/build/AYON $ayon_version.app"
     fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
   fi
 
