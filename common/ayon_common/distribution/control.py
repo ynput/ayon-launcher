@@ -7,6 +7,7 @@ import ctypes
 import tempfile
 import traceback
 import collections
+from contextlib import suppress
 import datetime
 import logging
 import shutil
@@ -133,15 +134,19 @@ def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     if not os.path.exists(progress_dir):
         os.makedirs(progress_dir, exist_ok=True)
-        os.chmod(progress_dir, 0o777)
+        try:
+            os.chmod(progress_dir, 0o777)
+        except PermissionError:
+            print(
+                "Failed to set permissions for"
+                "progress directory: {progress_dir}"
+            )
 
     with open(progress_path, "w") as stream:
         json.dump(progress_info, stream)
 
-    try:
+    with suppress(Exception):
         os.chmod(progress_path, 0o777)
-    except Exception:
-        pass
 
 
 def _create_progress_file(
@@ -250,7 +255,16 @@ def _wait_for_other_process(
     yield output
 
 
-def change_permissions_recursive(path: str, mode: int = 0o777):
+def change_permissions_recursive(path: str, mode: int = 0o777) -> None:
+    """Change permission recursively.
+
+    This will raise PermissionError if chmod fails.
+
+    Args:
+        path (str): Path to the directory.
+        mode (int): Permission mode.
+
+    """
     if IS_WINDOWS or not os.path.exists(path):
         return
 
@@ -290,7 +304,10 @@ def _get_dist_download_dir(*args):
     # Make sure directory exist with 777 permissions
     if not os.path.exists(downloads_dir) or _has_read_write(downloads_dir):
         os.makedirs(downloads_dir, exist_ok=True)
-        os.chmod(downloads_dir, 0o777)
+        try:
+            os.chmod(downloads_dir, 0o777)
+        except PermissionError:
+            print(f"Permission denied for {downloads_dir}")
         return output
 
     # Create new variant of the directory
@@ -298,7 +315,10 @@ def _get_dist_download_dir(*args):
     downloads_dir += "_2"
     output = os.path.join(downloads_dir, *args)
     os.makedirs(downloads_dir, exist_ok=True)
-    os.chmod(downloads_dir, 0o777)
+    try:
+        os.chmod(downloads_dir, 0o777)
+    except PermissionError:
+        print(f"Permission denied for {downloads_dir}")
 
     return output
 
@@ -319,7 +339,10 @@ def _create_dist_expire_file(process_dir: str):
 
     if not os.path.exists(process_dir):
         os.makedirs(process_dir, exist_ok=True)
-        os.chmod(process_dir, 0o777)
+        try:
+            os.chmod(process_dir, 0o777)
+        except PermissionError:
+            print(f"Permission denied for {process_dir}")
 
     with open(info_path, "w") as stream:
         json.dump(
@@ -327,7 +350,10 @@ def _create_dist_expire_file(process_dir: str):
             stream,
         )
 
-    os.chmod(info_path, 0o777)
+    try:
+        os.chmod(info_path, 0o777)
+    except PermissionError:
+        print(f"Permission denied for {info_path}")
 
     change_permissions_recursive(process_dir)
 
@@ -374,6 +400,8 @@ def _cleanup_dist_expire_dirs(process_dir: str):
         else:
             try:
                 os.chmod(path, 0o777)
+            except PermissionError:
+                print(f"Permission denied for {path}")
             except Exception:
                 pass
 
@@ -397,10 +425,8 @@ def _cleanup_dist_download_dirs():
     _cleanup_dist_expire_dirs(download_dir)
     # Delete v2 directory if is empty
     if len(os.listdir(download_dir)) == 0:
-        try:
+        with suppress(Exception):
             os.remove(download_dir)
-        except Exception:
-            pass
 
 
 class DistributeTransferProgress:
@@ -654,7 +680,13 @@ class BaseDistributionItem(ABC):
     def _pre_source_process(self):
         if not os.path.exists(self.download_dirpath):
             os.makedirs(self.download_dirpath, exist_ok=True)
-            os.chmod(self.download_dirpath, 0o777)
+            try:
+                os.chmod(self.download_dirpath, 0o777)
+            except PermissionError:
+                self.log.warning(
+                    f"{self.item_label}: Permission denied for"
+                    f" {self.download_dirpath}"
+                )
 
         if self._change_permissions:
             change_permissions_recursive(self.download_dirpath)
@@ -1156,7 +1188,12 @@ class InstallerDistributionItem(BaseDistributionItem):
 
         if not os.path.exists(install_root):
             os.makedirs(install_root, exist_ok=True)
-            os.chmod(install_root, 0o777)
+            try:
+                os.chmod(install_root, 0o777)
+            except PermissionError:
+                self.log.exception(
+                    f"{self.item_label}: Permission denied for {install_root}"
+                )
 
         try:
             extract_archive_file(filepath, install_root)
@@ -1361,8 +1398,15 @@ class DistributionItem(BaseDistributionItem):
 
         # Create directory
         os.makedirs(unzip_dirpath, exist_ok=True)
-        os.chmod(unzip_dirpath, 0o777)
-        change_permissions_recursive(unzip_dirpath)
+        try:
+            os.chmod(unzip_dirpath, 0o777)
+            change_permissions_recursive(unzip_dirpath)
+        except PermissionError:
+            message = f"Permission denied for {unzip_dirpath}"
+            self.log.exception(
+                f"{self.item_label}: {message}",
+                exc_info=True
+            )
 
         try:
             downloader.unzip(filepath, unzip_dirpath)
@@ -1405,16 +1449,28 @@ class DistributionItem(BaseDistributionItem):
         )
         if not os.path.exists(self.target_dirpath):
             os.makedirs(self.target_dirpath, exist_ok=True)
-            os.chmod(self.target_dirpath, 0o777)
-            change_permissions_recursive(self.target_dirpath)
+            try:
+                os.chmod(self.target_dirpath, 0o777)
+                change_permissions_recursive(self.target_dirpath)
+            except PermissionError:
+                self.log.exception(
+                    f"{self.item_label}: permission denied "
+                    f"for {self.target_dirpath}",
+                )
 
         for name in os.listdir(self.target_dirpath):
             if name == DIST_PROGRESS_FILENAME:
                 continue
             if not os.path.exists(tmp_subfolder):
                 os.makedirs(tmp_subfolder, exist_ok=True)
-                os.chmod(self.target_dirpath, 0o777)
-                change_permissions_recursive(tmp_subfolder)
+                try:
+                    os.chmod(self.target_dirpath, 0o777)
+                    change_permissions_recursive(tmp_subfolder)
+                except PermissionError:
+                    self.log.exception(
+                        f"{self.item_label}: permission denied "
+                        f"for {self.target_dirpath}",
+                    )
 
             current_path = os.path.join(self.target_dirpath, name)
             new_path = os.path.join(tmp_subfolder, name)
@@ -2356,7 +2412,10 @@ class AYONDistribution:
         """
         dirpath = os.path.dirname(filepath)
         os.makedirs(dirpath, exist_ok=True)
-        os.chmod(dirpath, 0o777)
+        try:
+            os.chmod(dirpath, 0o777)
+        except PermissionError:
+            print(f"Failed to change permissions for {dirpath}.")
         with open(filepath, "w") as stream:
             json.dump(data, stream, indent=4)
 
@@ -2397,10 +2456,8 @@ class AYONDistribution:
             self._dist_download_dirs + self._dist_unzip_dirs
         ):
             if os.path.exists(tmp_dir):
-                try:
+                with suppress(Exception):
                     shutil.rmtree(tmp_dir)
-                except Exception:
-                    pass
 
         stored_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # TODO store dependencies info inside dependencies folder instead
@@ -2706,8 +2763,14 @@ class AYONDistribution:
         unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
         if not os.path.exists(unzip_temp):
             os.makedirs(unzip_temp, exist_ok=True)
-            os.chmod(unzip_temp, 0o777)
-            change_permissions_recursive(unzip_temp)
+            try:
+                os.chmod(unzip_temp, 0o777)
+                change_permissions_recursive(unzip_temp)
+            except PermissionError:
+                self.log.warning(
+                    "Cannot change permissions for "
+                    "addons unzip temp directory."
+                )
 
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere
