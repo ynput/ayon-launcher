@@ -113,17 +113,32 @@ See [tools/macos/SIGNING_CONFIG.md](../../tools/macos/SIGNING_CONFIG.md) for det
 #### Local signing only
 
 ```sh
+export AYON_APPLE_CODESIGN="1"
 export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX)"
 ./tools/make.sh build-make-installer
 ```
 
+> [!NOTE]
+> Using the certificate's hash instead of name is recommended for CI environments
+
 #### With full notarization workflow
 
 ```sh
+export AYON_APPLE_CODESIGN="1"
 export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX)"
 export AYON_APPLE_TEAM_ID="XXXXXXXXXX"
 export AYON_APPLE_NOTARIZE="1"
 export AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE="ayon-notarize"
+./tools/make.sh build-make-installer
+```
+> [!NOTE]
+> Using the certificate's hash instead of name is recommended for CI environments
+
+#### Skip signing and notarization (non-release CI)
+
+```sh
+export AYON_APPLE_CODESIGN="0"
+export AYON_APPLE_NOTARIZE="0"
 ./tools/make.sh build-make-installer
 ```
 
@@ -154,10 +169,11 @@ spctl --assess --verbose build/installer/AYON-*.dmg
 
 | Variable | Required | Description |
 | --- | --- | --- |
+| `AYON_APPLE_CODESIGN` | No | Set to `1` to enable code signing, or `0` to skip signing entirely (default) |
 | `AYON_APPLE_SIGN_IDENTITY` | Yes (for signing) | Certificate identity (name or hash) |
 | `AYON_APPLE_TEAM_ID` | No | Team ID for hardened runtime (10 chars) |
 | `AYON_APPLE_ENTITLEMENTS` | No | Path to entitlements file (defaults to `tools/macos/ayon.entitlements`) |
-| `AYON_APPLE_NOTARIZE` | No | Set to `1` to enable notarization submission |
+| `AYON_APPLE_NOTARIZE` | No | Set to `1` to enable notarization submission (only applied when `AYON_APPLE_CODESIGN=1`) |
 | `AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE` | No (if using Apple ID) | Keychain profile name for notarization |
 | `AYON_APPLE_NOTARIZE_APPLE_ID` | No (if using profile) | Apple ID email for notarization |
 | `AYON_APPLE_NOTARIZE_PASSWORD` | No (if using profile) | Apple ID app-specific password |
@@ -217,7 +233,7 @@ These enable:
 
 ### Notarization Workflow
 
-When `AYON_APPLE_NOTARIZE=1` is set:
+When both `AYON_APPLE_CODESIGN=1` and `AYON_APPLE_NOTARIZE=1` are set:
 
 1. After DMG creation, the installer is submitted to Apple's notarization service
 2. Notarization status is polled (typically 2-10 minutes)
@@ -270,9 +286,12 @@ Example GitHub Actions snippet:
 
 - name: Build and Sign AYON
   env:
+    AYON_APPLE_CODESIGN: '1'
     AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
     AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     AYON_APPLE_NOTARIZE: '1'
     AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: ayon-notarize-ci
   run: ./tools/make.sh build-make-installer
 ```
+
+For non-release CI builds, set `AYON_APPLE_CODESIGN: '0'` and `AYON_APPLE_NOTARIZE: '0'`.

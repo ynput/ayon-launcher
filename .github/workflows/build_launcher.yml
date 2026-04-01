@@ -9,12 +9,22 @@ on:
         description: 'Tag name'
         required: true
         type: string
+      enable_macos_signing:
+        description: 'Enable macOS signing and notarization'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       tag_name:
         description: 'Tag name'
         required: true
         type: string
+      enable_macos_signing:
+        description: 'Enable macOS signing and notarization'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build-linux:
@@ -107,12 +117,14 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Import code signing certificate
+        if: ${{ github.event_name == 'release' || inputs.enable_macos_signing == true }}
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_ID_PASSWORD }}
 
       - name: Set up notarization keychain profile
+        if: ${{ github.event_name == 'release' || inputs.enable_macos_signing == true }}
         env:
           APPLE_NOTARIZE_APPLE_ID: ${{ secrets.APPLE_NOTARIZE_APPLE_ID }}
           APPLE_NOTARIZE_PASSWORD: ${{ secrets.APPLE_NOTARIZE_PASSWORD }}
@@ -135,7 +147,8 @@ jobs:
         env:
           AYON_APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
           AYON_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          AYON_APPLE_NOTARIZE: "1"
+          AYON_APPLE_CODESIGN: ${{ (github.event_name == 'release' || inputs.enable_macos_signing == true) && '1' || '0' }}
+          AYON_APPLE_NOTARIZE: ${{ (github.event_name == 'release' || inputs.enable_macos_signing == true) && '1' || '0' }}
           AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-notarize-ci"
         run: ./tools/make.sh build-make-installer
 

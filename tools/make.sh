@@ -143,6 +143,13 @@ install_runtime_dependencies () {
   uv run python "$repo_root/tools/runtime_dependencies.py" "$@"
 }
 
+is_true() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 fix_macos_build () {
   macoscontents="$1"
   macosdir="$macoscontents/MacOS"
@@ -164,9 +171,13 @@ fix_macos_build () {
   fi
 
   # If signing is enabled, sign the app; otherwise remove old signatures
-  if [ -n "$AYON_APPLE_SIGN_IDENTITY" ]; then
+  # AYON_APPLE_CODESIGN defaults to enabled to preserve existing behavior.
+  if is_true "${AYON_APPLE_CODESIGN:-1}" && [ -n "$AYON_APPLE_SIGN_IDENTITY" ]; then
     sign_macos_build "$macoscontents"
   else
+    if ! is_true "${AYON_APPLE_CODESIGN:-1}"; then
+      echo -e "${BIYellow}***${RST} AYON_APPLE_CODESIGN=0, skipping code signing ..."
+    fi
     # Legacy behavior: remove old signatures to avoid build conflicts
     # fix code signing issue
     if [ $("arch") == "arm64" ]; then
