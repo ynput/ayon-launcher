@@ -2,6 +2,11 @@
   {
     "version": "mac1.5.3",
     "title": "mac1.5.3",
+    "aliases": []
+  },
+  {
+    "version": "1.5.4",
+    "title": "1.5.4",
     "aliases": [
       "latest"
     ]
