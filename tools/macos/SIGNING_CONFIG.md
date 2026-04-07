@@ -12,11 +12,16 @@ For developers building locally on macOS, Signing requires:
 
 ### Example Local Configuration (bash)
 
+> [!NOTE]
+> AYON_APPLE_SIGN_IDENTITY: Using the certificate's hash instead of name is recommended.
+
 ```bash
 # Set these environment variables before building:
 
 # Required
+export AYON_APPLE_CODESIGN="1"
 export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX)"
+
 
 # Optional: Team ID (10-char value from Apple Developer portal)
 export AYON_APPLE_TEAM_ID="XXXXXXXXXX"
@@ -27,6 +32,9 @@ export AYON_APPLE_ENTITLEMENTS="$(pwd)/tools/macos/ayon.entitlements"
 # Optional: Enable notarization (requires below credentials)
 export AYON_APPLE_NOTARIZE="1"
 export AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE="ayon-notarize"  # See setup below
+
+# Optional: Disable signing/notarization for non-release builds
+# export AYON_APPLE_CODESIGN="0"
 
 # Optional: Enable signing/notarization dry-run (prints commands, doesn't execute)
 export AYON_APPLE_DRY_RUN="0"
@@ -143,6 +151,7 @@ xcrun notarytool store-credentials --validate --keychain-profile ayon-test \
 ### Local Signing Only (No Notarization)
 
 ```bash
+export AYON_APPLE_CODESIGN="1"
 export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX)"
 ./tools/make.sh build-make-installer
 ```
@@ -150,9 +159,18 @@ export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX
 ### Local with Notarization
 
 ```bash
+export AYON_APPLE_CODESIGN="1"
 export AYON_APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (XXXXXXXXXX)"
 export AYON_APPLE_NOTARIZE="1"
 export AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE="ayon-notarize"
+./tools/make.sh build-make-installer
+```
+
+### Non-release CI Build (Skip Signing/Notarization)
+
+```bash
+export AYON_APPLE_CODESIGN="0"
+export AYON_APPLE_NOTARIZE="0"
 ./tools/make.sh build-make-installer
 ```
 
@@ -190,6 +208,7 @@ spctl --assess --verbose build/installer/AYON-*.dmg
 ### "Notarization rejected"
 - Check notarytool history for details: `xcrun notarytool history --keychain-profile <profile>`
 - Common issues: hardened runtime flags missing, invalid entitlements, or code not signed correctly
+- Notarization is only attempted when `AYON_APPLE_CODESIGN=1` and `AYON_APPLE_NOTARIZE=1`
 
 ### "Staple failed"
 - Notarization must succeed before stapling

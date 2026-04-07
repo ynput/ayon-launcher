@@ -114,4 +114,5 @@ jobs:
     uses: ./.github/workflows/build_launcher.yml
     with:
       tag_name: ${{ needs.release.outputs.version }}
+      enable_macos_signing: true
     secrets: inherit
