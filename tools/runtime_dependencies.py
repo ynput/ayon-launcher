@@ -108,12 +108,6 @@ def install_qtbinding(
     if qt_package:
         qt_variants.append(qt_package)
 
-    # Special handling for specific distro (e.g. centos7 and rocky8)
-    if platform_name == "linux":
-        import distro
-
-        qt_variants.append(f"{distro.id()}{distro.major_version()}")
-
     qt_binding_options = pyproject["ayon"]["qtbinding"]
     qtbinding_def = None
     for qt_variant in qt_variants:
