@@ -119,7 +119,7 @@ wheels = [
 
 [[package]]
 name = "ayon"
-version = "1.5.4.dev0"
+version = "1.5.5.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -168,7 +168,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = "~=3.13" },
     { name = "arrow", specifier = ">=0.4.4,<1" },
-    { name = "ayon-python-api", specifier = "==1.2.14" },
+    { name = "ayon-python-api", specifier = "==1.2.16" },
     { name = "blessed", specifier = "~=1.33" },
     { name = "coolname" },
     { name = "coverage", marker = "extra == 'dev'" },
@@ -207,15 +207,15 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "ayon-python-api"
-version = "1.2.14"
+version = "1.2.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "unidecode" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/4a/b931e51dfdfb145e80da79b1c48f571e00de872bc3379c1c73ebf46c652f/ayon_python_api-1.2.14.tar.gz", hash = "sha256:40cc6e4f462ca6ba25bcd29dfe8fc203a001e58bfc0fece50512b45360ea70ad", size = 169529, upload-time = "2026-03-20T12:11:26.539Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/b9/a3d96adb6297e40e83f727adf544d2fc17a3b05805158f2d5df578c6deb8/ayon_python_api-1.2.16.tar.gz", hash = "sha256:43a643d5c45b0c01e340670b2703f60567efbb38b8835267c35511f6578079f1", size = 170537, upload-time = "2026-04-07T09:35:11.028Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/bf/f1848e89b6bc3b18641d9b0fe45010c45c788f31c490cb63e1ac91e78455/ayon_python_api-1.2.14-py3-none-any.whl", hash = "sha256:e98f31485ccff02fed997a06ae0c15e1868e2d2379bd30128265d5486eeb5f77", size = 169360, upload-time = "2026-03-20T12:11:24.823Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/2e/453ae59d534961d2dd24934339a863ee0c110afac593cf3898c8a47b1e4d/ayon_python_api-1.2.16-py3-none-any.whl", hash = "sha256:19e5279948d6d438a248106e8a25619e822f84a60f29e3c1154b4865639e6008", size = 170242, upload-time = "2026-04-07T09:35:09.771Z" },
 ]
 
 [[package]]
