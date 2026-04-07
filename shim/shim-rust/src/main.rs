@@ -111,7 +111,7 @@ fn main() {
 
         if let Some(version_str) = get_executable_version(&path) {
             let version = Version::parse(&version_str).unwrap_or_else(|_| Version::new(0, 0, 0));
-            
+
             if let Some((ref latest_v, _)) = latest {
                 if version > *latest_v {
                     latest = Some((version, path));

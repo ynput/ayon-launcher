@@ -17,10 +17,10 @@ mod macos_events {
 
     pub fn capture_apple_events() -> Vec<String> {
         let captured_args = Arc::new(Mutex::new(Vec::new()));
-        
+
         unsafe {
             let event_manager: *mut Object = msg_send![objc::class!(NSAppleEventManager), sharedAppleEventManager];
-            
+
             let captured_args_clone = Arc::clone(&captured_args);
             let open_app_block = ConcreteBlock::new(move |_event: *mut Object, _reply_event: *mut Object| {
                 // Do nothing
@@ -65,19 +65,19 @@ mod macos_events {
             });
             let open_url_handler = open_url_block.copy();
 
-            let _: () = msg_send![event_manager, setEventHandler: &*open_app_handler 
-                                               andSelector: sel!(handleAppleEvent:withReplyEvent:) 
-                                             forEventClass: 0x61657674 
+            let _: () = msg_send![event_manager, setEventHandler: &*open_app_handler
+                                               andSelector: sel!(handleAppleEvent:withReplyEvent:)
+                                             forEventClass: 0x61657674
                                                 andEventID: 0x6f617070];
 
-            let _: () = msg_send![event_manager, setEventHandler: &*open_file_handler 
-                                               andSelector: sel!(handleAppleEvent:withReplyEvent:) 
-                                             forEventClass: 0x61657674 
+            let _: () = msg_send![event_manager, setEventHandler: &*open_file_handler
+                                               andSelector: sel!(handleAppleEvent:withReplyEvent:)
+                                             forEventClass: 0x61657674
                                                 andEventID: 0x6f646f63];
 
-            let _: () = msg_send![event_manager, setEventHandler: &*open_url_handler 
-                                               andSelector: sel!(handleAppleEvent:withReplyEvent:) 
-                                             forEventClass: 0x4755524c 
+            let _: () = msg_send![event_manager, setEventHandler: &*open_url_handler
+                                               andSelector: sel!(handleAppleEvent:withReplyEvent:)
+                                             forEventClass: 0x4755524c
                                                 andEventID: 0x4755524c];
 
             let ns_app: *mut Object = msg_send![objc::class!(NSApplication), sharedApplication];
@@ -86,14 +86,14 @@ mod macos_events {
 
             while start.elapsed() < timeout {
                 let date: *mut Object = msg_send![objc::class!(NSDate), dateWithTimeIntervalSinceNow: 0.1];
-                let event: *mut Object = msg_send![ns_app, nextEventMatchingMask: !0 
-                                                                    untilDate: date 
+                let event: *mut Object = msg_send![ns_app, nextEventMatchingMask: !0
+                                                                    untilDate: date
                                                                         inMode: objc::runtime::nil
                                                                       dequeue: true];
                 if !event.is_null() {
                     let _: () = msg_send![ns_app, sendEvent: event];
                 }
-                
+
                 if !captured_args.lock().unwrap().is_empty() {
                     break;
                 }
