@@ -3,6 +3,13 @@ name = "ayon-shim"
 version = "1.1.0"
 edition = "2021"
 
+[package.metadata.bundle]
+name = "ayon"
+identifier = "com.ayon.shim"
+icon = ["../../common/ayon_common/resources/AYON.icns"]
+version = "1.1.0"
+resources = []
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
