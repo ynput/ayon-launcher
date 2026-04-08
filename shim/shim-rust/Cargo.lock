@@ -3,19 +3,6 @@
 version = 4
 
 [[package]]
-name = "ayon-shim"
-version = "1.1.0"
-dependencies = [
- "block",
- "directories",
- "objc",
- "semver",
- "serde",
- "serde_json",
- "winres",
-]
-
-[[package]]
 name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -186,6 +173,40 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "shim-core"
+version = "1.1.0"
+dependencies = [
+ "directories",
+ "semver",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "shim-linux"
+version = "1.1.0"
+dependencies = [
+ "shim-core",
+]
+
+[[package]]
+name = "shim-macos"
+version = "1.1.0"
+dependencies = [
+ "block",
+ "objc",
+ "shim-core",
+]
+
+[[package]]
+name = "shim-windows"
+version = "1.1.0"
+dependencies = [
+ "shim-core",
+ "winres",
 ]
 
 [[package]]

@@ -1,0 +1,24 @@
+[package]
+name = "shim-macos"
+version = "1.1.0"
+edition = "2021"
+
+[package.metadata.bundle]
+name = "AYON"
+identifier = "AYON"
+icon = ["../../common/ayon_common/resources/AYON.icns"]
+osx_url_schemes = ["ayon-launcher"]
+resources = ["version"]
+
+[dependencies]
+shim-core = { path = "../shim-core" }
+objc = "0.2"
+block = "0.1"
+
+[[bin]]
+name = "ayon_macos"
+path = "src/main.rs"
+
+[[bin]]
+name = "ayon"
+path = "src/ayon.rs"

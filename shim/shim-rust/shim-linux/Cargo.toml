@@ -1,0 +1,11 @@
+[package]
+name = "shim-linux"
+version = "1.1.0"
+edition = "2021"
+
+[dependencies]
+shim-core = { path = "../shim-core" }
+
+[[bin]]
+name = "ayon"
+path = "src/main.rs"

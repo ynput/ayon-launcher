@@ -1,0 +1,24 @@
+[package]
+name = "shim-windows"
+version = "1.1.0"
+edition = "2021"
+
+[dependencies]
+shim-core = { path = "../shim-core" }
+
+[build-dependencies]
+winres = "0.1"
+
+[features]
+gui = []
+ayon_console = []
+
+[[bin]]
+name = "ayon"
+path = "src/main.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "ayon_console"
+path = "src/main.rs"
+required-features = ["ayon_console"]
