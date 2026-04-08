@@ -57,8 +57,11 @@ fn main() {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    if !is_ayon_console {
-        command.creation_flags(CREATE_NO_WINDOW);
+    #[cfg(target_os = "windows")]
+    {
+        if !is_ayon_console {
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
     }
 
     match command.status() {
