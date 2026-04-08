@@ -176,6 +176,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shim"
+version = "1.1.0"
+dependencies = [
+ "shim-core",
+ "winres",
+]
+
+[[package]]
 name = "shim-core"
 version = "1.1.0"
 dependencies = [
@@ -186,27 +194,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "shim-linux"
-version = "1.1.0"
-dependencies = [
- "shim-core",
-]
-
-[[package]]
 name = "shim-macos"
 version = "1.1.0"
 dependencies = [
  "block",
  "objc",
- "shim-core",
-]
-
-[[package]]
-name = "shim-windows"
-version = "1.1.0"
-dependencies = [
- "shim-core",
- "winres",
 ]
 
 [[package]]

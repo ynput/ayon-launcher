@@ -9,6 +9,7 @@ use std::process::{Command, Stdio};
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+
 fn main() {
     let local_dir = match shim_core::get_launcher_local_dir() {
         Some(dir) => dir,
@@ -25,21 +26,26 @@ fn main() {
             std::process::exit(1);
         }
     };
-
+    let is_ayon_console = false;
+    #[cfg(target_os = "windows")]
     let is_ayon_console = cfg!(not(feature = "gui"));
 
     let args: Vec<String> = env::args().skip(1).collect();
 
-    if let Some(parent) = final_path.parent() {
-        if is_ayon_console {
-            let console_exe = parent.join("ayon_console.exe");
-            if console_exe.exists() {
-                final_path = console_exe;
-            }
-        } else {
-            let ui_exe = parent.join("ayon.exe");
-            if ui_exe.exists() {
-                final_path = ui_exe;
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(parent) = final_path.parent() {
+            if is_ayon_console {
+                let console_exe = parent.join("ayon_console.exe");
+                if console_exe.exists() {
+                    final_path = console_exe;
+                }
+            } else {
+                let ui_exe = parent.join("ayon.exe");
+                if ui_exe.exists() {
+                    final_path = ui_exe;
+                }
             }
         }
     }
