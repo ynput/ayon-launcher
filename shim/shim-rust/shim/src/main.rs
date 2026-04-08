@@ -4,8 +4,9 @@
 )]
 
 use std::env;
-use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
