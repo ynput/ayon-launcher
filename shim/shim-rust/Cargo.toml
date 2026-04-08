@@ -25,8 +25,8 @@ winres = "0.1"
 
 [features]
 gui = []
-windows_console = []
-macos_launcher = []
+ayon_console = []
+ayon_macos = []
 
 [[bin]]
 name = "ayon"
@@ -35,9 +35,9 @@ path = "src/main.rs"
 [[bin]]
 name = "ayon_console"
 path = "src/main.rs"
-required-features = ["windows_console"]
+required-features = ["ayon_console"]
 
 [[bin]]
 name = "ayon_macos"
-path = "src/macos_main.rs"
-required-features = ["macos_launcher"]
+path = "src/main.rs"
+required-features = ["ayon_macos"]

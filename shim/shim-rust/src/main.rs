@@ -146,11 +146,8 @@ fn main() {
 
     // Windows specific logic for ayon_console.exe
     // Determine if current shim is the console variant (Windows)
-    #[cfg(target_os = "windows")]
-    let is_ayon_console = {
-        let exe_name = env::args().next().unwrap_or_default().to_lowercase();
-        exe_name.contains("ayon_console")
-    };
+    let is_ayon_console = cfg!(feature = "ayon_console");
+
     // If running as console shim on Windows, prefer target's ayon_console.exe
     #[cfg(target_os = "windows")]
     {
