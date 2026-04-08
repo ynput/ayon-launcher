@@ -4,11 +4,11 @@ version = "1.1.0"
 edition = "2021"
 
 [package.metadata.bundle]
-name = "ayon"
-identifier = "com.ayon.shim"
+name = "AYON"
+identifier = "AYON"
 icon = ["../../common/ayon_common/resources/AYON.icns"]
 version = "1.1.0"
-resources = []
+osx_url_schemes = ["ayon-launcher"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
