@@ -7,7 +7,6 @@ edition = "2021"
 name = "AYON"
 identifier = "AYON"
 icon = ["../../common/ayon_common/resources/AYON.icns"]
-version = "1.1.0"
 osx_url_schemes = ["ayon-launcher"]
 
 [dependencies]
