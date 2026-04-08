@@ -141,7 +141,7 @@ fn main() {
     let use_open = {
         // If the target path looks like it's inside an .app bundle or is one
         let path_str = final_path.to_string_lossy();
-        path_str.contains(".app") || path_str.ends_with(".app")
+        path_str.ends_with(".app")
     };
 
     // Windows specific logic for ayon_console.exe
