@@ -31,7 +31,6 @@ macos_launcher = []
 [[bin]]
 name = "ayon"
 path = "src/main.rs"
-required-features = ["gui"]
 
 [[bin]]
 name = "ayon_console"
