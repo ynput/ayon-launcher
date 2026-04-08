@@ -88,7 +88,7 @@ mod macos_events {
                 let date: *mut Object = msg_send![objc::class!(NSDate), dateWithTimeIntervalSinceNow: 0.1];
                 let event: *mut Object = msg_send![ns_app, nextEventMatchingMask: !0
                                                                     untilDate: date
-                                                                        inMode: objc::runtime::nil
+                                                                        inMode: std::ptr::null_mut::<Object>()
                                                                       dequeue: true];
                 if !event.is_null() {
                     let _: () = msg_send![ns_app, sendEvent: event];
