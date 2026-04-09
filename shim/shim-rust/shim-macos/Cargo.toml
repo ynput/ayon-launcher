@@ -11,8 +11,9 @@ osx_url_schemes = ["ayon-launcher"]
 resources = ["version"]
 
 [dependencies]
-objc = "0.2"
-block = "0.1"
+objc2 = "0.5.2"
+objc2-foundation = { version = "0.2.2", features = ["all"] }
+objc2-app-kit = { version = "0.2.2", features = ["all"] }
 
 [[bin]]
 name = "ayon_macos"
