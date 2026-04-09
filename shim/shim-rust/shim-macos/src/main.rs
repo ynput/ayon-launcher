@@ -1,4 +1,5 @@
 use std::env;
+use std::io::Write;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -87,6 +88,20 @@ mod macos_events {
             let this = this.set_ivars(Ivars { captured_args });
             unsafe { msg_send_id![super(this), init] }
         }
+
+        fn register_url_event_handler(&self) {
+            let manager = unsafe { NSAppleEventManager::sharedAppleEventManager() };
+            unsafe {
+                // Register immediately to avoid missing the first URL event.
+                let _: () = msg_send![
+                    &manager,
+                    setEventHandler: self,
+                    andSelector: sel!(handleGetURLEvent:withReplyEvent:),
+                    forEventClass: K_INTERNET_EVENT_CLASS,
+                    andEventID: K_AE_GET_URL
+                ];
+            }
+        }
     }
 
     pub fn capture_apple_events() -> Vec<String> {
@@ -95,12 +110,13 @@ mod macos_events {
 
         let app = NSApplication::sharedApplication(mtm);
         let delegate = AppDelegate::new(mtm, Arc::clone(&captured_args));
+        delegate.register_url_event_handler();
         let protocol_delegate = ProtocolObject::from_retained(delegate);
         app.setDelegate(Some(&protocol_delegate));
 
         // We don't call app.run() because we want to return.
         // Instead, we pump the event loop for a short time.
-        let timeout = Duration::from_secs(1);
+        let timeout = Duration::from_millis(100);
         let start = Instant::now();
 
         while start.elapsed() < timeout {
