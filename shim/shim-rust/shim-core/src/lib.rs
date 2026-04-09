@@ -21,33 +21,13 @@ pub fn get_launcher_local_dir() -> Option<PathBuf> {
         return Some(PathBuf::from(storage_dir));
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        return Some(
-            ProjectDirs::from_path(PathBuf::from_iter(&["AYON"]))
-                .unwrap()
-                .data_local_dir()
-                .to_path_buf(),
-        );
-    }
 
     #[cfg(target_os = "windows")]
     {
-        return Some(
-            ProjectDirs::from_path(PathBuf::from_iter(&["Ynput", "AYON"]))
-                .unwrap()
-                .data_local_dir()
-                .parent()
-                .unwrap()
-                .to_path_buf(),
-        );
+        return Some(ProjectDirs::from_path(PathBuf::from_iter(&["Ynput", "AYON"])).unwrap().data_local_dir().parent().unwrap().to_path_buf());
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        ProjectDirs::from("io", "Ynput", "AYON")
-            .map(|proj_dirs| proj_dirs.data_local_dir().to_path_buf())
-    }
+    Some(ProjectDirs::from_path(PathBuf::from_iter(&["AYON"])).unwrap().data_local_dir().to_path_buf())
 }
 
 pub fn load_version_from_file(version_py: &Path) -> Option<String> {
