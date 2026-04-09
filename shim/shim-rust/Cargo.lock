@@ -269,18 +269,11 @@ dependencies = [
 name = "shim"
 version = "1.1.0"
 dependencies = [
- "shim-core",
- "winres",
-]
-
-[[package]]
-name = "shim-core"
-version = "1.1.0"
-dependencies = [
  "directories",
  "semver",
  "serde",
  "serde_json",
+ "winres",
 ]
 
 [[package]]
