@@ -300,7 +300,9 @@ build_ayon () {
 
   pushd "$repo_root/shim"
   cargo build -p shim --release --features gui &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  fi
   if [[ "$OSTYPE" == "darwin"* ]]; then
     release_dir="$repo_root/shim/target/release"
     bundle_contents="$release_dir/bundle/osx/AYON.app/Contents"
