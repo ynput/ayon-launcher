@@ -36,12 +36,21 @@ fn show_error(msg: &str) {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("osascript")
+            .arg("-e")
+            .arg("display dialog (system attribute \"AYON_ERROR_MESSAGE\") with title \"AYON Error\" buttons {\"OK\"} default button \"OK\" with icon stop")
+            .env("AYON_ERROR_MESSAGE", msg)
+            .status();
+    }
+
     // Not sure if we want to show error message on linux
     // #[cfg(target_os = "linux")]
     // {
     //     let has_display = env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok();
     //     if has_display {
-    //         // Try zenity, then kdialog, then xmessage — use whichever is available.
+    //         // Try zenity, then kdialog, then xmessage - use whichever is available.
     //         let shown = Command::new("zenity")
     //             .args(["--error", "--title=AYON Error", &format!("--text={}", msg)])
     //             .status()
