@@ -35,6 +35,30 @@ fn show_error(msg: &str) {
             }
         }
     }
+
+    // Not sure if we want to show error message on linux
+    // #[cfg(target_os = "linux")]
+    // {
+    //     let has_display = env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok();
+    //     if has_display {
+    //         // Try zenity, then kdialog, then xmessage — use whichever is available.
+    //         let shown = Command::new("zenity")
+    //             .args(["--error", "--title=AYON Error", &format!("--text={}", msg)])
+    //             .status()
+    //             .is_ok();
+    //         if !shown {
+    //             let shown = Command::new("kdialog")
+    //                 .args(["--error", msg, "--title", "AYON Error"])
+    //                 .status()
+    //                 .is_ok();
+    //             if !shown {
+    //                 let _ = Command::new("xmessage")
+    //                     .args(["-center", msg])
+    //                     .status();
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 
