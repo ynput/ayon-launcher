@@ -36,7 +36,6 @@ install_requires = [
     "platformdirs",
     "cx_Freeze",
     "keyring",
-    "pkg_resources",
     "qtpy",
     "filecmp",
     "dns",
