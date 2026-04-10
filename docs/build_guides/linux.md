@@ -11,6 +11,7 @@ To build AYON you will need some tools and libraries. We do not provide any of t
 - [**bash**](https://www.gnu.org/software/bash/)
 - [**curl**](https://curl.se) on systems that doesn't have one preinstalled
 - [**git**](https://git-scm.com/downloads)
+- [**Rust**](https://rust-lang.org/tools/install/)
 - [**Python 3.9**](https://www.python.org/downloads/) or higher
 - [**CMake**](https://cmake.org/)
 

@@ -6,6 +6,7 @@
 To build AYON you will need some tools and libraries. We do not provide any of these tools. You have to install them yourself.
 - **PowerShell** 5.0+ [GitHub repository](https://github.com/PowerShell/PowerShell)
 - [**git**](https://git-scm.com/downloads)
+- [**Rust**](https://rust-lang.org/tools/install/)
 - [**Python 3.9**](https://www.python.org/downloads/) or higher
 - [**Inno Setup**](https://jrsoftware.org/isdl.php) for installer
 

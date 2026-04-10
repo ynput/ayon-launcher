@@ -13,6 +13,7 @@ To build AYON you will need some tools and libraries. We do not provide any of t
 - **Terminal**
 - [**Homebrew**](https://brew.sh)
 - [**git**](https://git-scm.com/downloads)
+- [**Rust**](https://rust-lang.org/tools/install/)
 - [**Python 3.9**](https://www.python.org/downloads/) or higher
 - [**CMake**](https://cmake.org/)
 - **XCode Command Line Tools** (or some other build system).
