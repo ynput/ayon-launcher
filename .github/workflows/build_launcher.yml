@@ -28,7 +28,7 @@ on:
 
 jobs:
   build-linux:
-    name: Build (${{ matrix.variant }}${{ matrix.use-pyside2 && ' - PySide 2' || '' }})
+    name: Build (${{ matrix.variant }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -37,8 +37,6 @@ jobs:
           - variant: ubuntu
           - variant: debian
           - variant: rocky8
-          - variant: rocky8
-            use-pyside2: true
           - variant: rocky9
 
     steps:
@@ -55,12 +53,12 @@ jobs:
         shell: bash
         run: |
           chmod +x ./tools/make.sh
-          ./tools/make.sh docker-build ${{ matrix.variant }} ${{ matrix.use-pyside2 == true && '--use-pyside2' || '' }}
+          ./tools/make.sh docker-build ${{ matrix.variant }}
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: build_${{ matrix.variant }}${{ matrix.use-pyside2 && '_pyside2' || '' }}/installer/*
+          files: build_${{ matrix.variant }}/installer/*
           tag_name: ${{ inputs.tag_name || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
