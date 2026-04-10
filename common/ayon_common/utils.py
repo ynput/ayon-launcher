@@ -958,6 +958,13 @@ def _deploy_shim_linux(installer_shim_root: str) -> bool:
 
     """
     executable_root = _get_shim_executable_root()
+    if os.path.exists(executable_root):
+        try:
+            shutil.rmtree(executable_root)
+        except Exception as exc:
+            print(f"Failed to remove existing shim {exc}")
+            raise RuntimeError(f"Failed to remove existing AYON shim")
+
     os.makedirs(executable_root, exist_ok=True)
     extract_archive_file(
         os.path.join(installer_shim_root, "shim.tar.gz"),
