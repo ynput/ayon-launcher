@@ -978,6 +978,15 @@ def _deploy_shim_macos(installer_shim_root: str):
     """
     import plistlib
 
+    ayon_app_path = "/Applications/AYON.app"
+
+    if os.path.exists(ayon_app_path):
+        try:
+            shutil.rmtree(ayon_app_path)
+        except Exception as exc:
+            print(f"Failed to remove existing shim {exc}")
+            raise RuntimeError("Failed to remove existing shim")
+
     filepath = os.path.join(installer_shim_root, "shim.dmg")
     # Attach dmg file and read plist output (bytes)
     stdout = subprocess.check_output([
@@ -1088,7 +1097,6 @@ def _cleanup_windows_shims() -> None:
             shutil.rmtree(root)
         except Exception as exc:
             print(f"Failed to remove shim backup. {exc}")
-
 
 
 def _cleanup_shims() -> None:
