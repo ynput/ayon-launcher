@@ -9,7 +9,7 @@ with dictionary ready for pyproject.toml file.
 
 import os
 import json
-import toml
+import tomllib as toml
 from pathlib import Path
 
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -20,7 +20,7 @@ OUTPUT_PATH = REPO_ROOT_DIR / "build" / "locked_requirements.json"
 def main():
     uv_lock_file = REPO_ROOT_DIR / "uv.lock"
     if uv_lock_file.exists():
-        with open(uv_lock_file, "r") as stream:
+        with open(uv_lock_file, "rb") as stream:
             uv_lock_data = toml.load(stream)
 
     packages = {}
