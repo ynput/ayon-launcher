@@ -1081,8 +1081,10 @@ def _cleanup_windows_shims() -> None:
             roots.append(os.path.join(shim_parent, name))
 
     for root in roots:
+        # Remove executables first, if both executables are remored
+        #   we can safely remove rest of the directory.
         ayon_path = os.path.join(root, "ayon.exe")
-        ayon_console_path = os.path.join(root, "ayon_conosle.exe")
+        ayon_console_path = os.path.join(root, "ayon_console.exe")
         ayon_exists = os.path.exists(ayon_path)
         ayon_console_exists = os.path.exists(ayon_console_path)
         if ayon_exists:
