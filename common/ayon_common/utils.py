@@ -963,7 +963,7 @@ def _deploy_shim_linux(installer_shim_root: str) -> bool:
             shutil.rmtree(executable_root)
         except Exception as exc:
             print(f"Failed to remove existing shim {exc}")
-            raise RuntimeError(f"Failed to remove existing AYON shim")
+            raise RuntimeError("Failed to remove existing AYON shim")
 
     os.makedirs(executable_root, exist_ok=True)
     extract_archive_file(
