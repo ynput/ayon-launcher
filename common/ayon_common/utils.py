@@ -891,13 +891,12 @@ def _get_installed_shim_version() -> str:
     return dst_shim_version
 
 
-def _find_next_tmp_shim_root():
-    shim_root = _get_shim_executable_root()
+def _find_next_tmp_shim_root(path: str) -> str:
     idx = 1
     while True:
-        old_shim_root = f"{shim_root}.bak{idx}"
-        if not os.path.exists(old_shim_root):
-            return old_shim_root
+        bak_path = f"{path}.bak{idx}"
+        if not os.path.exists(bak_path):
+            return bak_path
         idx += 1
 
 
@@ -915,7 +914,7 @@ def _deploy_shim_windows(
 
     """
     shim_root = _get_shim_executable_root()
-    old_shim_root = _find_next_tmp_shim_root()
+    old_shim_root = _find_next_tmp_shim_root(shim_root)
 
     renamed = False
     if os.path.exists(shim_root):
@@ -941,7 +940,7 @@ def _deploy_shim_windows(
     finally:
         if not success:
             if os.path.exists(shim_root):
-                shim_root_bk = _find_next_tmp_shim_root()
+                shim_root_bk = _find_next_tmp_shim_root(shim_root)
                 os.rename(shim_root, shim_root_bk)
             if renamed:
                 os.rename(old_shim_root, shim_root)
