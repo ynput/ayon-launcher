@@ -362,7 +362,7 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     if ($LASTEXITCODE -ne 0)
     {
         Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
-        Write-Color -Text "!!! ", "Build of hsim failed" -Color Red, Yellow
+        Write-Color -Text "!!! ", "Build of shim failed" -Color Red, Yellow
         Exit-WithCode $LASTEXITCODE
     }
 
@@ -370,7 +370,7 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
-        Write-Color -Text "!!! ", "Build of hsim failed" -Color Red, Yellow
+        Write-Color -Text "!!! ", "Build of shim failed" -Color Red, Yellow
         Exit-WithCode $LASTEXITCODE
     }
 
