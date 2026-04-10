@@ -284,14 +284,14 @@ def _build_shim_linux(
     return tar_path
 
 
-def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
+def _build_shim_darwin(dst_shim_root: Path, release_root: Path):
     _logger.info("Creating shim DMG image ...")
 
     if shutil.which("create-dmg") is None:
         raise ValueError("create-dmg is not available")
 
     dmg_path = dst_shim_root / "shim.dmg"
-    app_filepath = dist_root.parent / "build" / "AYON.app"
+    app_filepath = release_root / "bundle" / "osx" / "AYON.app"
 
     # fmt: off
     args = [
@@ -336,7 +336,7 @@ def copy_shim_to_build(ayon_root, build_content_root):
     """
     _logger.info("Copying shim to build")
     shim_root = ayon_root / "shim"
-    dist_root = shim_root / "target" / "release"
+    release_root = shim_root / "target" / "release"
     dst_shim_root = build_content_root / "shim"
     os.makedirs(dst_shim_root, exist_ok=True)
     dst_json_path = dst_shim_root / "shim.json"
@@ -346,15 +346,15 @@ def copy_shim_to_build(ayon_root, build_content_root):
     platform_name = platform.system().lower()
     if platform_name == "windows":
         shim_installer_path = _build_shim_windows(
-            dst_shim_root, shim_root, dist_root, version
+            dst_shim_root, shim_root, release_root, version
         )
     elif platform_name == "linux":
         shim_installer_path = _build_shim_linux(
-            dst_shim_root, shim_root, dist_root
+            dst_shim_root, shim_root, release_root
         )
     elif platform_name == "darwin":
         shim_installer_path = _build_shim_darwin(
-            dst_shim_root, dist_root
+            dst_shim_root, release_root
         )
     else:
         raise ValueError(f"Unknown platform '{platform_name}'")
