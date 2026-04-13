@@ -1095,7 +1095,7 @@ def _cleanup_windows_shims() -> None:
                 pass
         if ayon_console_exists:
             try:
-                os.remove(ayon_path)
+                os.remove(ayon_console_path)
                 ayon_console_exists = False
             except PermissionError:
                 pass
