@@ -1,7 +1,7 @@
 [project]
 name = "AYON"
 requires-python = "==3.11.9"
-version = "1.5.5-dev"
+dynamic = ["version"]
 description = "Open VFX and Animation pipeline with support."
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
@@ -32,7 +32,7 @@ dependencies = [
     "pywin32 == 311; sys_platform == 'win32'",
     "python3-xlib; sys_platform == 'linux'",
     "distro == 1.9.0; sys_platform == 'linux'",
-    "pre-commit>=4.5.1",
+    "pre-commit>=4.5.1"
 ]
 
 [project.optional-dependencies]
@@ -40,6 +40,7 @@ dev = [
     "coverage",
     "cx_Freeze ~= 8.6",
     "GitPython ~= 3.1.46",
+    "hatch >= 1.16.4",
     "hatchling",
     "jedi ~= 0.19",
     "Jinja2 ~= 3.1",
@@ -93,6 +94,23 @@ version = "5.15.2"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.version]
+path = "./version.py"
+
+[tool.hatch.envs.default]
+features = ["dev"]
+
+[tool.hatch.envs.default.scripts]
+build-shim = "python tools/hatch_build.py build-shim"
+build-launcher = "python tools/hatch_build.py build-launcher"
+build = "python tools/hatch_build.py build"
+make-installer = "python tools/hatch_build.py make-installer"
+build-make-installer = "python tools/hatch_build.py build-make-installer"
+package-conda = "python tools/hatch_build.py package-conda"
+package-rez = "python tools/hatch_build.py package-rez"
+package-all = "python tools/hatch_build.py package-all"
+build-package = "python tools/hatch_build.py build-package"
 
 [tool.hatch.build.targets.wheel]
 packages = ["build"]

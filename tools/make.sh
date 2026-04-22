@@ -285,27 +285,14 @@ build_ayon () {
     echo -e "${BIGreen}>>>${RST} Making sure submodules are up-to-date ..."
     git submodule update --init --recursive || { echo -e "${BIRed}!!!${RST} Git submodule update failed"; return 1; }
   fi
-  echo -e "${BIGreen}>>>${RST} Building ..."
-  uv --no-color pip freeze > "$repo_root/build/requirements.txt"
-  uv run python "$repo_root/tools/_venv_deps.py"
-
-  build_command="build"
-#   macos_build_prefix=""
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    build_command="bdist_mac"
-    # # Force arm64-only output: set ARCHFLAGS so compiled C extensions target
-    # # arm64 and run the Python build process under the arm64 slice.
-    # export ARCHFLAGS="-arch arm64"
-    # export _PYTHON_HOST_PLATFORM="macosx-$(sw_vers -productVersion | cut -d. -f1-2)-arm64"
-    # macos_build_prefix="arch -arm64"
+  hatch_target="build"
+  if [[ "$should_make_installer" == 1 ]]; then
+    hatch_target="build-make-installer"
   fi
+  echo -e "${BIGreen}>>>${RST} Building via Hatch target ${BIWhite}$hatch_target${RST} ..."
+  uv run hatch run "$hatch_target" || { echo -e "${BIRed}!!!${RST} Build failed, see build logs in build and shim directories."; return 1; }
 
-  pushd "$repo_root/shim"
-
-#   $macos_build_prefix uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    # Patch Info.plist BEFORE signing so the seal covers the final content.
     echo -e "${BIGreen}>>>${RST} Patching shim Info.plist with URL scheme ..."
     uv run python -c "
 import plistlib, pathlib, sys
@@ -325,20 +312,8 @@ with open(plist_path, 'wb') as f:
 print('Info.plist updated with URL scheme for AYON Launcher')
 " || { echo -e "${BIRed}!!!${RST} Failed to patch shim Info.plist"; return 1; }
 
-    # thin_macos_arm64 "$repo_root/shim/build/AYON.app"
     fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
-  fi
-  popd
-  uv run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  uv run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # thin_macos_arm64 "$repo_root/build/AYON $ayon_version.app"
     fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
-  fi
-
-  if [[ "$should_make_installer" == 1 ]]; then
-    echo -e "${BIGreen}>>>${RST} Making installer ..."
-    make_installer_raw
   fi
 
   echo -e "${BICyan}>>>${RST} All done. You will find AYON and build log in \c"
@@ -346,7 +321,7 @@ print('Info.plist updated with URL scheme for AYON Launcher')
 }
 
 make_installer_raw() {
-  uv run python "$repo_root/tools/build_post_process.py" "make-installer" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
+  uv run hatch run make-installer || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to create installer${RST}"; return 1; }
 }
 
 make_installer() {
@@ -357,6 +332,24 @@ make_installer() {
 
 installer_post_process() {
   uv run python "$repo_root/tools/installer_post_process.py" "$@"
+}
+
+package_builds() {
+  format="$1"
+  if [ ! -f "$repo_root/build/metadata.json" ]; then
+    echo -e "${BIRed}!!!${RST} Build metadata not found. Run build first."
+    return 1
+  fi
+
+  hatch_target="package-all"
+  if [[ "$format" == "conda" ]]; then
+    hatch_target="package-conda"
+  elif [[ "$format" == "rez" ]]; then
+    hatch_target="package-rez"
+  fi
+
+  echo -e "${BIGreen}>>>${RST} Creating package layouts via Hatch target ${BIWhite}$hatch_target${RST} ..."
+  uv run hatch run "$hatch_target" || { echo -e "${BIRed}!!!${RST} Package generation failed"; return 1; }
 }
 
 run_from_code() {
@@ -462,7 +455,10 @@ default_help() {
   echo "  make-installer                Make desktop application installer"
   echo "  build-make-installer          Build desktop application and make installer"
   echo "  upload                        Upload installer to server"
-  echo "  create-server-package         Create package ready for AYON server"
+  echo "  package-builds                Create conda and rez package layouts"
+  echo "  package-conda                 Create only conda package layout"
+  echo "  package-rez                   Create only rez package layout"
+  echo "  build-make-package            Build, make installer and create conda+rez package layouts"
   echo "  run                           Run desktop application from code"
   echo "  docker-build [variant]        Build AYON using Docker. Variant can be 'debian', 'rocky8' or 'rocky9'"
   echo "      --use-pyside2                 Use PySide2 instead of PySide6."
@@ -493,6 +489,25 @@ main() {
       ;;
     "buildmakeinstaller")
       build_ayon 1 || return_code=$?
+      exit $return_code
+      ;;
+    "packagebuilds")
+      package_builds all || return_code=$?
+      exit $return_code
+      ;;
+    "packageconda")
+      package_builds conda || return_code=$?
+      exit $return_code
+      ;;
+    "packagerez")
+      package_builds rez || return_code=$?
+      exit $return_code
+      ;;
+    "buildmakepackage"|"buildpackage")
+      build_ayon 1 || return_code=$?
+      if [ "${return_code:-0}" -eq 0 ]; then
+        package_builds all || return_code=$?
+      fi
       exit $return_code
       ;;
     "upload")

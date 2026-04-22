@@ -1,6 +1,6 @@
 [project]
 name = "AYON-shim"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Open VFX and Animation pipeline with support."
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
@@ -12,7 +12,15 @@ dependencies = [
     "platformdirs ~= 4.9.4",
     "semver ~= 3.0.4",
     "cx_freeze ~= 8.6",
+    "hatch >= 1.16.4",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "./version.py"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/ynput/ayon-launcher/issues"

@@ -210,6 +210,10 @@ function Write-DefaultFunc {
     Write-Color -text "  build                         ", "Build desktop application" -Color White, Cyan
     Write-Color -text "  make-installer                ", "Make desktop application installer" -Color White, Cyan
     Write-Color -text "  build-make-installer          ", "Build desktop application and make installer" -Color White, Cyan
+    Write-Color -text "  package-builds                ", "Create conda and rez package layouts from current build" -Color White, Cyan
+    Write-Color -text "  package-conda                 ", "Create only conda package layout from current build" -Color White, Cyan
+    Write-Color -text "  package-rez                   ", "Create only rez package layout from current build" -Color White, Cyan
+    Write-Color -text "  build-make-package            ", "Build, make installer and create conda + rez package layouts" -Color White, Cyan
     Write-Color -text "  upload                        ", "Upload installer to server" -Color White, Cyan
     Write-Color -text "  run                           ", "Run desktop application from code" -Color White, Cyan
     Write-Color -text "  docker-build ","[variant]        ", "Build AYON using Docker. Variant can be '", "ubuntu", "', '", "debian", "', '", "rocky8", "' or '", "rocky9", "'" -Color White, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan, Yellow, Cyan
@@ -356,30 +360,13 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
 
     $startTime = [int][double]::Parse((Get-Date -UFormat %s))
 
-    Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
-    Set-ShimCwd
-    $out = & uv run python setup.py build 2>&1
-    Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
-    if ($LASTEXITCODE -ne 0)
-    {
-        Write-Color -Text "------------------------------------------" -Color Red
-        Get-Content "$($repo_root)\shim\build.log"
-        Write-Color -Text "------------------------------------------" -Color Yellow
-        Write-Color -Text "!!! ", "Build failed. Check the log: ", ".\shim\build.log" -Color Red, Yellow, White
-        Exit-WithCode $LASTEXITCODE
-    }
-
     Set-Cwd
-    Write-Color -Text ">>> ", "Building AYON ..." -Color Green, White
-    $startTime = [int][double]::Parse((Get-Date -UFormat %s))
-
-    $FreezeContent = & uv --no-color pip freeze
-    & uv run python "$($repo_root)\tools\_venv_deps.py"
-    # Make sure output is UTF-8 without BOM
-    $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
-    [System.IO.File]::WriteAllLines("$($repo_root)\build\requirements.txt", $FreezeContent, $Utf8NoBomEncoding)
-
-    $out = & $repo_root\.venv\Scripts\python setup.py build 2>&1
+    $hatchTarget = "build"
+    if ($MakeInstaller) {
+        $hatchTarget = "build-make-installer"
+    }
+    Write-Color -Text ">>> ", "Building AYON via Hatch target ", "[", $hatchTarget, "] ..." -Color Green, White, White, Cyan, White
+    $out = & uv run hatch run $hatchTarget 2>&1
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
@@ -388,13 +375,6 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
         Write-Color -Text "------------------------------------------" -Color Yellow
         Write-Color -Text "!!! ", "Build failed. Check the log: ", ".\build\build.log" -Color Red, Yellow, White
         Exit-WithCode $LASTEXITCODE
-    }
-
-    Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & uv run python "$($repo_root)\tools\build_post_process.py" "build"
-
-    if ($MakeInstaller) {
-        New-AyonInstallerRaw
     }
 
     Restore-Cwd
@@ -406,13 +386,35 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     Write-Color -Text "*** ", "All done in ", $($endTime - $startTime), " secs. You will find AYON and build log in ", "'.\build'", " directory." -Color Green, Gray, White, Gray, White, Gray
 }
 
+function New-BuildPackages($Format = "all") {
+    Set-Cwd
+    if (-not (Test-Path -PathType Leaf -Path "$($repo_root)\build\metadata.json")) {
+        Write-Color -Text "!!! ", "Build metadata not found. Run 'build' first." -Color Red, Yellow
+        Exit-WithCode 1
+    }
+
+    $target = "package-all"
+    if ($Format -eq "conda") {
+        $target = "package-conda"
+    } elseif ($Format -eq "rez") {
+        $target = "package-rez"
+    }
+
+    Write-Color -Text ">>> ", "Creating packages via Hatch target ", "[", $target, "] ..." -Color Green, White, White, Cyan, White
+    & uv run hatch run $target
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color -Text "!!! ", "Package generation failed." -Color Red, Yellow
+        Exit-WithCode $LASTEXITCODE
+    }
+    Write-Color -Text ">>> ", "Packages created in ", "build\packages" -Color Green, White, Cyan
+}
+
 function Invoke-InstallerPostProcess() {
     & uv run python "$($repo_root)\tools\installer_post_process.py" @args
 }
 
 function New-AyonInstallerRaw() {
-    Set-Content -Path "$($repo_root)\build\build.log" -Value $out
-    & uv run python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    & uv run hatch run make-installer
 }
 
 function New-AyonInstaller() {
@@ -470,6 +472,16 @@ function Main {
     } elseif ($FunctionName -eq "buildmakeinstaller") {
         Ensure-InnoSetupPresent
         Invoke-AyonBuild -MakeInstaller true
+    } elseif ($FunctionName -eq "packagebuilds") {
+        New-BuildPackages
+    } elseif ($FunctionName -eq "packageconda") {
+        New-BuildPackages "conda"
+    } elseif ($FunctionName -eq "packagerez") {
+        New-BuildPackages "rez"
+    } elseif (($FunctionName -eq "buildmakepackage") -or ($FunctionName -eq "buildpackage")) {
+        Ensure-InnoSetupPresent
+        Invoke-AyonBuild -MakeInstaller true
+        New-BuildPackages
     } elseif ($FunctionName -eq "upload") {
         Invoke-InstallerPostProcess "upload" @arguments
     } elseif ($FunctionName -eq "dockerbuild") {
