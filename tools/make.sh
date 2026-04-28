@@ -273,7 +273,7 @@ build_ayon () {
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
-  rm -rf "$repo_root/shim/dist" > /dev/null
+  rm -rf "$repo_root/shim/target/release" > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Building AYON ${BIWhite}[${RST} ${BIGreen}$ayon_version${RST} ${BIWhite}]${RST}"
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
@@ -290,49 +290,31 @@ build_ayon () {
   uv run python "$repo_root/tools/_venv_deps.py"
 
   build_command="build"
-#   macos_build_prefix=""
   if [[ "$OSTYPE" == "darwin"* ]]; then
     build_command="bdist_mac"
     # # Force arm64-only output: set ARCHFLAGS so compiled C extensions target
     # # arm64 and run the Python build process under the arm64 slice.
     # export ARCHFLAGS="-arch arm64"
     # export _PYTHON_HOST_PLATFORM="macosx-$(sw_vers -productVersion | cut -d. -f1-2)-arm64"
-    # macos_build_prefix="arch -arm64"
   fi
 
   pushd "$repo_root/shim"
-
-#   $macos_build_prefix uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
-  uv run python "$repo_root/shim/setup.py" $build_command &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  cargo build -p shim --release --features gui &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    # Patch Info.plist BEFORE signing so the seal covers the final content.
-    echo -e "${BIGreen}>>>${RST} Patching shim Info.plist with URL scheme ..."
-    uv run python -c "
-import plistlib, pathlib, sys
-plist_path = pathlib.Path('$repo_root/shim/build/AYON.app/Contents/Info.plist')
-if not plist_path.exists():
-    print(f'ERROR: {plist_path} not found', file=sys.stderr)
-    sys.exit(1)
-with open(plist_path, 'rb') as f:
-    data = plistlib.load(f)
-data['CFBundleURLTypes'] = [{
-    'CFBundleTypeRole': 'Viewer',
-    'CFBundleURLName': 'com.ayon.URLscheme',
-    'CFBundleURLSchemes': ['ayon-launcher'],
-}]
-with open(plist_path, 'wb') as f:
-    plistlib.dump(data, f)
-print('Info.plist updated with URL scheme for AYON Launcher')
-" || { echo -e "${BIRed}!!!${RST} Failed to patch shim Info.plist"; return 1; }
-
-    # thin_macos_arm64 "$repo_root/shim/build/AYON.app"
-    fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
+    cargo install cargo-bundle
+    cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  fi
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    release_dir="$repo_root/shim/target/release"
+    bundle_contents="$release_dir/bundle/osx/AYON.app/Contents"
+    # Copy the shim to the bundle
+    cp "$release_dir/ayon" "$bundle_contents/MacOS"
+    fix_macos_build $bundle_contents
   fi
   popd
   uv run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   uv run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    # thin_macos_arm64 "$repo_root/build/AYON $ayon_version.app"
     fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
   fi
 

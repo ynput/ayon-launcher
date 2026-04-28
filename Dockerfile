@@ -62,6 +62,10 @@ RUN git clone -b 0.18.0 --single-branch https://github.com/NixOS/patchelf.git . 
     && make \
     && make install
 
+# Install Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 # download and install uv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh

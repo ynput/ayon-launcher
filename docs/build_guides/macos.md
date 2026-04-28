@@ -13,6 +13,7 @@ To build AYON you will need some tools and libraries. We do not provide any of t
 - **Terminal**
 - [**Homebrew**](https://brew.sh)
 - [**git**](https://git-scm.com/downloads)
+- [**Rust**](https://rust-lang.org/tools/install/)
 - [**uv**](https://docs.astral.sh/uv/)
 - [**Python 3.11**](https://www.python.org/downloads/)
 - [**CMake**](https://cmake.org/)

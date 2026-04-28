@@ -308,8 +308,8 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     if (-not (Test-Path -PathType Container -Path "$($repo_root)\build")) {
         New-Item -ItemType Directory -Force -Path "$($repo_root)\build"
     }
-    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\dist")) {
-        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\dist"
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\target\release")) {
+        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\target\release"
     }
 
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
@@ -322,7 +322,7 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
         Exit-WithCode 1
     }
     try {
-        Remove-Item -Recurse -Force "$($repo_root)\shim\dist\*"
+        Remove-Item -Recurse -Force "$($repo_root)\shim\target\release\*"
     }
     catch {
         Write-Color -Text "!!! ", "Cannot clean shim directory, possibly because process is using it." -Color Red, Gray
@@ -358,14 +358,19 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
 
     Write-Color -Text ">>> ", "Building AYON shim ..." -Color Green, White
     Set-ShimCwd
-    $out = & uv run python setup.py build 2>&1
+    $out = & cargo build -p shim --features gui --release 2>&1
+    if ($LASTEXITCODE -ne 0)
+    {
+        Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
+        Write-Color -Text "!!! ", "Build of shim failed" -Color Red, Yellow
+        Exit-WithCode $LASTEXITCODE
+    }
+
+    $out += & cargo build -p shim --features ayon_console --release 2>&1
     Set-Content -Path "$($repo_root)\shim\build.log" -Value $out
     if ($LASTEXITCODE -ne 0)
     {
-        Write-Color -Text "------------------------------------------" -Color Red
-        Get-Content "$($repo_root)\shim\build.log"
-        Write-Color -Text "------------------------------------------" -Color Yellow
-        Write-Color -Text "!!! ", "Build failed. Check the log: ", ".\shim\build.log" -Color Red, Yellow, White
+        Write-Color -Text "!!! ", "Build of shim failed" -Color Red, Yellow
         Exit-WithCode $LASTEXITCODE
     }
 
