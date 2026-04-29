@@ -2,7 +2,7 @@
 name = "AYON"
 requires-python = "==3.11.9"
 version = "1.5.5-dev"
-description = "Open VFX and Animation pipeline with support."
+description = "AYON Desktop Client"
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
 ]
