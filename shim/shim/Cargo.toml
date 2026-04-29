@@ -3,6 +3,9 @@ name = "shim"
 version = "1.1.0"
 edition = "2021"
 
+[package.metadata.winres]
+FileDescription = "AYON shim"
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
