@@ -809,6 +809,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         """
 
         url = self._url_input.text()
+        if not url.strip():
+            return False
+
         valid_url = None
         try:
             valid_url = validate_url(url)
@@ -923,6 +926,13 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._api_preview.setText(api_key)
 
     def _login_with_ayon_server(self):
+        url = self._url_input.text()
+        if not url.strip():
+            self._set_input_focus(self._url_input)
+            self._set_url_valid(False)
+            self._set_message("<b>AYON url is not filled</b>")
+            return
+
         if (
             not self._login_btn.isEnabled()
             and not self._confirm_btn.isEnabled()
@@ -939,7 +949,6 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         self._clear_message()
 
-        url = self._url_input.text()
         try:
             version = get_server_version(url)
         except BaseException:
