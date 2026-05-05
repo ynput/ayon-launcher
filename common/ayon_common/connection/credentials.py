@@ -261,6 +261,7 @@ def ask_to_login_ui(
     url: Optional[str] = None,
     always_on_top: Optional[bool] = False,
     username: Optional[str] = None,
+    api_key: Optional[str] = None,
     force_username: Optional[bool] = False
 ) -> tuple[str, str, str]:
     """Ask user to login using UI.
@@ -276,6 +277,7 @@ def ask_to_login_ui(
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
         username (Optional[str]): Username that will be prefilled in UI.
+        api_key (Optional[str]): API token that will be prefilled in UI.
         force_username (Optional[bool]): Username will be locked.
 
     Returns:
@@ -292,6 +294,7 @@ def ask_to_login_ui(
     data = {
         "url": url,
         "username": username,
+        "api_key": api_key,
         "always_on_top": always_on_top,
         "force_username": force_username,
     }

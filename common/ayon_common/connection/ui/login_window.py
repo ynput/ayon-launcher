@@ -404,7 +404,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         footer_widget = QtWidgets.QWidget(login_bg_widget)
         logout_btn = QtWidgets.QPushButton("Logout", footer_widget)
-        user_message = QtWidgets.QLabel(footer_widget)
+        retry_btn = QtWidgets.QPushButton("Try again", footer_widget)
+        retry_btn.setObjectName("AYONRetryButton")
+        retry_btn.setVisible(False)
         login_btn = QtWidgets.QPushButton("Login", footer_widget)
         confirm_btn = QtWidgets.QPushButton("Confirm", footer_widget)
 
@@ -414,6 +416,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
             show_password_btn,
             login_ayon_btn,
             logout_btn,
+            retry_btn,
             login_btn,
             confirm_btn,
         ):
@@ -424,7 +427,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         footer_layout.setContentsMargins(0, 0, 0, 0)
         footer_layout.setSpacing(6)
         footer_layout.addWidget(logout_btn, 0)
-        footer_layout.addWidget(user_message, 1)
+        footer_layout.addStretch(1)
+        footer_layout.addWidget(retry_btn, 0)
+        footer_layout.addStretch(1)
         footer_layout.addWidget(login_btn, 0)
         footer_layout.addWidget(confirm_btn, 0)
 
@@ -460,6 +465,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         url_edit_btn.clicked.connect(self._on_url_edit_click)
         username_edit_btn.clicked.connect(self._on_username_edit_click)
         logout_btn.clicked.connect(self._on_logout_click)
+        retry_btn.clicked.connect(self._on_retry_click)
         login_btn.clicked.connect(self._on_login_click)
         confirm_btn.clicked.connect(self._on_login_click)
 
@@ -492,13 +498,14 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._message_label = message_label
 
         self._logout_btn = logout_btn
-        self._user_message = user_message
+        self._retry_btn = retry_btn
         self._login_btn = login_btn
         self._confirm_btn = confirm_btn
 
         self._url_is_valid = None
         self._credentials_are_valid = None
         self._result = (None, None, None, False)
+        self._api_key = None
         self._first_show = True
         self._force_username = False
 
@@ -508,6 +515,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._username_edit_mode = False
 
         self._server_timer_counter = 0
+        self._server_wait_counter = 0
         self._server_timer = server_timer
         self._server_handler = None
 
@@ -521,7 +529,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def set_url(self, url):
         self._url_preview.setText(url)
         self._url_input.setText(url)
-        self._validate_url()
+        self._set_url_valid(self._validate_url())
 
     def set_username(self, username):
         self._username_preview.setText(username)
@@ -542,12 +550,12 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
     def set_logged_in(
         self,
-        logged_in,
-        url=None,
-        username=None,
-        api_key=None,
-        allow_logout=None
-    ):
+        logged_in: bool,
+        url: str | None = None,
+        username: str | None = None,
+        api_key: str | None = None,
+        allow_logout: bool | None = None
+    ) -> None:
         if url is not None:
             self.set_url(url)
 
@@ -592,7 +600,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         """
         return self._result
 
-    def _set_logged_in(self, logged_in):
+    def _set_logged_in(self, logged_in: bool) -> None:
         if logged_in is self._logged_in:
             return
         self._logged_in = logged_in
@@ -627,6 +635,11 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         self._login_ayon_btn.setVisible(user_edit)
         self._login_or_sep.setVisible(user_edit)
+
+        if self._url_edit_mode or self._username_edit_mode:
+            self._retry_btn.setVisible(False)
+        else:
+            self._retry_btn.setVisible(not self._url_is_valid)
 
         self._username_preview.setVisible(not user_edit)
         self._username_input.setVisible(user_edit)
@@ -736,7 +749,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         else:
             self._set_input_focus(self._username_input)
 
-    def _on_user_change(self, username):
+    def _on_user_change(self, username: str):
         self._username_preview.setText(username)
 
     def _on_username_enter_press(self):
@@ -745,7 +758,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
     def _on_password_enter_press(self):
         self._on_login_click()
 
-    def _on_password_state_change(self, show_password):
+    def _on_password_state_change(self, show_password: bool):
         if show_password:
             placeholder_text = "< MySecret124 >"
             echo_mode = QtWidgets.QLineEdit.Normal
@@ -770,6 +783,20 @@ class ServerLoginWindow(QtWidgets.QDialog):
         if dialog.get_result():
             self._result = (None, None, None, True)
             self.accept()
+
+    def _on_retry_click(self):
+        self._clear_message()
+
+        url = self._url_input.text()
+        api_key = self._api_key
+        user = get_user(url, api_key)
+        if user is not None:
+            self._result = (url, api_key, user["name"], False)
+            self.accept()
+            return
+
+        self._set_credentials_valid(False)
+        self._set_message("<b>Invalid API key</b>")
 
     def _on_login_click(self):
         self._login()
@@ -877,10 +904,15 @@ class ServerLoginWindow(QtWidgets.QDialog):
         ]
         self._set_message("<br/>".join(lines))
 
-    def _set_api_key(self, api_key):
+    def _set_api_key(self, api_key: str | None) -> None:
         if not api_key or len(api_key) < 3:
             self._api_preview.setText(api_key or "")
+            self._api_key = None
+            self._retry_btn.setVisible(False)
             return
+
+        self._api_key = api_key
+        self._retry_btn.setVisible(not self._url_is_valid)
 
         api_key_len = len(api_key)
         offset = 6
@@ -908,7 +940,14 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._clear_message()
 
         url = self._url_input.text()
-        version = get_server_version(url)
+        try:
+            version = get_server_version(url)
+        except BaseException:
+            self._set_message(
+                "<b>Server is not responding</b>"
+                "<br/>- Please check the URL or try again."
+            )
+            return
         if version < (1, 3, 2):
             self._set_message(
                 "<b>AYON server does not support easy login</b>"
@@ -981,10 +1020,11 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
 
 def ask_to_login(
-    url=None,
-    username=None,
-    force_username=None,
-    always_on_top=False
+    url: str | None = None,
+    username: str | None = None,
+    api_key: str | None = None,
+    force_username: bool | None = None,
+    always_on_top: bool = False,
 ):
     """Ask user to login using Qt dialog.
 
@@ -993,6 +1033,7 @@ def ask_to_login(
     Args:
         url (Optional[str]): Server url that will be prefilled in dialog.
         username (Optional[str]): Username that will be prefilled in dialog.
+        api_key (Optional[str]): API token that will be prefilled in dialog.
         force_username (Optional[bool]): If True, username passed to function
             will be forced.
         always_on_top (Optional[bool]): Window will be drawn on top of
@@ -1012,11 +1053,20 @@ def ask_to_login(
             | QtCore.Qt.WindowStaysOnTopHint
         )
 
-    if url:
-        window.set_url(url)
+    if api_key and url and username:
+        window.set_logged_in(
+            True,
+            url=url,
+            username=username,
+            api_key=api_key,
+        )
 
-    if username:
-        window.set_username(username)
+    else:
+        if url:
+            window.set_url(url)
+
+        if username:
+            window.set_username(username)
 
     if force_username is None:
         force_username = False
