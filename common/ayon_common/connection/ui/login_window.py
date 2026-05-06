@@ -950,12 +950,13 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         try:
             version = get_server_version(url)
-        except BaseException:
+        except Exception:
             self._set_message(
                 "<b>Server is not responding</b>"
-                "<br/>- Please check the URL or try again."
+                "<br/>- Failed to get AYON server version."
             )
             return
+
         if version < (1, 3, 2):
             self._set_message(
                 "<b>AYON server does not support easy login</b>"
