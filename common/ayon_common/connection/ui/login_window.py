@@ -636,9 +636,13 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._login_or_sep.setVisible(user_edit)
 
         if self._url_edit_mode or self._username_edit_mode:
+            self._api_key = None
             self._retry_btn.setVisible(False)
         else:
-            self._retry_btn.setVisible(not self._url_is_valid)
+            self._retry_btn.setVisible(
+                not self._url_is_valid
+                and self._api_key is not None
+            )
 
         self._username_preview.setVisible(not user_edit)
         self._username_input.setVisible(user_edit)
