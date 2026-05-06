@@ -574,6 +574,9 @@ class ServerLoginWindow(QtWidgets.QDialog):
         elif allow_logout is False:
             self.set_allow_logout(False)
 
+        if self._url_is_valid and api_key and logged_in:
+            self._set_message("<b>Invalid API key</b>")
+
     def showEvent(self, event):
         super().showEvent(event)
         if self._first_show:
@@ -792,6 +795,12 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         url = self._url_input.text()
         api_key = self._api_key
+        if not self._url_is_valid:
+            self._set_url_valid(self._validate_url())
+
+        if not self._url_is_valid:
+            return
+
         user = get_user(url, api_key)
         if user is not None:
             self._result = (url, api_key, user["name"], False)
@@ -830,7 +839,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         except BaseException:
             self._set_unexpected_error()
-            return
+            return False
 
         if valid_url is None:
             return False
