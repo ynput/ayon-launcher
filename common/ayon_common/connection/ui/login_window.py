@@ -515,7 +515,6 @@ class ServerLoginWindow(QtWidgets.QDialog):
         self._username_edit_mode = False
 
         self._server_timer_counter = 0
-        self._server_wait_counter = 0
         self._server_timer = server_timer
         self._server_handler = None
 
