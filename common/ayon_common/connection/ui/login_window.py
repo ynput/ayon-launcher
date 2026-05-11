@@ -576,6 +576,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         if self._url_is_valid and api_key and logged_in:
             self._set_message("<b>Invalid API key</b>")
+            self._on_username_edit_click()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -809,6 +810,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
 
         self._set_credentials_valid(False)
         self._set_message("<b>Invalid API key</b>")
+        self._on_username_edit_click()
 
     def _on_login_click(self):
         self._login()
