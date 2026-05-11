@@ -428,12 +428,13 @@ def _connect_to_ayon_server(force=False, username=None):
         _print(f">>> Connected to AYON server {current_url}")
         return
 
+    api_key = os.environ.get(SERVER_API_ENV_KEY)
     if need_server:
         if current_url:
             message = f"Could not connect to AYON server '{current_url}'."
         else:
             message = "AYON Server URL is not set."
-    elif os.environ.get(SERVER_API_ENV_KEY):
+    elif api_key:
         message = f"Invalid API key for '{current_url}'."
     else:
         message = f"Missing API key for '{current_url}'."
@@ -461,6 +462,7 @@ def _connect_to_ayon_server(force=False, username=None):
         current_url,
         always_on_top=False,
         username=username,
+        api_key=api_key,
         force_username=bool(username)
     )
     if url is not None and token is not None:
