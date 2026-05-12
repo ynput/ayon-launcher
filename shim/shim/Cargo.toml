@@ -1,0 +1,33 @@
+[package]
+name = "shim"
+version = "1.1.0"
+edition = "2021"
+
+[package.metadata.winres]
+FileDescription = "AYON shim"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+semver = "1.0"
+directories = "5.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+winres = "0.1"
+
+[features]
+gui = []
+ayon_console = []
+
+[[bin]]
+name = "ayon"
+path = "src/main.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "ayon_console"
+path = "src/main.rs"
+required-features = ["ayon_console"]

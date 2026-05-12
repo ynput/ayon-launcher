@@ -43,7 +43,17 @@ def _build_shim() -> None:
 
 
 def _build_launcher() -> None:
-    command = [sys.executable, "setup.py", _build_command_for_platform()]
+    command = [
+        "cargo", "build",
+        "-p", "shim",
+        "--features", "gui",
+        "--release"]
+    _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT)
+    command = [
+        "cargo", "build",
+        "-p", "shim",
+        "--features", "ayon_console",
+        "--release"]
     _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT)
 
 

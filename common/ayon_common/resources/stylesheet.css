@@ -102,6 +102,10 @@ QLineEdit[state="invalid"] {
     border: 1px solid #91CDFB;
 }
 
+#AYONRetryButton {
+    background: #1E4153;
+}
+
 #OverlayFrame {
     background: rgba(0, 0, 0, 127);
 }

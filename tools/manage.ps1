@@ -312,8 +312,8 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
     if (-not (Test-Path -PathType Container -Path "$($repo_root)\build")) {
         New-Item -ItemType Directory -Force -Path "$($repo_root)\build"
     }
-    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\dist")) {
-        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\dist"
+    if (-not (Test-Path -PathType Container -Path "$($repo_root)\shim\target\release")) {
+        New-Item -ItemType Directory -Force -Path "$($repo_root)\shim\target\release"
     }
 
     Write-Color -Text "--- ", "Cleaning build directory ..." -Color Yellow, Gray
@@ -326,7 +326,7 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
         Exit-WithCode 1
     }
     try {
-        Remove-Item -Recurse -Force "$($repo_root)\shim\dist\*"
+        Remove-Item -Recurse -Force "$($repo_root)\shim\target\release\*"
     }
     catch {
         Write-Color -Text "!!! ", "Cannot clean shim directory, possibly because process is using it." -Color Red, Gray

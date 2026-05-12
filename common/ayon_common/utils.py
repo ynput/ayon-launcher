@@ -5,6 +5,7 @@ import json
 import datetime
 import subprocess
 import zipfile
+import re
 import tarfile
 import warnings
 import shutil
@@ -890,6 +891,15 @@ def _get_installed_shim_version() -> str:
     return dst_shim_version
 
 
+def _find_next_tmp_shim_root(path: str) -> str:
+    idx = 1
+    while True:
+        bak_path = f"{path}.bak{idx}"
+        if not os.path.exists(bak_path):
+            return bak_path
+        idx += 1
+
+
 def _deploy_shim_windows(
     installer_shim_root: str,
     create_desktop_icons: bool,
@@ -903,20 +913,39 @@ def _deploy_shim_windows(
         create_desktop_icons (bool): Create icon shortcuts.
 
     """
-    args = [
-        os.path.join(installer_shim_root, "shim.exe"),
-        "/CURRENTUSER",
-        "/NOCANCEL",
-    ]
-    if not HEADLESS_MODE_ENABLED:
-        args.append("/SILENT")
-    else:
-        args.append("/VERYSILENT")
+    shim_root = _get_shim_executable_root()
+    old_shim_root = _find_next_tmp_shim_root(shim_root)
 
-    if create_desktop_icons:
-        args.append("/TASKS=desktopicon")
-    code = subprocess.call(args)
-    return code == 0
+    renamed = False
+    if os.path.exists(shim_root):
+        renamed = True
+        os.rename(shim_root, old_shim_root)
+
+    success = False
+    try:
+        args = [
+            os.path.join(installer_shim_root, "shim.exe"),
+            "/CURRENTUSER",
+            "/NOCANCEL",
+        ]
+        if not HEADLESS_MODE_ENABLED:
+            args.append("/SILENT")
+        else:
+            args.append("/VERYSILENT")
+
+        if create_desktop_icons:
+            args.append("/TASKS=desktopicon")
+        code = subprocess.call(args)
+        success = code == 0
+    finally:
+        if not success:
+            if os.path.exists(shim_root):
+                shim_root_bk = _find_next_tmp_shim_root(shim_root)
+                os.rename(shim_root, shim_root_bk)
+            if renamed:
+                os.rename(old_shim_root, shim_root)
+
+    return success
 
 
 def _deploy_shim_linux(installer_shim_root: str) -> bool:
@@ -929,6 +958,13 @@ def _deploy_shim_linux(installer_shim_root: str) -> bool:
 
     """
     executable_root = _get_shim_executable_root()
+    if os.path.exists(executable_root):
+        try:
+            shutil.rmtree(executable_root)
+        except Exception as exc:
+            print(f"Failed to remove existing shim {exc}")
+            raise RuntimeError("Failed to remove existing AYON shim")
+
     os.makedirs(executable_root, exist_ok=True)
     extract_archive_file(
         os.path.join(installer_shim_root, "shim.tar.gz"),
@@ -947,6 +983,15 @@ def _deploy_shim_macos(installer_shim_root: str):
 
     """
     import plistlib
+
+    ayon_app_path = "/Applications/AYON.app"
+
+    if os.path.exists(ayon_app_path):
+        try:
+            shutil.rmtree(ayon_app_path)
+        except Exception as exc:
+            print(f"Failed to remove existing shim {exc}")
+            raise RuntimeError("Failed to remove existing shim")
 
     filepath = os.path.join(installer_shim_root, "shim.dmg")
     # Attach dmg file and read plist output (bytes)
@@ -1020,6 +1065,55 @@ def _create_windows_shortcut() -> None:
     shortcut.save()
 
 
+def _cleanup_windows_shims() -> None:
+    """Cleanup old shim versions on Windows.
+
+    This is used to remove old shim versions that are renamed during
+        installation of new shim version.
+
+    """
+    shim_root = _get_shim_executable_root()
+    shim_parent, shim_name = os.path.split(shim_root)
+    regex = re.compile(rf"^{shim_name}\.bak[0-9]+$")
+    roots = []
+    for name in os.listdir(shim_parent):
+        if regex.match(name) is not None:
+            roots.append(os.path.join(shim_parent, name))
+
+    for root in roots:
+        # Remove executables first, if both executables are remored
+        #   we can safely remove rest of the directory.
+        ayon_path = os.path.join(root, "ayon.exe")
+        ayon_console_path = os.path.join(root, "ayon_console.exe")
+        ayon_exists = os.path.exists(ayon_path)
+        ayon_console_exists = os.path.exists(ayon_console_path)
+        if ayon_exists:
+            try:
+                os.remove(ayon_path)
+                ayon_exists = False
+            except PermissionError:
+                pass
+        if ayon_console_exists:
+            try:
+                os.remove(ayon_console_path)
+                ayon_console_exists = False
+            except PermissionError:
+                pass
+        if ayon_console_exists or ayon_exists:
+            continue
+        try:
+            shutil.rmtree(root)
+        except Exception as exc:
+            print(f"Failed to remove shim backup. {exc}")
+
+
+def _cleanup_shims() -> None:
+    platform_name = platform.system().lower()
+    if platform_name == "windows":
+        _cleanup_windows_shims()
+        return
+
+
 def deploy_ayon_launcher_shims(
     ensure_protocol_is_registered: bool = False,
     create_desktop_icons: bool = False,
@@ -1043,6 +1137,8 @@ def deploy_ayon_launcher_shims(
     platform_name = platform.system().lower()
     if platform_name not in ("windows", "linux", "darwin"):
         raise ValueError("Unsupported platform {}".format(platform_name))
+
+    _cleanup_shims()
 
     executable_root = os.path.dirname(sys.executable)
     installer_shim_root = os.path.join(executable_root, "shim")

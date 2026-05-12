@@ -273,7 +273,7 @@ build_ayon () {
 
   echo -e "${BIYellow}---${RST} Cleaning build directory ..."
   rm -rf "$repo_root/build" && mkdir "$repo_root/build" > /dev/null
-  rm -rf "$repo_root/shim/dist" > /dev/null
+  rm -rf "$repo_root/shim/target/release" > /dev/null
 
   echo -e "${BIGreen}>>>${RST} Building AYON ${BIWhite}[${RST} ${BIGreen}$ayon_version${RST} ${BIWhite}]${RST}"
   echo -e "${BIGreen}>>>${RST} Cleaning cache files ..."
@@ -293,27 +293,26 @@ build_ayon () {
   uv run hatch run "$hatch_target" || { echo -e "${BIRed}!!!${RST} Build failed, see build logs in build and shim directories."; return 1; }
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo -e "${BIGreen}>>>${RST} Patching shim Info.plist with URL scheme ..."
-    uv run python -c "
-import plistlib, pathlib, sys
-plist_path = pathlib.Path('$repo_root/shim/build/AYON.app/Contents/Info.plist')
-if not plist_path.exists():
-    print(f'ERROR: {plist_path} not found', file=sys.stderr)
-    sys.exit(1)
-with open(plist_path, 'rb') as f:
-    data = plistlib.load(f)
-data['CFBundleURLTypes'] = [{
-    'CFBundleTypeRole': 'Viewer',
-    'CFBundleURLName': 'com.ayon.URLscheme',
-    'CFBundleURLSchemes': ['ayon-launcher'],
-}]
-with open(plist_path, 'wb') as f:
-    plistlib.dump(data, f)
-print('Info.plist updated with URL scheme for AYON Launcher')
-" || { echo -e "${BIRed}!!!${RST} Failed to patch shim Info.plist"; return 1; }
-
-    fix_macos_build "$repo_root/shim/build/AYON.app/Contents"
+    cargo install cargo-bundle
+    cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  fi
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    release_dir="$repo_root/shim/target/release"
+    bundle_contents="$release_dir/bundle/osx/AYON.app/Contents"
+    # Copy the shim to the bundle
+    cp "$release_dir/ayon" "$bundle_contents/MacOS"
+    fix_macos_build $bundle_contents
+  fi
+  popd
+  uv run python "$repo_root/setup.py" $build_command &> "$repo_root/build/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/build/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
+  uv run python "$repo_root/tools/build_post_process.py" "build" || { echo -e "${BIRed}!!!>${RST} ${BIYellow}Failed to process dependencies${RST}"; return 1; }
+  if [[ "$OSTYPE" == "darwin"* ]]; then
     fix_macos_build "$repo_root/build/AYON $ayon_version.app/Contents"
+  fi
+
+  if [[ "$should_make_installer" == 1 ]]; then
+    echo -e "${BIGreen}>>>${RST} Making installer ..."
+    make_installer_raw
   fi
 
   echo -e "${BICyan}>>>${RST} All done. You will find AYON and build log in \c"

@@ -52,6 +52,7 @@ if platform.system().lower() == "linux":
 else:
     distro = None
 
+CURRENT_DIR: Path = Path(os.path.dirname(os.path.abspath(__file__)))
 
 _logger = utils.get_logger(__name__)
 term = blessed.Terminal()
@@ -216,12 +217,22 @@ def get_ayon_version(ayon_root: Path) -> str:
 
 
 def _build_shim_windows(
-    dst_shim_root: Path, dist_root: Path, version: str
+    dst_shim_root: Path,
+    shim_root: Path,
+    release_root: Path,
+    version: str,
 ):
     iscc_executable = _find_iscc()
-
-    shim_root = dist_root.parent
     inno_setup_path = shim_root / "inno_setup.iss"
+
+    dist_root = shim_root / "dist"
+    if dist_root.exists():
+        shutil.rmtree(str(dist_root))
+    dist_root.mkdir(parents=True, exist_ok=True)
+    shutil.copy(release_root / "ayon.exe", dist_root)
+    shutil.copy(release_root / "ayon_console.exe", dist_root)
+    shutil.copy(shim_root / "version", dist_root)
+
     env = os.environ.copy()
     installer_basename = "shim"
     filename = f"{installer_basename}.exe"
@@ -246,40 +257,41 @@ def _build_shim_windows(
 
 
 def _build_shim_linux(
-    dst_shim_root: Path, dist_root: Path
+    dst_shim_root: Path,
+    shim_root: Path,
+    release_root: Path,
 ) -> Path:
     tar_path = dst_shim_root / "shim.tar.gz"
     # Open file in write mode to be sure that it exists
     with open(tar_path, "w"):
         pass
 
-    dist_root_str = os.path.normpath(str(dist_root))
-    with tarfile.open(tar_path, mode="w:gz") as tar:
-        dist_root_str_offset = len(dist_root_str) + 1
-        for root, _, filenames in os.walk(dist_root_str):
-            if not filenames:
-                continue
+    resources_dir = (
+        CURRENT_DIR.parent / "common" / "ayon_common" / "resources"
+    )
 
-            dst_root = None
-            if root != dist_root_str:
-                dst_root = root[dist_root_str_offset:]
-            for filename in filenames:
-                src_path = os.path.join(root, filename)
-                dst_path = filename
-                if dst_root:
-                    dst_path = os.path.join(dst_root, dst_path)
-                tar.add(src_path, arcname=dst_path)
+    files = [
+        (release_root / "ayon", "ayon"),
+        (shim_root / "version", "version"),
+        (shim_root / "ayon.desktop", "ayon.desktop"),
+        (resources_dir / "AYON.png", "AYON.png"),
+        (resources_dir / "AYON_staging.png", "AYON_staging.png"),
+    ]
+
+    with tarfile.open(tar_path, mode="w:gz") as tar:
+        for src, dst in files:
+            tar.add(src, arcname=dst)
     return tar_path
 
 
-def _build_shim_darwin(dst_shim_root: Path, dist_root: Path):
+def _build_shim_darwin(dst_shim_root: Path, release_root: Path):
     _logger.info("Creating shim DMG image ...")
 
     if shutil.which("create-dmg") is None:
         raise ValueError("create-dmg is not available")
 
     dmg_path = dst_shim_root / "shim.dmg"
-    app_filepath = dist_root.parent / "build" / "AYON.app"
+    app_filepath = release_root / "bundle" / "osx" / "AYON.app"
 
     # fmt: off
     args = [
@@ -323,25 +335,26 @@ def copy_shim_to_build(ayon_root, build_content_root):
 
     """
     _logger.info("Copying shim to build")
-    dist_root = ayon_root / "shim" / "dist"
+    shim_root = ayon_root / "shim"
+    release_root = shim_root / "target" / "release"
     dst_shim_root = build_content_root / "shim"
     os.makedirs(dst_shim_root, exist_ok=True)
     dst_json_path = dst_shim_root / "shim.json"
-    with open(dist_root / "version", "r") as stream:
+    with open(shim_root / "version", "r") as stream:
         version = stream.read().strip()
 
     platform_name = platform.system().lower()
     if platform_name == "windows":
         shim_installer_path = _build_shim_windows(
-            dst_shim_root, dist_root, version
+            dst_shim_root, shim_root, release_root, version
         )
     elif platform_name == "linux":
         shim_installer_path = _build_shim_linux(
-            dst_shim_root, dist_root
+            dst_shim_root, shim_root, release_root
         )
     elif platform_name == "darwin":
         shim_installer_path = _build_shim_darwin(
-            dst_shim_root, dist_root
+            dst_shim_root, release_root
         )
     else:
         raise ValueError(f"Unknown platform '{platform_name}'")
