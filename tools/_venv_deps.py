@@ -27,7 +27,11 @@ def main():
     package_data = uv_lock_data["package"]
     for package in package_data:
         package_name = package["name"]
-        package_version = package["version"]
+        try:
+            package_version = package["version"]
+        except KeyError:
+            package_version = None
+            print("No package version found for package", package_name)
         source = package.get("source")
         if source:
             if source.get("git"):
