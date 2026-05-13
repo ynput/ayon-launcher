@@ -293,6 +293,10 @@ build_ayon () {
   uv run hatch run "$hatch_target" || { echo -e "${BIRed}!!!${RST} Build failed, see build logs in build and shim directories."; return 1; }
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
+    # # Force arm64-only output: set ARCHFLAGS so compiled C extensions target
+    # # arm64 and run the Python build process under the arm64 slice.
+    # export ARCHFLAGS="-arch arm64"
+    # export _PYTHON_HOST_PLATFORM="macosx-$(sw_vers -productVersion | cut -d. -f1-2)-arm64"
     cargo install cargo-bundle
     cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   fi
