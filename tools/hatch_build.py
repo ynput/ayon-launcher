@@ -28,7 +28,8 @@ def _run_to_log(command: list[str], log_path: Path, cwd: Path | None = None) -> 
     )
     log_path.write_text((result.stdout or "") + (result.stderr or ""), encoding="utf-8")
     if result.returncode != 0:
-        raise RuntimeError(f"Build command failed. See log: {log_path}")
+        msg = f"Build command failed. See log: {log_path}"
+        raise RuntimeError(msg)
 
 
 def _build_command_for_platform() -> str:
@@ -38,22 +39,22 @@ def _build_command_for_platform() -> str:
 
 
 def _build_shim() -> None:
-    command = [sys.executable, "setup.py", _build_command_for_platform()]
-    _run_to_log(command, REPO_ROOT / "shim" / "build.log", cwd=REPO_ROOT / "shim")
-
-
-def _build_launcher() -> None:
     command = [
         "cargo", "build",
         "-p", "shim",
         "--features", "gui",
         "--release"]
-    _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT)
+    _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT / "shim")
     command = [
         "cargo", "build",
         "-p", "shim",
         "--features", "ayon_console",
         "--release"]
+    _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT / "shim")
+
+
+def _build_launcher() -> None:
+    command = [sys.executable, "setup.py", _build_command_for_platform()]
     _run_to_log(command, BUILD_ROOT / "build.log", cwd=REPO_ROOT)
 
 
