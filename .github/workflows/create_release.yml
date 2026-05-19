@@ -62,12 +62,11 @@ jobs:
           git add version.py pyproject.toml uv.lock
           git commit -m "Release version ${{ steps.get_version.outputs.version }}"
 
-      - name: Push to protected develop branch
-        if: github.ref == 'refs/heads/develop'
+      - name: Push to source branch
         uses: CasperWA/push-protected@v2.10.0
         with:
           token: ${{ secrets.YNPUT_BOT_TOKEN }}
-          branch: develop
+          branch: ${{ github.ref_name }}
           unprotect_reviews: true
 
       - name: Rebase main on develop
