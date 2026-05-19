@@ -168,7 +168,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = "~=3.13" },
     { name = "arrow", specifier = ">=0.4.4,<1" },
-    { name = "ayon-python-api", specifier = "==1.2.17" },
+    { name = "ayon-python-api", specifier = "==1.2.19" },
     { name = "blessed", specifier = "~=1.33" },
     { name = "coolname" },
     { name = "coverage", marker = "extra == 'dev'" },
@@ -207,15 +207,15 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "ayon-python-api"
-version = "1.2.17"
+version = "1.2.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "unidecode" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/b0/0022686c3b72c54e41958e1ec333a882c4745c7333fa5d6310faf1d00272/ayon_python_api-1.2.17.tar.gz", hash = "sha256:6266000af605bd2f8298c7398757dd6e8723f1deb92593d700b0167043cb0863", size = 173844, upload-time = "2026-05-11T14:42:06.552Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/7f/79030916b7dab1c568f08844a4550ee6f0f11da9f6fed28b391d14745cb6/ayon_python_api-1.2.19.tar.gz", hash = "sha256:c07d2302c717d747c949175c6f17688fa0ce67f652eefecec20a56b13000fd00", size = 174409, upload-time = "2026-05-15T12:36:12.771Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/10/c748018603d922c46c58d935c11d74d15a6aec4a4fedbb7e93f8e1331491/ayon_python_api-1.2.17-py3-none-any.whl", hash = "sha256:1c1b12ccfec01815caeee20c2b786b0a8e1c5b049aeda4d3f466306600cec400", size = 173496, upload-time = "2026-05-11T14:42:05.46Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/d4/d156cbed15c375765245c94bd05900d9bf938e601932b7b21d6efcf8726d/ayon_python_api-1.2.19-py3-none-any.whl", hash = "sha256:817bfe71e823af43b73363e650911e5e82b88ae3f7bc802934957c952ebf439f", size = 173667, upload-time = "2026-05-15T12:36:11.597Z" },
 ]
 
 [[package]]
