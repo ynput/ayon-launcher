@@ -16,7 +16,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
     permissions:
       contents: write
     outputs:
@@ -63,19 +62,21 @@ jobs:
           git add version.py pyproject.toml uv.lock
           git commit -m "Release version ${{ steps.get_version.outputs.version }}"
 
-      - name: Push to protected develop branch
+      - name: Push to source branch
         uses: CasperWA/push-protected@v2.10.0
         with:
           token: ${{ secrets.YNPUT_BOT_TOKEN }}
-          branch: develop
+          branch: ${{ github.ref_name }}
           unprotect_reviews: true
 
       - name: Rebase main on develop
+        if: github.ref == 'refs/heads/develop'
         run: |
           git checkout main
           git rebase develop
 
       - name: Push to protected main branch
+        if: github.ref == 'refs/heads/develop'
         uses: CasperWA/push-protected@v2.10.0
         with:
           token: ${{ secrets.YNPUT_BOT_TOKEN }}
@@ -88,6 +89,7 @@ jobs:
           git push origin ${{ steps.get_version.outputs.version }}
 
       - name: Bump version on develop
+        if: github.ref == 'refs/heads/develop'
         run: |
           git checkout develop
           NEW_VERSION=$(uv run --no-project tools/manage_version.py get-dev-version)
@@ -97,6 +99,7 @@ jobs:
           git commit -m "Bump version to $NEW_VERSION"
 
       - name: Push to protected develop branch
+        if: github.ref == 'refs/heads/develop'
         uses: CasperWA/push-protected@v2.10.0
         with:
           token: ${{ secrets.YNPUT_BOT_TOKEN }}
