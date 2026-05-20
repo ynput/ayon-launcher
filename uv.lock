@@ -119,7 +119,7 @@ wheels = [
 
 [[package]]
 name = "ayon"
-version = "1.6.0"
+version = "1.6.1.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
