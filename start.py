@@ -837,7 +837,7 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
         )
     except ShimDeploymentError as exc:
         if not HEADLESS_MODE_ENABLED:
-            show_failed_shim_deployment(exc)
+            show_failed_shim_deployment(str(exc))
         sys.exit(1)
     except Exception as exc:
         _print("Unexpected error during shim deployment.")
