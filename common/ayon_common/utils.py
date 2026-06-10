@@ -28,7 +28,7 @@ IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
 
-log = logging.Logger(__name__)
+log = logging.getLogger(__name__)
 
 ExecutablesInfo = Dict[str, Any]
 
@@ -948,7 +948,10 @@ def _deploy_shim_windows(
         try:
             _move_dir_content(shim_root, old_shim_root)
         except Exception as exc:
-            log.error("Failed to rename existing shim.", exc_info=True)
+            log.error(
+                "Failed to move existing shim content to backup.",
+                exc_info=True
+            )
             raise ShimDeploymentError(
                 "Failed to update shim executable."
                 " Please close all running AYON processes and try to run"
