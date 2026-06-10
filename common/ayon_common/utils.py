@@ -998,8 +998,13 @@ def _deploy_shim_linux(installer_shim_root: str) -> bool:
         try:
             shutil.rmtree(executable_root)
         except Exception as exc:
-            print(f"Failed to remove existing shim {exc}")
-            raise RuntimeError("Failed to remove existing AYON shim")
+            log.error("Failed to remove old shim", exc_info=True)
+            raise ShimDeploymentError(
+                "Failed to update shim executable."
+                " Please close all running AYON processes and try to run"
+                f" '{sys.executable}'. If the problem persists,"
+                f" remove old shim '{executable_root}'."
+            ) from exc
 
     os.makedirs(executable_root, exist_ok=True)
     extract_archive_file(
@@ -1026,8 +1031,19 @@ def _deploy_shim_macos(installer_shim_root: str):
         try:
             shutil.rmtree(ayon_app_path)
         except Exception as exc:
-            print(f"Failed to remove existing shim {exc}")
-            raise RuntimeError("Failed to remove existing shim")
+            log.error("Failed to remove old shim", exc_info=True)
+            direct_path_parts = []
+            for name in sys.executable.split("/"):
+                if name == "Contents":
+                    break
+                direct_path_parts.append(name)
+            app_path = "/".join(direct_path_parts)
+            raise ShimDeploymentError(
+                "Failed to update shim executable."
+                " Please close all running AYON processes and try to run"
+                f" '{app_path}'. If the problem persists,"
+                f" remove '{ayon_app_path}' and re-run."
+            ) from exc
 
     filepath = os.path.join(installer_shim_root, "shim.dmg")
     # Attach dmg file and read plist output (bytes)
