@@ -3,6 +3,7 @@ import sys
 import platform
 import json
 import datetime
+import logging
 import subprocess
 import zipfile
 import re
@@ -27,7 +28,13 @@ IMPLEMENTED_ARCHIVE_FORMATS = {
     ".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2"
 }
 
+log = logging.Logger(__name__)
+
 ExecutablesInfo = Dict[str, Any]
+
+
+class ShimDeploymentError(Exception):
+    """Error related to deploying shim executable."""
 
 
 def _get_ayon_appdirs(*args):
@@ -900,6 +907,25 @@ def _find_next_tmp_shim_root(path: str) -> str:
         idx += 1
 
 
+def _move_dir_content(src_dir: str, dst_dir: str) -> None:
+    """Move a content of directory to another directory.
+
+    This is used to preserve existing directory content when deploying
+        a new shim version. In that case the source directory is used as cwd
+        for a process and cannot be renamed, but the content can be moved.
+
+    Args:
+        src_dir (str): Path to the source directory.
+        dst_dir (str): Path to the destination directory.
+
+    """
+    os.makedirs(dst_dir, exist_ok=True)
+    for name in os.listdir(src_dir):
+        src_path = os.path.join(src_dir, name)
+        dst_path = os.path.join(dst_dir, name)
+        os.rename(src_path, dst_path)
+
+
 def _deploy_shim_windows(
     installer_shim_root: str,
     create_desktop_icons: bool,
@@ -919,7 +945,16 @@ def _deploy_shim_windows(
     renamed = False
     if os.path.exists(shim_root):
         renamed = True
-        os.rename(shim_root, old_shim_root)
+        try:
+            _move_dir_content(shim_root, old_shim_root)
+        except Exception as exc:
+            log.error("Failed to rename existing shim.", exc_info=True)
+            raise ShimDeploymentError(
+                "Failed to update shim executable."
+                " Please close all running AYON processes and try to run"
+                f" {sys.executable}. If the problem persists, uninstall"
+                " AYON from applications."
+            ) from exc
 
     success = False
     try:
@@ -939,11 +974,12 @@ def _deploy_shim_windows(
         success = code == 0
     finally:
         if not success:
-            if os.path.exists(shim_root):
+            if os.path.exists(shim_root) and len(os.listdir(shim_root)) > 0:
                 shim_root_bk = _find_next_tmp_shim_root(shim_root)
-                os.rename(shim_root, shim_root_bk)
+                _move_dir_content(shim_root, shim_root_bk)
+
             if renamed:
-                os.rename(old_shim_root, shim_root)
+                _move_dir_content(old_shim_root, shim_root)
 
     return success
 
