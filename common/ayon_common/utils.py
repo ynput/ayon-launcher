@@ -954,8 +954,8 @@ def _deploy_shim_windows(
             )
             raise ShimDeploymentError(
                 "Failed to update shim executable."
-                " Please close all running AYON processes and try to run"
-                f" {sys.executable}. If the problem persists, uninstall"
+                "\n\nPlease close all running AYON processes and try to run"
+                f" {sys.executable}.\n\nIf the problem persists, uninstall"
                 " AYON from applications."
             ) from exc
 
@@ -1004,8 +1004,8 @@ def _deploy_shim_linux(installer_shim_root: str) -> bool:
             log.error("Failed to remove old shim", exc_info=True)
             raise ShimDeploymentError(
                 "Failed to update shim executable."
-                " Please close all running AYON processes and try to run"
-                f" '{sys.executable}'. If the problem persists,"
+                "\n\nPlease close all running AYON processes and try to run"
+                f" '{sys.executable}'.\n\nIf the problem persists,"
                 f" remove old shim '{executable_root}'."
             ) from exc
 
@@ -1043,8 +1043,8 @@ def _deploy_shim_macos(installer_shim_root: str):
             app_path = "/".join(direct_path_parts)
             raise ShimDeploymentError(
                 "Failed to update shim executable."
-                " Please close all running AYON processes and try to run"
-                f" '{app_path}'. If the problem persists,"
+                "\n\nPlease close all running AYON processes and try to run"
+                f" '{app_path}'.\n\nIf the problem persists,"
                 f" remove '{ayon_app_path}' and re-run."
             ) from exc
 
