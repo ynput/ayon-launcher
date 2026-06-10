@@ -377,6 +377,7 @@ from ayon_common.connection.credentials import (  # noqa E402
 from ayon_common.distribution import (  # noqa E402
     AYONDistribution,
     BundleNotFoundError,
+    show_failed_shim_deployment,
     show_missing_bundle_information,
     show_blocked_auto_update,
     show_missing_permissions,
@@ -387,6 +388,7 @@ from ayon_common.distribution import (  # noqa E402
 from ayon_common.utils import (  # noqa E402
     store_current_executable_info,
     deploy_ayon_launcher_shims,
+    ShimDeploymentError,
     get_local_site_id,
     get_launcher_local_dir,
     get_launcher_storage_dir,
@@ -828,10 +830,21 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
     """
     create_desktop_icons = "--create-desktop-icons" in sys.argv
     store_current_executable_info()
-    deploy_ayon_launcher_shims(
-        ensure_protocol_is_registered=ensure_protocol_is_registered,
-        create_desktop_icons=create_desktop_icons,
-    )
+    try:
+        deploy_ayon_launcher_shims(
+            ensure_protocol_is_registered=ensure_protocol_is_registered,
+            create_desktop_icons=create_desktop_icons,
+        )
+    except ShimDeploymentError as exc:
+        if not HEADLESS_MODE_ENABLED:
+            show_failed_shim_deployment(exc)
+        sys.exit(1)
+    except Exception as exc:
+        _print("Unexpected error during shim deployment.")
+        traceback.print_exception(*sys.exc_info())
+        if not HEADLESS_MODE_ENABLED:
+            show_failed_shim_deployment()
+        sys.exit(1)
 
 
 def fill_pythonpath():

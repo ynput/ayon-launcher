@@ -1,10 +1,15 @@
 import os
 import json
 import subprocess
+import platform
 import tempfile
 from typing import Optional
 
-from ayon_common.utils import get_launcher_storage_dir, get_ayon_launch_args
+from ayon_common.utils import (
+    get_launcher_storage_dir,
+    get_launcher_local_dir,
+    get_ayon_launch_args,
+)
 
 
 def get_addons_dir():
@@ -63,6 +68,23 @@ def show_missing_permissions():
         ),
     )
 
+
+def show_failed_shim_deployment(message: str | None = None) -> None:
+    if message is None:
+        platform_name = platform.system().lower()
+        if platform_name == "darwin":
+            shim_path = "/Applications/AYON.app"
+        else:
+            shim_path = get_launcher_local_dir("shim")
+        message = (
+            f"Failed to deploy AYON shim. Removing '{shim_path}' might help"
+            " to resolve the issue."
+        )
+
+    _show_message_dialog(
+        "AYON distribution - Failed to deploy shims",
+        message,
+    )
 
 def show_blocked_auto_update(launcher: bool):
     if launcher:
