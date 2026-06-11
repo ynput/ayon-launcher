@@ -4,6 +4,7 @@ from .exceptions import (
 )
 from .control import AYONDistribution
 from .utils import (
+    show_failed_shim_deployment,
     show_missing_permissions,
     show_blocked_auto_update,
     show_missing_bundle_information,
@@ -18,6 +19,7 @@ __all__ = (
 
     "AYONDistribution",
 
+    "show_failed_shim_deployment",
     "show_missing_permissions",
     "show_blocked_auto_update",
     "show_missing_bundle_information",
