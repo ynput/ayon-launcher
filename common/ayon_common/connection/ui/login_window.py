@@ -574,7 +574,7 @@ class ServerLoginWindow(QtWidgets.QDialog):
         elif allow_logout is False:
             self.set_allow_logout(False)
 
-        if self._url_is_valid and api_key and logged_in:
+        if self._url_is_valid and api_key and not logged_in:
             self._set_message("<b>Invalid API key</b>")
             self._on_username_edit_click()
 
