@@ -1,7 +1,7 @@
 [project]
 name = "AYON"
 requires-python = "==3.11.9"
-version = "1.6.2"
+version = "1.6.3-dev"
 description = "AYON launcher"
 authors = [
     {name = "Ynput s.r.o.", email = "info@ynput.io"}
