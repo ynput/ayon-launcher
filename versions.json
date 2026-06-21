@@ -1,5 +1,12 @@
 [
   {
+    "version": "test-build",
+    "title": "test-build",
+    "aliases": [
+      "latest"
+    ]
+  },
+  {
     "version": "mac1.5.3",
     "title": "mac1.5.3",
     "aliases": []
@@ -7,9 +14,7 @@
   {
     "version": "1.6.2",
     "title": "1.6.2",
-    "aliases": [
-      "latest"
-    ]
+    "aliases": []
   },
   {
     "version": "1.6.1",
