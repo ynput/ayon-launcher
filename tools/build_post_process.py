@@ -373,6 +373,21 @@ def copy_shim_to_build(ayon_root, build_content_root):
         json.dump(shim_data, stream)
 
 
+def add_version_file(build_content_root: Path, ayon_version: str):
+    """Add version file next to executable.
+
+    The file has no extension and contains only the version string.
+
+    Args:
+        build_content_root (Path): Path to build content directory.
+        ayon_version (str): AYON version.
+
+    """
+    version_file_path = build_content_root / "version"
+    with open(version_file_path, "w") as stream:
+        stream.write(ayon_version)
+
+
 def _get_darwin_output_path(build_root, ayon_version):
     return build_root / f"AYON {ayon_version}.app"
 
@@ -724,6 +739,7 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
     copy_shim_to_build(ayon_root, build_content_root)
+    add_version_file(build_content_root, ayon_version)
 
     dependency_cleanup(ayon_root, build_content_root)
 
