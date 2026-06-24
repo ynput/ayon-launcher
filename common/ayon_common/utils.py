@@ -1,6 +1,7 @@
 import os
 import sys
 import platform
+from pathlib import Path
 import json
 import datetime
 import logging
@@ -292,11 +293,9 @@ def store_executables_info(info: ExecutablesInfo):
         json.dump(info, stream, indent=4)
 
 
-def load_version_from_file(filepath: str) -> str:
+def load_version_from_file(filepath: Path) -> str:
     """Execute python file and return '__version__' variable."""
-
-    with open(filepath, "r") as stream:
-        version_content = stream.read()
+    version_content = filepath.read_text(encoding="utf-8")
     version_globals = {}
     exec(version_content, version_globals)
     return version_globals["__version__"]
@@ -312,19 +311,31 @@ def load_version_from_root(root: str) -> Optional[str]:
         Union[str, None]: Version of executable.
 
     """
-    version = None
     if not root or not os.path.exists(root):
-        return version
+        return None
 
-    version_filepath = os.path.join(root, "version.py")
-    if os.path.exists(version_filepath):
+    root = Path(root)
+
+    # On macOS, the version file is located in 'Resources' folder inside
+    #   the 'MacOs' where executable is.
+    if platform.system().lower() == "darwin":
+        root = root.parent / "Resources"
+
+    version_filepath = root / "version"
+    if version_filepath.exists():
+        content = version_filepath.read_text(encoding="utf-8")
+        return content.strip()
+
+    version_filepath = root / "version.py"
+    if version_filepath.exists():
         try:
-            version = load_version_from_file(version_filepath)
+            return load_version_from_file(version_filepath)
         except Exception as exc:
-            print("Failed lo load version file {}. {}".format(
-                version_filepath, exc))
+            print(
+                f"Failed lo load version file {version_filepath}. {exc}"
+            )
 
-    return version
+    return None
 
 
 def load_executable_version(executable: str) -> Optional[str]:

@@ -383,6 +383,10 @@ def add_version_file(build_content_root: Path, ayon_version: str):
         ayon_version (str): AYON version.
 
     """
+    # On macOs should be the file located in 'Resources' instead of 'MacOs'
+    if platform.system().lower() == "darwin":
+        build_content_root = build_content_root.parent / "Resources"
+
     version_file_path = build_content_root / "version"
     with open(version_file_path, "w") as stream:
         stream.write(ayon_version)
