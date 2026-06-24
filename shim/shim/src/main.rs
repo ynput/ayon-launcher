@@ -97,6 +97,10 @@ pub fn get_launcher_local_dir() -> Option<PathBuf> {
 }
 
 pub fn load_version_from_file(version_py: &Path) -> Option<String> {
+    Some(fs::read_to_string(version_py).ok()?.trim().to_string())
+}
+
+pub fn load_version_from_py_file(version_py: &Path) -> Option<String> {
     let content = fs::read_to_string(version_py).ok()?;
     for line in content.lines() {
         let line = line.trim().trim_start_matches('\u{feff}');
@@ -112,9 +116,24 @@ pub fn load_version_from_file(version_py: &Path) -> Option<String> {
 }
 
 pub fn get_executable_version(executable_path: &Path) -> Option<String> {
-    let version_py = executable_path.parent()?.join("version.py");
-    if version_py.exists() {
-        return load_version_from_file(&version_py);
+    if let Some(executable_root) = executable_path.parent() {
+        // Preferred method how to get AYON launcher version
+        let version = executable_root.join("version");
+        if version.exists() {
+            return load_version_from_file(&version);
+        }
+        let version_py = executable_root.join("version.py");
+        if version_py.exists() {
+            return load_version_from_py_file(&version_py);
+        }
+        // Check for macOS .app bundle structure where version.py can be in Resources directory
+        // - this is a bug that in older versions of AYON launcher
+        if let Some(bundle_root) = executable_root.parent() {
+            let version_py = bundle_root.join("Resources").join("version.py");
+            if version_py.exists() {
+                return load_version_from_py_file(&version_py);
+            }
+        }
     }
     None
 }
