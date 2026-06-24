@@ -116,24 +116,25 @@ pub fn load_version_from_py_file(version_py: &Path) -> Option<String> {
 }
 
 pub fn get_executable_version(executable_path: &Path) -> Option<String> {
-    if let Some(executable_root) = executable_path.parent() {
-        // Preferred method how to get AYON launcher version
-        let version = executable_root.join("version");
-        if version.exists() {
-            return load_version_from_file(&version);
-        }
-        let version_py = executable_root.join("version.py");
-        if version_py.exists() {
-            return load_version_from_py_file(&version_py);
-        }
-        // Check for macOS .app bundle structure where version.py can be in Resources directory
-        // - this is a bug that in older versions of AYON launcher
-        if let Some(bundle_root) = executable_root.parent() {
-            let version_py = bundle_root.join("Resources").join("version.py");
-            if version_py.exists() {
-                return load_version_from_py_file(&version_py);
-            }
-        }
+    let executable_root_opt = executable_path.parent();
+    if executable_root_opt.is_none() {
+        return None;
+    }
+    let mut executable_root = executable_root_opt.unwrap().to_path_buf();
+
+    #[cfg(target_os = "macos")]
+    {
+        // Check for macOS .app bundle structure where version files are in Resources directory
+        executable_root = executable_root.parent()?.join("Resources");
+    }
+    // Preferred method how to get AYON launcher version
+    let version = executable_root.join("version");
+    if version.exists() {
+        return load_version_from_file(&version);
+    }
+    let version_py = executable_root.join("version.py");
+    if version_py.exists() {
+        return load_version_from_py_file(&version_py);
     }
     None
 }
