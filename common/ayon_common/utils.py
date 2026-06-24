@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 import platform
@@ -314,26 +316,29 @@ def load_version_from_root(root: str) -> Optional[str]:
     if not root or not os.path.exists(root):
         return None
 
-    root = Path(root)
+    root: Path = Path(root)
+    roots: list[Path] = [root]
 
     # On macOS, the version file is located in 'Resources' folder inside
-    #   the 'MacOs' where executable is.
+    #   the 'MacOs' where executable is. Can be next to executable if is not
+    #   yet bundled (dev of build).
     if platform.system().lower() == "darwin":
-        root = root.parent / "Resources"
+        roots.insert(0, root.parent / "Resources")
 
-    version_filepath = root / "version"
-    if version_filepath.exists():
-        content = version_filepath.read_text(encoding="utf-8")
-        return content.strip()
+    for root in roots:
+        version_filepath = root / "version"
+        if version_filepath.exists():
+            content = version_filepath.read_text(encoding="utf-8")
+            return content.strip()
 
-    version_filepath = root / "version.py"
-    if version_filepath.exists():
-        try:
-            return load_version_from_file(version_filepath)
-        except Exception as exc:
-            print(
-                f"Failed lo load version file {version_filepath}. {exc}"
-            )
+        version_filepath = root / "version.py"
+        if version_filepath.exists():
+            try:
+                return load_version_from_file(version_filepath)
+            except Exception as exc:
+                print(
+                    f"Failed lo load version file {version_filepath}. {exc}"
+                )
 
     return None
 
