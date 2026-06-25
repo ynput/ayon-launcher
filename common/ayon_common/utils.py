@@ -313,25 +313,28 @@ def load_version_from_root(root: str) -> Optional[str]:
         Union[str, None]: Version of executable.
 
     """
-    if not root or not os.path.exists(root):
+    if not root:
         return None
 
-    root: Path = Path(root)
-    roots: list[Path] = [root]
+    p_root: Path = Path(root)
+    if not p_root.exists():
+        return None
+
+    roots: list[Path] = [p_root]
 
     # On macOS, the version file is located in 'Resources' folder inside
     #   the 'MacOs' where executable is. Can be next to executable if is not
     #   yet bundled (dev of build).
     if platform.system().lower() == "darwin":
-        roots.insert(0, root.parent / "Resources")
+        roots.insert(0, p_root.parent / "Resources")
 
-    for root in roots:
-        version_filepath = root / "version"
+    for root_obj in roots:
+        version_filepath = root_obj / "version"
         if version_filepath.exists():
             content = version_filepath.read_text(encoding="utf-8")
             return content.strip()
 
-        version_filepath = root / "version.py"
+        version_filepath = root_obj / "version.py"
         if version_filepath.exists():
             try:
                 return load_version_from_file(version_filepath)
