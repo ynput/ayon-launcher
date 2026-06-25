@@ -337,7 +337,7 @@ def load_version_from_root(root: str) -> Optional[str]:
                 return load_version_from_file(version_filepath)
             except Exception as exc:
                 print(
-                    f"Failed lo load version file {version_filepath}. {exc}"
+                    f"Failed to load version file {version_filepath}. {exc}"
                 )
 
     return None
