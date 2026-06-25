@@ -96,8 +96,8 @@ pub fn get_launcher_local_dir() -> Option<PathBuf> {
     Some(ProjectDirs::from_path(PathBuf::from_iter(&["AYON"])).unwrap().data_local_dir().to_path_buf())
 }
 
-pub fn load_version_from_file(version_py: &Path) -> Option<String> {
-    Some(fs::read_to_string(version_py).ok()?.trim().to_string())
+pub fn load_version_from_file(version_file: &Path) -> Option<String> {
+    Some(fs::read_to_string(version_file).ok()?.trim().to_string())
 }
 
 pub fn load_version_from_py_file(version_py: &Path) -> Option<String> {
