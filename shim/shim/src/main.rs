@@ -116,11 +116,7 @@ pub fn load_version_from_py_file(version_py: &Path) -> Option<String> {
 }
 
 pub fn get_executable_version(executable_path: &Path) -> Option<String> {
-    let executable_root_opt = executable_path.parent();
-    if executable_root_opt.is_none() {
-        return None;
-    }
-    let executable_root = executable_root_opt.unwrap();
+    let executable_root = executable_path.parent()?;
     let mut executable_roots: Vec<PathBuf> = vec![];
     executable_roots.push(executable_root.to_path_buf());
     #[cfg(target_os = "macos")]
