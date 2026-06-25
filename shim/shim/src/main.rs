@@ -96,7 +96,11 @@ pub fn get_launcher_local_dir() -> Option<PathBuf> {
     Some(ProjectDirs::from_path(PathBuf::from_iter(&["AYON"])).unwrap().data_local_dir().to_path_buf())
 }
 
-pub fn load_version_from_file(version_py: &Path) -> Option<String> {
+pub fn load_version_from_file(version_file: &Path) -> Option<String> {
+    Some(fs::read_to_string(version_file).ok()?.trim().to_string())
+}
+
+pub fn load_version_from_py_file(version_py: &Path) -> Option<String> {
     let content = fs::read_to_string(version_py).ok()?;
     for line in content.lines() {
         let line = line.trim().trim_start_matches('\u{feff}');
@@ -112,9 +116,30 @@ pub fn load_version_from_file(version_py: &Path) -> Option<String> {
 }
 
 pub fn get_executable_version(executable_path: &Path) -> Option<String> {
-    let version_py = executable_path.parent()?.join("version.py");
-    if version_py.exists() {
-        return load_version_from_file(&version_py);
+    let executable_root = executable_path.parent()?;
+    let mut executable_roots: Vec<PathBuf> = vec![];
+    executable_roots.push(executable_root.to_path_buf());
+    #[cfg(target_os = "macos")]
+    {
+        // Check for macOS .app bundle structure where version files are in Resources directory
+        if let Some(bundle_root) = executable_root.parent() {
+            executable_roots.insert(0, bundle_root.join("Resources"));
+        }
+    }
+    for root in executable_roots {
+        // Preferred method how to get AYON launcher version
+        let version_file = root.join("version");
+        if version_file.exists() {
+            if let Some(output) = load_version_from_file(&version_file) {
+                return Some(output);
+            };
+        }
+        let version_py_file = root.join("version.py");
+        if version_py_file.exists() {
+            if let Some(output) = load_version_from_py_file(&version_py_file) {
+                return Some(output);
+            };
+        }
     }
     None
 }
