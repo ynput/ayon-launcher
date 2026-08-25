@@ -216,14 +216,14 @@ jobs:
           powershell -File ./tools/manage.ps1 build-make-installer
           ./build/installer/AYON-${{ inputs.tag_name }}-win-setup.exe /VERYSILENT /DIR=C:\ayon-launcher
           powershell Compress-Archive -Path C:\ayon-launcher\* -DestinationPath .\build\AYON-${{ inputs.tag_name }}-win.zip
-        
+
 
       - if: ${{ matrix.os == 'ubuntu-latest' }}
         shell: bash
         # update the version and also the sha256 hash for the linux package in conda_recipe.yaml
         run: |
           sed -i "s/version: .*/version: ${{ inputs.tag_name }}/" ./conda_recipe.yaml
-          
+
       - if: ${{ matrix.os == 'windows-latest' }}
         shell: powershell
         run: |
@@ -234,7 +234,7 @@ jobs:
         # needs to be unique for each matrix entry
           artifact-name: package-${{ matrix.os }}
           build-args: --target-platform ${{ matrix.os }} --recipe ./conda_recipe.yaml
-  
+
       - name: Set up AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
