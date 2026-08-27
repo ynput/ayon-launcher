@@ -26,7 +26,7 @@ jobs:
         uses: tj-actions/changed-files@v46
         with:
           files: |
-            **.py
+            **/*.py
       - if: steps.changed-files.outputs.all_changed_files != ''
         uses: astral-sh/ruff-action@v3
         with:
