@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Main entry point for AYON command.
 
 Bootstrapping process of AYON.
@@ -74,16 +73,20 @@ module.
 - Distribution logic can set 'AYON_ADDONS_DIR' and 'AYON_DEPENDENCIES_DIR'
     if are not set yet.
 """
+from __future__ import annotations
 
 import os
 import platform
-import sys
 import site
+import subprocess
+import sys
 import time
 import traceback
-import subprocess
 from contextlib import contextmanager
-from urllib.parse import urlencode, urlparse, parse_qs
+from dataclasses import dataclass
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import structlog
 
 from version import __version__
 
@@ -363,6 +366,8 @@ from ayon_api.constants import (  # noqa E402
     DEFAULT_VARIANT_ENV_KEY,
     SITE_ID_ENV_KEY,
 )
+
+from ayon_common.logging import configure_logging  # noqa E402
 from ayon_common import is_staging_enabled, is_dev_mode_enabled  # noqa E402
 from ayon_common.connection.credentials import (  # noqa E402
     ask_to_login_ui,
@@ -396,6 +401,10 @@ from ayon_common.utils import (  # noqa E402
 from ayon_common.startup import show_startup_error  # noqa E402
 
 
+configure_logging()
+logger = structlog.get_logger("startup")
+
+
 def _connect_to_ayon_server(force=False, username=None):
     """Connect to AYON server.
 
@@ -413,11 +422,11 @@ def _connect_to_ayon_server(force=False, username=None):
 
     """
     if force and HEADLESS_MODE_ENABLED:
-        _print("!!! Login UI was requested in headless mode.")
+        logger.error("Login UI was requested in headless mode.")
         sys.exit(1)
 
     if os.getenv(SERVER_API_ENV_KEY):
-        _print("*** Using API key from environment variable to connect")
+        logger.info("Using API key from environment variable to connect.")
 
     load_environments()
     need_server = need_api_key = True
@@ -427,31 +436,34 @@ def _connect_to_ayon_server(force=False, username=None):
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
 
     if not need_server and not need_api_key:
-        _print(f">>> Connected to AYON server {current_url}")
+        logger.info("Connected to AYON server.", url=current_url)
         return
 
     api_key = os.environ.get(SERVER_API_ENV_KEY)
     if need_server:
         if current_url:
-            message = f"Could not connect to AYON server '{current_url}'."
+            message = "Could not connect to AYON server."
         else:
             message = "AYON Server URL is not set."
     elif api_key:
-        message = f"Invalid API key for '{current_url}'."
+        message = "Invalid API key."
     else:
-        message = f"Missing API key for '{current_url}'."
+        message = "Missing API key."
 
     if not force:
-        _print("!!! Got invalid credentials.")
-        _print(message)
+        logger.error(
+            "Invalid credentials for AYON server.",
+            url=current_url,
+            message=message,
+            headless=HEADLESS_MODE_ENABLED)
 
     # Exit in headless mode
     if HEADLESS_MODE_ENABLED:
-        _print((
+        _print(
             f"!!! Please use '{SERVER_URL_ENV_KEY}'"
             f" and '{SERVER_API_ENV_KEY}' environment variables to specify"
             " valid server url and api key for headless mode."
-        ))
+        )
         sys.exit(1)
 
     # Show message that used credentials are invalid
@@ -474,7 +486,11 @@ def _connect_to_ayon_server(force=False, username=None):
     if url is not None:
         add_server(url, username)
 
-    _print("!!! Login was not successful.")
+    logger.error(
+        "Login was not successful.",
+        url=url,
+        username=username,
+        token_used=bool(token))
     sys.exit(0)
 
 
@@ -590,16 +606,16 @@ def _run_disk_mapping(
         if not args:
             continue
 
-        _print(f"*** disk mapping arguments: {args}")
+        logger.info("Disk mapping arguments", args=args)
         try:
             output = subprocess.Popen(args)
             if output.returncode and output.returncode != 0:
                 exc_msg = f'Executing was not successful: "{args}"'
 
                 raise RuntimeError(exc_msg)
-        except TypeError as exc:
-            _print(
-                f"Error {str(exc)} in mapping drive {src_path}, {dst_path}")
+        except TypeError:
+            logger.exception(
+                "Error in mapping drive", src_path=src_path, dst_path=dst_path)
             raise
 
 
@@ -616,10 +632,11 @@ def _start_distribution():
             skip_installer_dist=not IS_BUILT_APPLICATION
         )
     except PermissionError:
-        _print(
-            "!!! Failed to initialize distribution"
-            " because of permissions error"
-            f" (Total: {_Timing.total_time():.2f}s)."
+        logger.error(
+            "Failed to initialize distribution"
+            " because of permissions error.",
+            timing=f"{_Timing.total_time():.2f}s",
+            exception=traceback.format_exc()
         )
         if not HEADLESS_MODE_ENABLED:
             show_missing_permissions()
@@ -664,24 +681,31 @@ def _start_distribution():
 
         for bundle_name, bundle_type in _items:
             if bundle_name:
-                _print((
-                    f"!!! Requested {bundle_type} bundle '{bundle_name}'"
-                    " is not available on server."
-                ))
+                logger.error(
+                    "Requested bundle is not available on server.",
+                    bundle_name=bundle_name,
+                    bundle_type=bundle_type,
+                    url=url,
+                    mode=mode
+                )
                 _print(
-                    "!!! Check if is the bundle"
-                    f" available on the server '{url}'."
+                    f"!!! Check if the {bundle_type} bundle '{bundle_name}'"
+                    f" is available on the server '{url}'."
                 )
 
             else:
-                _print(
-                    f"!!! No {bundle_type} bundle is set as {mode}"
-                    f" on the AYON server."
+                logger.error(
+                    f"No bundle is set as {mode}.",
+                    bundle_name=bundle_name,
+                    bundle_type=bundle_type,
+                    url=url,
+                    mode=mode
                 )
                 _print(
                     "!!! Make sure there is a bundle set"
                     f" as \"{mode}\" on the AYON server '{url}'."
                 )
+
 
         if not HEADLESS_MODE_ENABLED:
             missing_bundle_name = studio_bundle_name
@@ -697,7 +721,7 @@ def _start_distribution():
                 is_project_bundle=is_project_bundle,
             )
 
-        _print(f">>> Finished in (Total: {_Timing.total_time():.2f}s).")
+        logger.debug("Startup finished.", timing=f"{_Timing.total_time():.2f}s")
         sys.exit(1)
 
     # With known bundle and states we can define default settings variant
@@ -717,9 +741,9 @@ def _start_distribution():
     block_auto_update = auto_update == "block"
     if distribution.need_distribution and not skip_auto_update:
         if block_auto_update:
-            _print(
-                "!!! Automatic update is blocked by 'AYON_AUTO_UPDATE'"
-                f" (Total: {_Timing.total_time():.2f}s)."
+            logger.error(
+                "Automatic update is blocked by 'AYON_AUTO_UPDATE'.",
+                timing=f"{_Timing.total_time():.2f}s"
             )
             if not HEADLESS_MODE_ENABLED:
                 show_blocked_auto_update(
@@ -728,10 +752,10 @@ def _start_distribution():
             sys.exit(1)
 
         if distribution.is_missing_permissions:
-            _print(
-                "!!! Failed to initialize distribution"
-                " because of permissions error"
-                f" (Total: {_Timing.total_time():.2f}s)."
+            logger.error(
+                "Failed to initialize distribution"
+                " because of permissions error",
+                timing=f"{_Timing.total_time():.2f}s"
             )
             if not HEADLESS_MODE_ENABLED:
                 show_missing_permissions()
@@ -745,7 +769,10 @@ def _start_distribution():
         try:
             distribution.distribute()
         finally:
-            _print(f">>> Distributed resources ({_Timing.next():.2f}s).")
+            logger.debug(
+                "Distributing resources done.",
+                timing=f"{_Timing.next():.2f}s"
+            )
             update_window_manager.stop()
 
         # Skip validation of addons and dep packages if launcher
@@ -759,13 +786,16 @@ def _start_distribution():
         error = distribution.installer_dist_error
         if error:
             if HEADLESS_MODE_ENABLED:
-                _print(error)
+                logger.error(error)
             else:
                 show_installer_issue_information(
                     error,
                     distribution.installer_filepath
                 )
-            _print(f">>> Finished in (Total: {_Timing.total_time():.2f}s).")
+            logger.debug(
+                "Finished changing installer.",
+                timing=f"{_Timing.total_time():.2f}s"
+            )
             sys.exit(1)
 
         # Use new executable to relaunch different AYON launcher version
@@ -791,9 +821,9 @@ def _start_distribution():
 
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
-        _print(
-            ">>> Launching different AYON launcher version"
-            f" (Total: {_Timing.total_time():.2f}s)."
+        logger.debug(
+            "Launching different AYON launcher version",
+            timing=f"{_Timing.total_time():.2f}s",
         )
         sys.exit(subprocess.call(args, env=env))
 
@@ -818,7 +848,10 @@ def _start_distribution():
         sys.path.insert(0, path)
 
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
-    _print(f">>> Distribution finished ({_Timing.next():.2f}s).")
+    logger.debug(
+        "Distribution finished.",
+        timing=f"{_Timing.next():.2f}s"
+    )
 
 
 def init_launcher_executable(ensure_protocol_is_registered=False):
@@ -840,8 +873,11 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
             show_failed_shim_deployment(str(exc))
         sys.exit(1)
     except Exception:
-        _print("Unexpected error during shim deployment.")
-        traceback.print_exception(*sys.exc_info())
+        logger.error(
+            "Unexpected error during shim deployment.",
+            timing=f"{_Timing.total_time():.2f}s",
+            exception=traceback.format_exc()
+        )
         if not HEADLESS_MODE_ENABLED:
             show_failed_shim_deployment()
         sys.exit(1)
@@ -866,8 +902,9 @@ def boot():
 
     _connect_to_ayon_server()
     create_global_connection()
-    _print(
-        f">>> Global AYON connection created ({_Timing.total_time():.2f}s)."
+    logger.debug(
+        "Global AYON connection created.",
+        timing=f"{_Timing.total_time():.2f}s"
     )
     _start_distribution()
     fill_pythonpath()
@@ -1077,27 +1114,18 @@ def main_cli():
 
     # print info when not running scripts defined in 'silent commands'
     if not SKIP_HEADERS:
-        info = get_info(is_staging_enabled(), is_dev_mode_enabled())
-        info.insert(0, f">>> Using AYON from [ {AYON_ROOT} ]")
+        info = get_info(
+            use_staging=is_staging_enabled(),
+            use_dev=is_dev_mode_enabled()
+        )
+        logger.info("AYON launcher initialized", info=info)
 
-        try:
-            t_width = os.get_terminal_size().columns - 2
-        except (ValueError, OSError):
-            t_width = 20
-
-        _header = f"*** AYON [{__version__}] "
-        info.insert(0, _header + "-" * (t_width - len(_header)))
-
-        for i in info:
-            _print(i)
-
-    _print(f">>> Initializing done ({_Timing.next():.2f}s).")
+    logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
     try:
         cli.main()
     except Exception:  # noqa
         exc_info = sys.exc_info()
-        _print("!!! AYON crashed:")
-        traceback.print_exception(*exc_info)
+        logger.error("AYON crashed", exc_info=exc_info)
         sys.exit(1)
 
 
@@ -1176,10 +1204,18 @@ def script_cli(start_arg=None):
     exec(compile(content, filepath, "exec"), script_globals)
 
 
-def get_info(use_staging=None, use_dev=None) -> list:
+@dataclass
+class RuntimeInfo:
+    version: str
+    root: str
+    variant: str
+    studio_bundle: str | None
+    project_bundle: str | None
+
+
+def get_info(use_staging=None, use_dev=None) -> RuntimeInfo:
     """Print additional information to console."""
 
-    inf = []
     studio_bundle_name = os.getenv("AYON_STUDIO_BUNDLE_NAME")
     project_bundle_name = os.getenv("AYON_BUNDLE_NAME")
 
@@ -1188,55 +1224,52 @@ def get_info(use_staging=None, use_dev=None) -> list:
         variant = f"dev ({project_bundle_name})"
     elif use_staging:
         variant = "staging"
-    inf.append(("AYON variant", variant))
-    inf.append(("AYON studio bundle", studio_bundle_name))
+
     if project_bundle_name == studio_bundle_name:
-        project_bundle_name = "None"
-    inf.append(("AYON project bundle", project_bundle_name))
+        project_bundle_name = None
 
-    # NOTE add addons information
-
-    maximum = max(len(i[0]) for i in inf)
-    formatted = []
-    for info in inf:
-        padding = (maximum - len(info[0])) + 1
-        formatted.append(f'... {info[0]}:{" " * padding}[ {info[1]} ]')
-    return formatted
-
+    return RuntimeInfo(
+        version=__version__,
+        root=AYON_ROOT,
+        variant=variant,
+        studio_bundle=studio_bundle_name,
+        project_bundle=project_bundle_name,
+    )
 
 def main():
     # AYON launcher was started to initialize itself
-    _print(f">>> Reached main entry point ({_Timing.next():.2f}s).")
+    logger.info("Starting AYON launcher", args=sys.argv)
+
+    logger.debug("Reached main entry point", timing=f"{_Timing.next():.2f}s")
     if "init-ayon-launcher" in sys.argv:
         init_launcher_executable(ensure_protocol_is_registered=True)
-        _print(f">>> Launcher initialized in ({_Timing.total_time():.2f}s).")
+        logger.debug("Launcher initialized", timing=f"{_Timing.total_time():.2f}s")
         sys.exit(0)
 
     if SHOW_LOGIN_UI:
         if HEADLESS_MODE_ENABLED:
-            _print((
+            logger.error(
                 "!!! Invalid arguments combination"
                 " '--ayon-login' and '--headless'."
-            ))
+            )
             sys.exit(1)
         _connect_to_ayon_server(True)
-        _print(f">>> Connected to AYON server ({_Timing.next():.2f}s).")
+        logger.debug("Connected to AYON server", timing=f"{_Timing.next():.2f}s")
 
     if process_uri():
-        _print(f">>> URI processed (Total: {_Timing.total_time():.2f}s).")
+        logger.debug("URI processed", timing=f"{_Timing.total_time():.2f}s")
         sys.exit(0)
 
     with webaction_event_handler():
         if SKIP_BOOTSTRAP:
             fill_pythonpath()
-            _print(
-                f">>> Starting script (Total: {_Timing.total_time():.2f}s)."
-            )
+            logger.debug(
+                "Starting script", timing=f"{_Timing.total_time():.2f}s")
             return script_cli()
 
         boot()
-        _print(
-            f">>> Bootstrap finished (Total: {_Timing.total_time():.2f}s)."
+        logger.debug(
+            "Bootstrap finished", timing=f"{_Timing.total_time():.2f}s"
         )
 
         start_arg = StartArgScript.from_args(sys.argv)

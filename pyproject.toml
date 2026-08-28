@@ -33,6 +33,8 @@ dependencies = [
     "python3-xlib; sys_platform == 'linux'",
     "distro == 1.9.0; sys_platform == 'linux'",
     "pre-commit>=4.5.1",
+    "structlog>=26.1.0",
+    "rich>=15.0.0",
 ]
 
 [project.optional-dependencies]
