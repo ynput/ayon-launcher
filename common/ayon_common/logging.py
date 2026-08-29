@@ -27,8 +27,8 @@ class _RawQueueHandler(QueueHandler):
 class VectorHTTPHandler(logging.Handler):
     """Forward formatted log records to a Vector HTTP source.
 
-    This is here so we can use Vector for log aggregation without
-    early before ayon-core and ayon-vector are started.
+    This is here so we can use Vector for log aggregation
+    earlier before ayon-core and ayon-vector are started.
     """
 
     def __init__(self, url):
@@ -91,6 +91,7 @@ def configure_logging() -> None:
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
         _add_site_id,
     ]
 
