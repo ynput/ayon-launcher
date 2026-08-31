@@ -51,7 +51,7 @@ class VectorHTTPHandler(logging.Handler):
                 headers={"Content-Type": "application/json"},
                 timeout=1,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             self.handleError(record)
 
     def close(self):
