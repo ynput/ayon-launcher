@@ -141,7 +141,10 @@ def configure_logging() -> None:
     # when debug is enabled, we want to silence some of the noisy libraries
     # TODO(antirotor): make this configurable via env var or config file or
     # even a command line argument (list of modules and their log levels, comma separated)
-    if os.getenv("AYON_DEBUG") == "1":
+    info_level = logging.getLevelNamesMapping()['INFO']
+    if (
+            os.getenv("AYON_DEBUG") == "1" or
+            int(os.getenv("AYON_LOG_LEVEL", info_level)) < info_level):
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("requests").setLevel(logging.WARNING)
         logging.getLogger("GlobalServerAPI").setLevel(logging.WARNING)
