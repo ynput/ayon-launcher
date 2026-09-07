@@ -87,11 +87,11 @@ def configure_logging() -> None:
         return event_dict
 
     shared_processors = [
+        structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
         _add_site_id,
     ]
 
@@ -111,12 +111,18 @@ def configure_logging() -> None:
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             _drop_site_id,
-            structlog.dev.ConsoleRenderer(),
+            structlog.dev.ConsoleRenderer(
+                exception_formatter=structlog.dev.rich_traceback,
+            ),
         ],
     )
     json_formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors,
-        processor=structlog.processors.JSONRenderer(),
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.format_exc_info,
+            structlog.processors.JSONRenderer(),
+        ],
     )
 
     handler = logging.StreamHandler(sys.stdout)
@@ -136,6 +142,7 @@ def configure_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
     if VECTOR_LOG_URL:
+        root_logger.info("Vector logging enabled", extra={"vector_log_url": VECTOR_LOG_URL})
         root_logger.addHandler(queue_handler)
     root_logger.setLevel(logging.INFO if os.getenv("AYON_DEBUG") != "1" else logging.DEBUG)
     # when debug is enabled, we want to silence some of the noisy libraries

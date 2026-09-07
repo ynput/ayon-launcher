@@ -628,7 +628,7 @@ def _start_distribution():
             "Failed to initialize distribution"
             " because of permissions error.",
             timing=f"{_Timing.total_time():.2f}s",
-            exception=traceback.format_exc()
+            exc_info=True,
         )
         if not HEADLESS_MODE_ENABLED:
             show_missing_permissions()
@@ -868,7 +868,7 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
         logger.error(
             "Unexpected error during shim deployment.",
             timing=f"{_Timing.total_time():.2f}s",
-            exception=traceback.format_exc()
+            exc_info=True,
         )
         if not HEADLESS_MODE_ENABLED:
             show_failed_shim_deployment()
@@ -979,9 +979,8 @@ def process_uri():
                 f"{server_url}/api/actions/abort/{uri_token}",
                 json={"message": "User skipped login in AYON launcher."},
             )
-        except Exception:  # noqa: BLE001
-            # Silently ignore any exception, only print traceback
-            traceback.print_exception(*sys.exc_info())
+        except Exception:
+            logger.exception("Failed to abort web action event.")
         raise
 
     event_id = data["eventId"]
@@ -1069,9 +1068,8 @@ def webaction_event_handler():
             if event["status"] == "in_progress":
                 new_status = "finished" if success else "failed"
                 update_event(event_id, status=new_status)
-        except Exception:  # noqa: BLE001
-            # Silently ignore any exception, only print traceback
-            traceback.print_exception(*sys.exc_info())
+        except Exception:
+            logger.exception("Failed to finish web action event.")
 
     try:
         yield
@@ -1101,7 +1099,7 @@ def main_cli():
     try:
         from ayon_core import cli
     except ImportError as exc:
-        traceback.print_exception(*sys.exc_info())
+        logger.exception("Failed to import the AYON core CLI.")
         _on_main_addon_import_error(exc)
 
     # print info when not running scripts defined in 'silent commands'
@@ -1115,9 +1113,8 @@ def main_cli():
     logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
     try:
         cli.main()
-    except Exception:
-        exc_info = sys.exc_info()
-        logger.error("AYON crashed", exc_info=exc_info)
+    except Exception:  # noqa
+        logger.error("AYON crashed", exc_info=True)
         sys.exit(1)
 
 
