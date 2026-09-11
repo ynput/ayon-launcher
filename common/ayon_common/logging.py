@@ -1,15 +1,64 @@
-"""Logging setup for AYON common package."""
+"""Logging setup for AYON common package.
+
+Three opt-in observability levels are supported, additive to each other:
+    1. Console (default) - human readable output to stdout. Always on.
+    2. NDJSON file - one JSON object per line, written to a local log
+        file with retention. Enabled with 'AYON_LOG_FILE=1'.
+    3. Vector - forward JSON logs to a Vector HTTP source. Enabled by
+        setting 'AYON_VECTOR_LOG_URL'.
+"""
+import atexit
 import logging
 import os
 import queue
 import sys
-from logging.handlers import QueueHandler, QueueListener
+import time
+from logging.handlers import QueueHandler, QueueListener, TimedRotatingFileHandler
 
 import requests
 import requests.adapters
 import structlog
+import urllib3.util
+
+from ayon_common.utils import get_launcher_local_dir
 
 VECTOR_LOG_URL = os.getenv("AYON_VECTOR_LOG_URL")
+LOG_FILE_ENABLED = os.getenv("AYON_LOG_FILE") == "1"
+LOG_FILE_RETENTION_DAYS = int(os.getenv("AYON_LOG_RETENTION_DAYS", "1"))
+LOG_FILE_NAME = "ayon.ndjson"
+
+# Max records buffered for Vector delivery. Beyond this, new records are
+# dropped rather than growing memory unbounded during an outage.
+VECTOR_QUEUE_MAX_SIZE = 10_000
+# Consecutive send failures after which the circuit opens (stop trying
+# HTTP calls for a while, just drop records fast).
+VECTOR_FAILURE_THRESHOLD = 5
+# How long the circuit stays open once tripped.
+VECTOR_CIRCUIT_COOLDOWN = 30.0
+# Minimum time between "records are being dropped" warnings, to avoid
+# flooding the console/log file during a prolonged outage.
+VECTOR_WARN_INTERVAL = 30.0
+
+
+class _RateLimitedLogger:
+    """Log a warning at most once per 'interval' seconds."""
+
+    def __init__(self, logger, interval):
+        self._logger = logger
+        self._interval = interval
+        self._last_emit = 0.0
+
+    def warning(self, msg, **kwargs):
+        now = time.monotonic()
+        if now - self._last_emit < self._interval:
+            return
+        self._last_emit = now
+        self._logger.warning(msg, **kwargs)
+
+
+_vector_warn_logger = _RateLimitedLogger(
+    logging.getLogger("ayon.vector_log"), VECTOR_WARN_INTERVAL
+)
 
 
 class _RawQueueHandler(QueueHandler):
@@ -23,6 +72,18 @@ class _RawQueueHandler(QueueHandler):
     def prepare(self, record):
         return record
 
+    def enqueue(self, record):
+        # Base implementation already uses 'put_nowait', but does not
+        # handle a bounded queue being full - drop the record instead of
+        # raising, so a Vector outage cannot backpressure the app or
+        # grow memory without bound.
+        try:
+            self.queue.put_nowait(record)
+        except queue.Full:
+            _vector_warn_logger.warning(
+                "Vector log queue is full, dropping log records."
+            )
+
 
 class VectorHTTPHandler(logging.Handler):
     """Forward formatted log records to a Vector HTTP source.
@@ -31,28 +92,66 @@ class VectorHTTPHandler(logging.Handler):
     earlier before ayon-core and ayon-vector are started.
     """
 
-    def __init__(self, url):
+    def __init__(
+        self,
+        url,
+        failure_threshold=VECTOR_FAILURE_THRESHOLD,
+        cooldown=VECTOR_CIRCUIT_COOLDOWN,
+    ):
         super().__init__()
         self._url = url
+        self._failure_threshold = failure_threshold
+        self._cooldown = cooldown
+        self._consecutive_failures = 0
+        self._circuit_open_until = 0.0
         # Reuse a single session so repeated POSTs reuse pooled
         # connections instead of opening a new one per log record.
         self._session = requests.Session()
+        retry = urllib3.util.Retry(
+            total=2,
+            backoff_factor=0.3,
+            status_forcelist=(502, 503, 504),
+            allowed_methods=("POST",),
+        )
         adapter = requests.adapters.HTTPAdapter(
-            pool_connections=1, pool_maxsize=10
+            pool_connections=1, pool_maxsize=10, max_retries=retry
         )
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
 
     def emit(self, record):
+        now = time.monotonic()
+        if now < self._circuit_open_until:
+            # Circuit is open - skip the HTTP attempt entirely so a dead
+            # Vector endpoint cannot slow down the sender thread.
+            return
         try:
             self._session.post(
                 self._url,
                 data=self.format(record),
                 headers={"Content-Type": "application/json"},
-                timeout=1,
+                # (connect timeout, read timeout) - a slow-but-alive
+                # endpoint should not stall as long as a dead one.
+                timeout=(0.3, 1.0),
             )
         except Exception:  # noqa: BLE001
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._failure_threshold:
+                self._circuit_open_until = now + self._cooldown
+                self._consecutive_failures = 0
+                _vector_warn_logger.warning(
+                    "Vector endpoint unreachable, pausing log delivery.",
+                    cooldown=self._cooldown,
+                )
             self.handleError(record)
+        else:
+            self._consecutive_failures = 0
+
+    def handleError(self, record):
+        # Default 'Handler.handleError' prints a full traceback to stderr
+        # per failed record, which floods the console during an outage.
+        # Rate-limit it instead.
+        _vector_warn_logger.warning("Failed to send log record to Vector.")
 
     def close(self):
         self._session.close()
@@ -128,30 +227,39 @@ def configure_logging() -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(console_formatter)
 
+    if LOG_FILE_ENABLED:
+        log_dir = get_launcher_local_dir("logs", create=True)
+        file_handler = TimedRotatingFileHandler(
+            os.path.join(log_dir, LOG_FILE_NAME),
+            when="midnight",
+            backupCount=LOG_FILE_RETENTION_DAYS,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(json_formatter)
+
     if VECTOR_LOG_URL:
-        # Send logs to Vector asynchronously so HTTP calls don't block the app.
+        # Send logs to Vector asynchronously so HTTP calls
+        # don't block the app.
         vector_handler = VectorHTTPHandler(VECTOR_LOG_URL)
         vector_handler.setFormatter(json_formatter)
-        log_queue = queue.Queue(-1)
+        log_queue: queue.Queue = queue.Queue(VECTOR_QUEUE_MAX_SIZE)
         queue_handler = _RawQueueHandler(log_queue)
         queue_listener = QueueListener(
             log_queue, vector_handler, respect_handler_level=True
         )
         queue_listener.start()
+        # The listener thread is non-daemon by default and otherwise would
+        # keep the process alive/delay shutdown since 'queue_listener.stop()'
+        # is never called explicitly elsewhere.
+        if queue_listener._thread is not None:
+            queue_listener._thread.daemon = True
+        atexit.register(queue_listener.stop)
 
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
+    if LOG_FILE_ENABLED:
+        root_logger.addHandler(file_handler)
     if VECTOR_LOG_URL:
         root_logger.info("Vector logging enabled", extra={"vector_log_url": VECTOR_LOG_URL})
         root_logger.addHandler(queue_handler)
     root_logger.setLevel(logging.INFO if os.getenv("AYON_DEBUG") != "1" else logging.DEBUG)
-    # when debug is enabled, we want to silence some of the noisy libraries
-    # TODO(antirotor): make this configurable via env var or config file or
-    # even a command line argument (list of modules and their log levels, comma separated)
-    info_level = logging.getLevelNamesMapping()['INFO']
-    if (
-            os.getenv("AYON_DEBUG") == "1" or
-            int(os.getenv("AYON_LOG_LEVEL", info_level)) < info_level):
-        logging.getLogger("urllib3").setLevel(logging.WARNING)
-        logging.getLogger("requests").setLevel(logging.WARNING)
-        logging.getLogger("GlobalServerAPI").setLevel(logging.WARNING)
