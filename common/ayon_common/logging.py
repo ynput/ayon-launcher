@@ -13,6 +13,7 @@ import os
 import queue
 import sys
 import time
+from collections.abc import Callable
 from logging.handlers import QueueHandler, QueueListener, TimedRotatingFileHandler
 
 import requests
@@ -185,7 +186,7 @@ def configure_logging() -> None:
         event_dict.pop("site_id", None)
         return event_dict
 
-    shared_processors = [
+    shared_processors: list[Callable] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.stdlib.add_logger_name,
