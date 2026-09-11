@@ -81,7 +81,6 @@ import site
 import subprocess
 import sys
 import time
-import traceback
 from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -624,11 +623,10 @@ def _start_distribution():
             skip_installer_dist=not IS_BUILT_APPLICATION
         )
     except PermissionError:
-        logger.error(
+        logger.exception(
             "Failed to initialize distribution"
             " because of permissions error.",
             timing=f"{_Timing.total_time():.2f}s",
-            exc_info=True,
         )
         if not HEADLESS_MODE_ENABLED:
             show_missing_permissions()
@@ -864,11 +862,10 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
         if not HEADLESS_MODE_ENABLED:
             show_failed_shim_deployment(str(exc))
         sys.exit(1)
-    except Exception:  # noqa: BLE001
-        logger.error(
+    except Exception:
+        logger.exception(
             "Unexpected error during shim deployment.",
             timing=f"{_Timing.total_time():.2f}s",
-            exc_info=True,
         )
         if not HEADLESS_MODE_ENABLED:
             show_failed_shim_deployment()
@@ -1113,8 +1110,8 @@ def main_cli():
     logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
     try:
         cli.main()
-    except Exception:  # noqa
-        logger.error("AYON crashed", exc_info=True)
+    except Exception:
+        logger.exception("AYON crashed")
         sys.exit(1)
 
 
