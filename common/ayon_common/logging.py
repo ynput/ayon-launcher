@@ -262,3 +262,9 @@ def configure_logging() -> None:
         root_logger.info("Vector logging enabled", extra={"vector_log_url": VECTOR_LOG_URL})
         root_logger.addHandler(queue_handler)
     root_logger.setLevel(logging.INFO if os.getenv("AYON_DEBUG") != "1" else logging.DEBUG)
+
+    if os.getenv("AYON_DEBUG") == "1":
+        # force silence for some very noisy loggers
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("GlobalServerAPI").setLevel(logging.WARNING)
