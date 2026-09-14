@@ -246,14 +246,12 @@ def configure_logging() -> None:
         log_queue: queue.Queue = queue.Queue(VECTOR_QUEUE_MAX_SIZE)
         queue_handler = _RawQueueHandler(log_queue)
         queue_listener = QueueListener(
-            log_queue, vector_handler, respect_handler_level=True
+            log_queue, vector_handler, respect_handler_level=True,
         )
         queue_listener.start()
-        # The listener thread is non-daemon by default and otherwise would
+        # The listener thread is background by default and otherwise would
         # keep the process alive/delay shutdown since 'queue_listener.stop()'
         # is never called explicitly elsewhere.
-        if queue_listener._thread is not None:
-            queue_listener._thread.daemon = True
         atexit.register(queue_listener.stop)
 
     root_logger = logging.getLogger()
