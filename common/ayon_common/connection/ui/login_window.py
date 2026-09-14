@@ -1070,7 +1070,13 @@ def ask_to_login(
 
     app_instance = get_qt_app()
 
-    window = ServerLoginWindow()
+    if api_key and url and username:
+        # Keep the existing signed-in account-management and logout UI.
+        window = ServerLoginWindow()
+    else:
+        from .qml_login import QmlServerLoginWindow
+
+        window = QmlServerLoginWindow()
     if always_on_top:
         window.setWindowFlags(
             window.windowFlags()
