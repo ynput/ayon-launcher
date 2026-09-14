@@ -1057,7 +1057,8 @@ def ask_to_login(
     Args:
         url (Optional[str]): Server url that will be prefilled in dialog.
         username (Optional[str]): Username that will be prefilled in dialog.
-        api_key (Optional[str]): API token that will be prefilled in dialog.
+        api_key (Optional[str]): API token to validate after connecting. A
+            valid token completes login; otherwise the user can sign in.
         force_username (Optional[bool]): If True, username passed to function
             will be forced.
         always_on_top (Optional[bool]): Window will be drawn on top of
@@ -1070,37 +1071,19 @@ def ask_to_login(
 
     app_instance = get_qt_app()
 
-    if api_key and url and username:
-        # Keep the existing signed-in account-management and logout UI.
-        window = ServerLoginWindow()
-    else:
-        from .qml_login import QmlServerLoginWindow
+    from .qml_login import QmlServerLoginWindow
 
-        window = QmlServerLoginWindow()
+    window = QmlServerLoginWindow(
+        url=url,
+        username=username,
+        api_key=api_key,
+        force_username=bool(force_username),
+    )
     if always_on_top:
         window.setWindowFlags(
             window.windowFlags()
             | QtCore.Qt.WindowStaysOnTopHint
         )
-
-    if api_key and url and username:
-        window.set_logged_in(
-            True,
-            url=url,
-            username=username,
-            api_key=api_key,
-        )
-
-    else:
-        if url:
-            window.set_url(url)
-
-        if username:
-            window.set_username(username)
-
-    if force_username is None:
-        force_username = False
-    window.set_force_username(force_username)
 
     if not app_instance.startingUp():
         window.show()

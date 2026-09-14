@@ -66,7 +66,8 @@ def password_login(url, username, password):
     return url, token, username
 
 
-def browser_login(url, token, forced_username):
+def get_token_username(url, token):
+    """Return the authenticated username, or None for an invalid token."""
     api = ayon_api.ServerAPI(
         url, token=token, timeout=REQUEST_TIMEOUT, max_retries=0
     )
@@ -74,9 +75,21 @@ def browser_login(url, token, forced_username):
         user = api.get_user()
     except UnauthorizedError:
         user = None
-    if not user or not user.get("name"):
+    return user.get("name") if user else None
+
+
+def saved_login(url, token, expected_username):
+    """Check supplied credentials; let network errors propagate for retry."""
+    username = get_token_username(url, token)
+    if not username or (expected_username and username != expected_username):
+        return None
+    return url, token, username
+
+
+def browser_login(url, token, forced_username):
+    username = get_token_username(url, token)
+    if not username:
         raise LoginError("This browser login has expired. Please try again.")
-    username = user["name"]
     if forced_username and username != forced_username:
         raise LoginError(
             f"Sign in as {forced_username} in your browser, or use your"
@@ -138,6 +151,9 @@ class LoginController(QtCore.QObject):
         super().__init__(parent)
         self._url = ""
         self._username = ""
+        self._api_key = None
+        self._initialized = False
+        self._connection_failed = False
         self._force_username = False
         self._page = 0
         self._busy = False
@@ -185,7 +201,14 @@ class LoginController(QtCore.QObject):
     def waitingForBrowser(self):
         return self._waiting
 
+    @QtCore.Property(bool, notify=changed)
+    def connectionFailed(self):
+        return self._connection_failed
+
     def set_url(self, url):
+        if (url or "").strip().rstrip("/") != self._url.strip().rstrip("/"):
+            # A supplied key belongs only to its original server.
+            self._api_key = None
         self._url = url or ""
         self.server_url_changed.emit()
 
@@ -196,6 +219,17 @@ class LoginController(QtCore.QObject):
     def set_force_username(self, value):
         self._force_username = bool(value)
         self.changed.emit()
+
+    def set_api_key(self, api_key):
+        self._api_key = api_key or None
+
+    def initialize(self):
+        """Validate prefilled connection details once the dialog is shown."""
+        if self._initialized or self._closed:
+            return
+        self._initialized = True
+        if self._url.strip():
+            self.validateServer(self._url)
 
     def _start(self, operation, function, *args):
         self._request_id += 1
@@ -216,6 +250,8 @@ class LoginController(QtCore.QObject):
         self._busy = False
         if error:
             self._error = error
+            if operation in ("server", "saved_login"):
+                self._connection_failed = True
             if operation in ("open_browser", "browser_login"):
                 self._stop_listener()
             if operation == "password":
@@ -223,7 +259,23 @@ class LoginController(QtCore.QObject):
         elif operation == "server":
             self._url, self._browser_supported = result
             self.server_url_changed.emit()
+            if self._api_key:
+                self._start(
+                    "saved_login", saved_login,
+                    self._url, self._api_key, self._username,
+                )
+                return
             self._page = 1
+        elif operation == "saved_login":
+            self._api_key = None
+            if result is None:
+                self._page = 1
+                self._error = (
+                    "Your saved credentials are no longer valid."
+                    " Please sign in again."
+                )
+            else:
+                self.authenticated.emit(*result)
         elif operation in ("password", "browser_login"):
             self.clear_password.emit()
             self.authenticated.emit(*result)
@@ -233,8 +285,7 @@ class LoginController(QtCore.QObject):
     def validateServer(self, url):
         if self._closed or self._busy or self._page != 0:
             return
-        if self._force_username:
-            url = self._url
+        self._connection_failed = False
         self.set_url(url)
         self._start("server", check_server, url)
 
@@ -318,17 +369,21 @@ class LoginController(QtCore.QObject):
         self.cancelBrowser()
         self._page = 0
         self._browser_supported = False
+        self._api_key = None
+        self._connection_failed = False
         self.clear_password.emit()
         self.changed.emit()
 
     @QtCore.Slot()
     def clearError(self):
-        if self._error:
+        if self._error or self._connection_failed:
             self._error = ""
+            self._connection_failed = False
             self.changed.emit()
 
     def shutdown(self):
         self._closed = True
+        self._api_key = None
         self.cancelBrowser()
         self.clear_password.emit()
 
@@ -336,7 +391,10 @@ class LoginController(QtCore.QObject):
 class QmlServerLoginWindow(QtWidgets.QDialog):
     """Embed QML while preserving the existing modal dialog result contract."""
 
-    def __init__(self, parent=None):
+    def __init__(
+        self, parent=None, *, url=None, username=None, api_key=None,
+        force_username=False,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Sign in to AYON")
         self.setWindowIcon(QtGui.QIcon(get_icon_path()))
@@ -349,6 +407,10 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         # the controller alive until all bindings that reference it are gone.
         self.controller = LoginController(self.view)
         self.controller.authenticated.connect(self._authenticated)
+        self.controller.set_url(url)
+        self.controller.set_username(username)
+        self.controller.set_api_key(api_key)
+        self.controller.set_force_username(force_username)
 
         self.view.setResizeMode(
             QtQuickWidgets.QQuickWidget.SizeRootObjectToView
@@ -375,6 +437,13 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
 
     def set_force_username(self, force_username):
         self.controller.set_force_username(force_username)
+
+    def set_api_key(self, api_key):
+        self.controller.set_api_key(api_key)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.controller.initialize()
 
     @QtCore.Slot(str, str, str)
     def _authenticated(self, url, token, username):

@@ -283,7 +283,6 @@ Rectangle {
                         Accessible.name: "AYON server URL"
                         inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                         enabled: !root.locked
-                        readOnly: login.forceUsername
                         onTextEdited: login.clearError()
                         onAccepted: login.validateServer(text)
                         onActiveFocusChanged: if (activeFocus) root.reveal(serverUrl)
@@ -300,7 +299,8 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.topMargin: 14
                         primary: true
-                        text: login.busy ? "Checking connection…" : "Continue  →"
+                        text: login.busy ? "Checking connection…"
+                              : login.connectionFailed ? "Try again" : "Continue  →"
                         enabled: !root.locked && serverUrl.text.trim().length > 0
                         onClicked: login.validateServer(serverUrl.text)
                     }
