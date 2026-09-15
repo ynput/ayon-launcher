@@ -186,6 +186,12 @@ def configure_logging() -> None:
         event_dict.pop("site_id", None)
         return event_dict
 
+    def _drop_session_id(logger, method_name, event_dict):
+        # Keep 'session_id' in JSON sent to Vector but not in console
+        # output - full sessions ids make console output hard to read.
+        event_dict.pop("session_id", None)
+        return event_dict
+
     shared_processors: list[Callable] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
@@ -211,6 +217,7 @@ def configure_logging() -> None:
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             _drop_site_id,
+            _drop_session_id,
             structlog.dev.ConsoleRenderer(
                 exception_formatter=structlog.dev.rich_traceback,
             ),
@@ -262,6 +269,8 @@ def configure_logging() -> None:
         root_logger.info("Vector logging enabled", extra={"vector_log_url": VECTOR_LOG_URL})
         root_logger.addHandler(queue_handler)
     root_logger.setLevel(logging.INFO if os.getenv("AYON_DEBUG") != "1" else logging.DEBUG)
+
+    structlog.contextvars.bind_contextvars(session_id=os.getenv("AYON_SESSION_ID"))
 
     if os.getenv("AYON_DEBUG") == "1":
         # force silence for some very noisy loggers

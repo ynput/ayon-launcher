@@ -81,6 +81,7 @@ import site
 import subprocess
 import sys
 import time
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -302,6 +303,30 @@ os.environ["USE_AYON_SERVER"] = "1"
 os.environ["AYON_EXECUTABLE"] = sys.executable
 os.environ["AYON_ROOT"] = AYON_ROOT
 os.environ["AYON_MENU_LABEL"] = "AYON"
+
+# Create session id used for tracing logs across a process tree.
+# Format is `:` separated ids - the first one is a full UUID4 identifying
+# the root AYON launcher process, and any subsequent ones are short ids
+# identifying child AYON launcher processes spawned from it.
+# The chain is capped at 'MAX_SESSION_ID_DEPTH' levels - once reached, a
+# trailing '.' is appended to flag the id as truncated and it stops growing.
+MAX_SESSION_ID_DEPTH = 8
+_existing_session_id = os.getenv("AYON_SESSION_ID")
+if _existing_session_id:
+    if _existing_session_id.endswith("."):
+        # Already capped - keep as is, do not grow any further.
+        SESSION_ID = _existing_session_id
+    elif len(_existing_session_id.split(":")) >= MAX_SESSION_ID_DEPTH:
+        SESSION_ID = f"{_existing_session_id}."
+    else:
+        # Child process of another AYON launcher process - keep parent
+        # chain and append a short id for this process.
+        SESSION_ID = f"{_existing_session_id}:{uuid.uuid4().hex[:8]}"
+else:
+    # Root AYON launcher process.
+    SESSION_ID = str(uuid.uuid4())
+
+os.environ["AYON_SESSION_ID"] = SESSION_ID
 
 import blessed
 import certifi
