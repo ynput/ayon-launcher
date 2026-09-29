@@ -85,7 +85,7 @@ import traceback
 import subprocess
 from contextlib import contextmanager
 from typing import Optional
-from urllib.parse import urlencode, urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs
 
 from version import __version__
 
