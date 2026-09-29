@@ -554,7 +554,8 @@ class BaseDistributionItem(ABC):
         state (UpdateState): Initial state (UpdateState.UPDATED or
             UpdateState.OUTDATED).
         checksum (Optional[str]): Hash of file for validation.
-        checksum_algorithm (Optional[str]): Algorithm used to generate the hash.
+        checksum_algorithm (Optional[str]): Algorithm used to
+            generate the hash.
         factory (DownloadFactory): Downloaders factory object.
         sources (List[SourceInfo]): Possible sources to receive the
             distribution item.

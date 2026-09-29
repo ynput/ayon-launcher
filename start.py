@@ -26,7 +26,8 @@ To start in dev mode use one of following options:
     - by passing '--bundle <dev bundle name>'
     - by setting 'AYON_BUNDLE_NAME' environment variable to dev bundle name
     - by passing '--studio-bundle <dev bundle name>'
-    - by setting 'AYON_STUDIO_BUNDLE_NAME' environment variable to dev bundle name
+    - by setting 'AYON_STUDIO_BUNDLE_NAME' environment variable to dev
+        bundle name
 
 NOTE: By using bundle name you can start any dev bundle, even if is not
     assigned to current user.
@@ -305,12 +306,23 @@ os.environ["AYON_EXECUTABLE"] = sys.executable
 os.environ["AYON_ROOT"] = AYON_ROOT
 os.environ["AYON_MENU_LABEL"] = "AYON"
 
-import blessed  # noqa: E402
 import certifi  # noqa: E402
 import requests  # noqa: E402
 
 
-if sys.__stdout__:
+def _is_stdout_tty() -> bool:
+    try:
+        return sys.__stdout__.isatty()
+    except (AttributeError, ValueError, OSError):
+        return False
+
+
+# Colors are used only in terminal, 'blessed' would not style output
+#   otherwise. Import of 'blessed' is slow, so it is imported only
+#   when it is needed.
+if sys.__stdout__ and _is_stdout_tty():
+    import blessed  # noqa: E402
+
     term = blessed.Terminal()
 
     def _print(message: str):
