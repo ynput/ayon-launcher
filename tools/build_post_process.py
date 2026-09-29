@@ -130,7 +130,8 @@ def run_with_output(
 
     Args:
         args (list[str]): Command to run.
-        on_error (Callable[[str], None], optional): Function to call when error occurs.
+        on_error (Callable[[str], None], optional): Function to call
+            when error occurs.
     """
     start = time.time()
     process = subprocess.Popen(

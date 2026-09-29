@@ -26,7 +26,8 @@ To start in dev mode use one of following options:
     - by passing '--bundle <dev bundle name>'
     - by setting 'AYON_BUNDLE_NAME' environment variable to dev bundle name
     - by passing '--studio-bundle <dev bundle name>'
-    - by setting 'AYON_STUDIO_BUNDLE_NAME' environment variable to dev bundle name
+    - by setting 'AYON_STUDIO_BUNDLE_NAME' environment variable to dev
+        bundle name
 
 NOTE: By using bundle name you can start any dev bundle, even if is not
     assigned to current user.
