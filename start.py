@@ -83,6 +83,7 @@ import time
 import traceback
 import subprocess
 from contextlib import contextmanager
+from typing import Optional
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from version import __version__
@@ -546,9 +547,47 @@ def _prepare_disk_mapping_args(src_path, dst_path):
     return []
 
 
+def _get_core_settings(
+    studio_bundle_name: str,
+    project_bundle_name: str,
+    core_version: Optional[str],
+) -> dict:
+    """Get core addon settings used for disk mapping.
+
+    Only core addon settings are requested when project bundle is not
+        used, which is much cheaper than requesting settings of all addons.
+
+    """
+    variant = os.environ[DEFAULT_VARIANT_ENV_KEY]
+    use_project_bundle = (
+        project_bundle_name and studio_bundle_name != project_bundle_name
+    )
+    if core_version and not use_project_bundle:
+        return ayon_api.get_addon_studio_settings(
+            "core", core_version, variant
+        ) or {}
+
+    # Server resolves project and addon versions from project bundle
+    key_values = {
+        "bundle_name": studio_bundle_name,
+        "variant": variant,
+    }
+    if use_project_bundle:
+        key_values["project_bundle_name"] = project_bundle_name
+
+    query = urlencode(key_values)
+
+    response = ayon_api.get(f"settings?{query}")
+    for addon in response.data["addons"]:
+        if addon["name"] == "core":
+            return addon["settings"] or {}
+    return {}
+
+
 def _run_disk_mapping(
     studio_bundle_name: str,
     project_bundle_name: str,
+    core_version: Optional[str],
 ) -> None:
     """Run disk mapping logic.
 
@@ -558,19 +597,9 @@ def _run_disk_mapping(
     """
     low_platform = platform.system().lower()
 
-    key_values = {
-        "bundle_name": studio_bundle_name,
-    }
-    if project_bundle_name and studio_bundle_name != project_bundle_name:
-        key_values["project_bundle_name"] = project_bundle_name
-
-    query = urlencode(key_values)
-
-    core_settings = {}
-    response = ayon_api.get(f"settings?{query}")
-    for addon in response.data["addons"]:
-        if addon["name"] == "core":
-            core_settings = addon["settings"] or {}
+    core_settings = _get_core_settings(
+        studio_bundle_name, project_bundle_name, core_version
+    )
 
     disk_mapping = core_settings.get("disk_mapping") or {}
     platform_disk_mapping = disk_mapping.get(low_platform)
@@ -709,7 +738,8 @@ def _start_distribution():
     )
     _run_disk_mapping(
         studio_bundle_name,
-        project_bundle_name
+        project_bundle_name,
+        studio_bundle.addon_versions.get("core"),
     )
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
