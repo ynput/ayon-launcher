@@ -547,48 +547,22 @@ def _prepare_disk_mapping_args(src_path, dst_path):
     return []
 
 
-def _get_core_settings(
-    studio_bundle_name: str,
-    project_bundle_name: str,
-    core_version: Optional[str],
-) -> dict:
+def _get_core_settings(core_version: Optional[str]) -> dict:
     """Get core addon settings used for disk mapping.
 
     Only core addon settings are requested when project bundle is not
         used, which is much cheaper than requesting settings of all addons.
 
     """
+    if not core_version:
+        return {}
     variant = os.environ[DEFAULT_VARIANT_ENV_KEY]
-    use_project_bundle = (
-        project_bundle_name and studio_bundle_name != project_bundle_name
-    )
-    if core_version and not use_project_bundle:
-        return ayon_api.get_addon_studio_settings(
-            "core", core_version, variant
-        ) or {}
-
-    # Server resolves project and addon versions from project bundle
-    key_values = {
-        "bundle_name": studio_bundle_name,
-        "variant": variant,
-    }
-    if use_project_bundle:
-        key_values["project_bundle_name"] = project_bundle_name
-
-    query = urlencode(key_values)
-
-    response = ayon_api.get(f"settings?{query}")
-    for addon in response.data["addons"]:
-        if addon["name"] == "core":
-            return addon["settings"] or {}
-    return {}
+    return ayon_api.get_addon_studio_settings(
+        "core", core_version, variant
+    ) or {}
 
 
-def _run_disk_mapping(
-    studio_bundle_name: str,
-    project_bundle_name: str,
-    core_version: Optional[str],
-) -> None:
+def _run_disk_mapping(core_settings: dict) -> None:
     """Run disk mapping logic.
 
     Mapping of disks is taken from core addon settings. To run this logic
@@ -596,10 +570,6 @@ def _run_disk_mapping(
         settings are received from server.
     """
     low_platform = platform.system().lower()
-
-    core_settings = _get_core_settings(
-        studio_bundle_name, project_bundle_name, core_version
-    )
 
     disk_mapping = core_settings.get("disk_mapping") or {}
     platform_disk_mapping = disk_mapping.get(low_platform)
@@ -736,11 +706,10 @@ def _start_distribution():
         distribution.use_staging,
         project_bundle_name
     )
-    _run_disk_mapping(
-        studio_bundle_name,
-        project_bundle_name,
-        studio_bundle.addon_versions.get("core"),
-    )
+
+    core_version = project_bundle.addon_versions.get("core")
+    core_settings = _get_core_settings(core_version)
+    _run_disk_mapping(core_settings)
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
     skip_auto_update = auto_update == "skip"
