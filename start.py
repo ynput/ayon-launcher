@@ -574,7 +574,7 @@ def _get_core_settings(core_version: Optional[str]) -> dict:
     ) or {}
 
 
-def _run_disk_mapping(core_settings: dict) -> None:
+def _run_disk_mapping(core_version: Optional[str]) -> None:
     """Run disk mapping logic.
 
     Mapping of disks is taken from core addon settings. To run this logic
@@ -583,6 +583,7 @@ def _run_disk_mapping(core_settings: dict) -> None:
     """
     low_platform = platform.system().lower()
 
+    core_settings = _get_core_settings(core_version)
     disk_mapping = core_settings.get("disk_mapping") or {}
     platform_disk_mapping = disk_mapping.get(low_platform)
     if not platform_disk_mapping:
@@ -720,8 +721,7 @@ def _start_distribution():
     )
 
     core_version = project_bundle.addon_versions.get("core")
-    core_settings = _get_core_settings(core_version)
-    _run_disk_mapping(core_settings)
+    _run_disk_mapping(core_version)
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
     skip_auto_update = auto_update == "skip"
