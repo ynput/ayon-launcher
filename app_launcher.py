@@ -4,11 +4,10 @@ This is written for linux distributions where process tree may affect what
 is when closed or blocked to be closed.
 """
 import contextlib
-
-import os
-import sys
 import json
+import os
 import shlex
+import sys
 import tempfile
 import time
 
