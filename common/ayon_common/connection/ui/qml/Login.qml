@@ -640,12 +640,23 @@ Rectangle {
                                     cursorShape: Qt.PointingHandCursor
                                     Accessible.role: Accessible.Button
                                     Accessible.name: password.revealed ? "Hide password" : "Show password"
-                                    onClicked: password.revealed = !password.revealed
+                                    Accessible.focusable: true
+                                    Accessible.onPressAction: toggle()
+                                    // Operable without a pointer
+                                    activeFocusOnTab: true
+                                    enabled: password.enabled
+                                    Keys.onSpacePressed: toggle()
+                                    Keys.onReturnPressed: toggle()
+                                    Keys.onEnterPressed: toggle()
+                                    onClicked: toggle()
+                                    function toggle() { password.revealed = !password.revealed }
                                     Rectangle {
                                         anchors.fill: parent
                                         radius: Theme.radiusM
                                         color: revealButton.containsMouse
                                                ? Theme.surfaceContainerLowHover : "transparent"
+                                        border.width: revealButton.activeFocus ? 1 : 0
+                                        border.color: Theme.primary
                                     }
                                     Image {
                                         anchors.centerIn: parent
