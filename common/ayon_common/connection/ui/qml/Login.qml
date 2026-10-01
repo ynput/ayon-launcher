@@ -12,6 +12,9 @@ Rectangle {
     property int currentPage: login.page
     property bool locked: login.busy || login.waitingForBrowser
     property bool confirmingLogout: false
+    // Change user mode: show login options for the current session's server
+    property bool changingUser: false
+    property bool hideLoginOptions: login.isCurrentSession && !changingUser
 
     function escapeHtml(value) {
         return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -28,6 +31,7 @@ Rectangle {
     }
 
     onCurrentPageChanged: {
+        changingUser = false
         password.text = ""
         password.revealed = false
         if (currentPage === 0)
@@ -101,20 +105,43 @@ Rectangle {
                         elide: Text.ElideRight
                     }
                     ActionButton {
-                        objectName: "logoutButton"
-                        visible: login.loggedIn && !root.confirmingLogout
-                        compact: true
-                        text: "Logout"
-                        enabled: !root.locked
-                        onClicked: root.confirmingLogout = true
-                    }
-                    ActionButton {
                         objectName: "continueSessionButton"
                         visible: !login.loggedIn
                         compact: true
                         text: "Continue"
                         enabled: !root.locked
                         onClicked: login.continueSession()
+                    }
+                }
+
+                // Session actions (change user mode)
+                RowLayout {
+                    visible: login.loggedIn && !root.confirmingLogout
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Item { Layout.fillWidth: true }
+                    ActionButton {
+                        objectName: "changeUserButton"
+                        visible: login.isCurrentSession
+                        compact: true
+                        text: root.changingUser ? "Cancel" : "Change user"
+                        enabled: !root.locked
+                        onClicked: {
+                            root.changingUser = !root.changingUser
+                            if (root.changingUser) {
+                                if (username.text.length)
+                                    password.forceActiveFocus()
+                                else
+                                    username.forceActiveFocus()
+                            }
+                        }
+                    }
+                    ActionButton {
+                        objectName: "logoutButton"
+                        compact: true
+                        text: "Logout"
+                        enabled: !root.locked
+                        onClicked: root.confirmingLogout = true
                     }
                 }
 
@@ -384,7 +411,7 @@ Rectangle {
                         }
 
                         ColumnLayout {
-                            visible: login.browserSupported && !login.isCurrentSession
+                            visible: login.browserSupported && !root.hideLoginOptions
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 
@@ -436,7 +463,7 @@ Rectangle {
 
                         // Separator between browser login and credentials
                         RowLayout {
-                            visible: login.browserSupported && !login.isCurrentSession
+                            visible: login.browserSupported && !root.hideLoginOptions
                             Layout.fillWidth: true
                             spacing: 12
                             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.outlineVariant }
@@ -450,7 +477,7 @@ Rectangle {
                         }
 
                         ColumnLayout {
-                            visible: !login.isCurrentSession
+                            visible: !root.hideLoginOptions
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 
