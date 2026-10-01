@@ -12,13 +12,31 @@ Rectangle {
     property int currentPage: login.page
     property bool locked: login.busy || login.waitingForBrowser
     property bool confirmingLogout: false
-    // Change user mode: show login options for the current session's server
-    property bool changingUser: false
-    property bool hideLoginOptions: login.isCurrentSession && !changingUser
+    // Signed in on the connected server (current or saved session)
+    property bool hasSession: login.isCurrentSession || login.canContinue
+    // Show login options for the session's server instead of the session
+    property bool anotherAccount: false
+    property bool showSession: hasSession && !anotherAccount
+    readonly property int fadeDuration: 300
 
-    function escapeHtml(value) {
-        return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    function initials(name) {
+        var parts = String(name).split(/[\s._-]+/).filter(function(part) {
+            return part.length > 0
+        })
+        return parts.slice(0, 2).map(function(part) {
+            return part.charAt(0).toUpperCase()
+        }).join("")
+    }
+
+    function focusDefault() {
+        if (currentPage === 0)
+            serverUrl.forceActiveFocus()
+        else if (showSession)
+            continueButton.forceActiveFocus()
+        else if (!username.text.length)
+            username.forceActiveFocus()
+        else
+            password.forceActiveFocus()
     }
 
     function reveal(item) {
@@ -31,15 +49,15 @@ Rectangle {
     }
 
     onCurrentPageChanged: {
-        changingUser = false
+        anotherAccount = false
+        confirmingLogout = false
         password.text = ""
         password.revealed = false
-        if (currentPage === 0)
-            serverUrl.forceActiveFocus()
-        else if (!username.text.length)
-            username.forceActiveFocus()
-        else
-            password.forceActiveFocus()
+        focusDefault()
+    }
+    onShowSessionChanged: {
+        confirmingLogout = false
+        focusDefault()
     }
     Component.onCompleted: serverUrl.forceActiveFocus()
 
@@ -70,118 +88,24 @@ Rectangle {
         wrapMode: Text.WordWrap
     }
 
-    // Current session (change user mode); used below the server input
-    Component {
-        id: sessionPanelComponent
-
-        Rectangle {
-            objectName: "sessionPanel"
-            implicitHeight: sessionColumn.implicitHeight + 16
-            radius: Theme.radiusM
-            color: Theme.surfaceContainerLow
-            border.width: 1
-            border.color: root.confirmingLogout ? Theme.errorContainer : Theme.outlineVariant
-
-            ColumnLayout {
-                id: sessionColumn
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 8
-                anchors.leftMargin: 10
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    Rectangle { width: 6; height: 6; radius: 3; color: Theme.accent }
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Logged in as <b>" + root.escapeHtml(login.sessionUsername) + "</b>"
-                        textFormat: Text.StyledText
-                        color: Theme.textColor
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.bodySmall
-                        elide: Text.ElideRight
-                    }
-                    ActionButton {
-                        objectName: "continueSessionButton"
-                        visible: !login.loggedIn
-                        compact: true
-                        text: "Continue"
-                        enabled: !root.locked
-                        onClicked: login.continueSession()
-                    }
-                }
-
-                // Session actions (change user mode)
-                RowLayout {
-                    visible: login.loggedIn && !root.confirmingLogout
-                    Layout.fillWidth: true
-                    spacing: 8
-                    Item { Layout.fillWidth: true }
-                    ActionButton {
-                        objectName: "changeUserButton"
-                        visible: login.isCurrentSession
-                        compact: true
-                        text: root.changingUser ? "Cancel" : "Change user"
-                        enabled: !root.locked
-                        onClicked: {
-                            root.changingUser = !root.changingUser
-                            if (root.changingUser) {
-                                if (username.text.length)
-                                    password.forceActiveFocus()
-                                else
-                                    username.forceActiveFocus()
-                            }
-                        }
-                    }
-                    ActionButton {
-                        objectName: "logoutButton"
-                        compact: true
-                        text: "Logout"
-                        enabled: !root.locked
-                        onClicked: root.confirmingLogout = true
-                    }
-                }
-
-                // Inline logout confirmation
-                ColumnLayout {
-                    visible: root.confirmingLogout
-                    Layout.fillWidth: true
-                    spacing: 8
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Logging out invalidates your login. Applications"
-                              + " launched with it won't be able to use it anymore."
-                        color: Theme.textVariant
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.bodySmall
-                        wrapMode: Text.WordWrap
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        Item { Layout.fillWidth: true }
-                        ActionButton {
-                            objectName: "cancelLogoutButton"
-                            compact: true
-                            variant: "text"
-                            text: "Cancel"
-                            onClicked: root.confirmingLogout = false
-                        }
-                        ActionButton {
-                            objectName: "confirmLogoutButton"
-                            compact: true
-                            variant: "danger"
-                            text: "Logout"
-                            onClicked: login.logout()
-                        }
-                    }
-                }
-            }
-        }
+    // Studio background of the connected server; fades in once loaded
+    Image {
+        id: studioBackground
+        property string latest: login.studioBackground
+        property bool shown: login.page === 1 && latest.length > 0
+                             && status === Image.Ready
+        // Keep the image while it fades out
+        onLatestChanged: if (latest.length) source = latest
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        clip: true
+        smooth: true
+        asynchronous: true
+        opacity: shown ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: root.fadeDuration } }
     }
+
     Flickable {
         id: viewport
         anchors.fill: parent
@@ -231,16 +155,40 @@ Rectangle {
                     width: panel.width - 64
                     spacing: 16
 
-                    Image {
-                        Layout.alignment: Qt.AlignHCenter
+                    // AYON logo; cross-fades to the studio logo of the
+                    // connected server once that is loaded
+                    Item {
+                        Layout.fillWidth: true
                         Layout.preferredHeight: 60
-                        Layout.preferredWidth: 60 * sourceSize.width / Math.max(1, sourceSize.height)
-                        source: "images/ayon_logo.png"
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        mipmap: true
-                        Accessible.role: Accessible.Graphic
-                        Accessible.name: "AYON"
+
+                        Image {
+                            anchors.fill: parent
+                            source: "images/ayon_logo.png"
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+                            opacity: studioLogo.shown ? 0 : 1
+                            Behavior on opacity { NumberAnimation { duration: root.fadeDuration } }
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: "AYON"
+                        }
+                        Image {
+                            id: studioLogo
+                            objectName: "studioLogo"
+                            property string latest: login.studioLogo
+                            property bool shown: login.page === 1 && latest.length > 0
+                                                 && status === Image.Ready
+                            // Keep the image while it fades out
+                            onLatestChanged: if (latest.length) source = latest
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+                            opacity: shown ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: root.fadeDuration } }
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: "Studio logo"
+                        }
                     }
 
                     Rectangle {
@@ -288,12 +236,6 @@ Rectangle {
                             onAccepted: login.validateServer(text)
                             onActiveFocusChanged: if (activeFocus) root.reveal(serverUrl)
                         }
-                        Loader {
-                            visible: login.loggedIn
-                            active: login.loggedIn
-                            Layout.fillWidth: true
-                            sourceComponent: sessionPanelComponent
-                        }
                         ActionButton {
                             objectName: "connectButton"
                             Layout.fillWidth: true
@@ -320,9 +262,192 @@ Rectangle {
                         }
                     }
 
+                    // Page 1: signed in (current or saved session)
+                    ColumnLayout {
+                        visible: login.page === 1 && root.showSession
+                        Layout.fillWidth: true
+                        spacing: 16
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "You are currently signed in as:"
+                            color: Theme.textVariant
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.bodyMedium
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                        }
+
+                        // Account
+                        Item {
+                            objectName: "sessionPanel"
+                            Layout.fillWidth: true
+                            implicitHeight: accountRow.implicitHeight + 24
+                            clip: true
+
+                            // Bottom corners are clipped off so the card
+                            // is square where the button attaches
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.bottomMargin: -radius
+                                radius: Theme.radiusM
+                                color: Theme.surfaceContainerLow
+                                border.width: 1
+                                border.color: Theme.outlineVariant
+                            }
+
+                            RowLayout {
+                                id: accountRow
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.margins: 12
+                                spacing: 12
+
+                                // Avatar; initials until the image is loaded
+                                Rectangle {
+                                    implicitWidth: 48
+                                    implicitHeight: 48
+                                    radius: 24
+                                    color: Theme.surfaceContainerHighest
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.initials(login.sessionDisplayName)
+                                        textFormat: Text.PlainText
+                                        color: Theme.textColor
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 18
+                                        font.weight: Font.Medium
+                                    }
+                                    Image {
+                                        objectName: "sessionAvatar"
+                                        anchors.fill: parent
+                                        source: login.sessionAvatar
+                                        smooth: true
+                                        mipmap: true
+                                        opacity: status === Image.Ready ? 1 : 0
+                                        Behavior on opacity { NumberAnimation { duration: root.fadeDuration } }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: login.sessionDisplayName
+                                        textFormat: Text.PlainText
+                                        color: Theme.textColor
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.bodyMedium
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        visible: text.length > 0
+                                        Layout.fillWidth: true
+                                        text: login.sessionEmail
+                                        textFormat: Text.PlainText
+                                        color: Theme.textVariant
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.bodySmall
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: login.serverUrl.replace(/^https?:\/\//, "")
+                                        textFormat: Text.PlainText
+                                        color: Theme.outline
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.bodySmall
+                                        elide: Text.ElideMiddle
+                                    }
+                                }
+                            }
+                        }
+
+                        ActionButton {
+                            id: continueButton
+                            objectName: "continueSessionButton"
+                            Layout.fillWidth: true
+                            // Attached to the account card above
+                            Layout.topMargin: -parent.spacing
+                            squareTop: true
+                            outlined: true
+                            variant: "accent"
+                            text: "Continue as " + login.sessionShortName
+                            enabled: !root.locked
+                            onClicked: login.continueSession()
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: Theme.outlineVariant
+                        }
+
+                        ColumnLayout {
+                            visible: !root.confirmingLogout
+                            Layout.fillWidth: true
+                            spacing: Theme.gapLarge
+
+                            ActionButton {
+                                objectName: "changeUserButton"
+                                Layout.fillWidth: true
+                                text: "Switch accounts"
+                                enabled: !root.locked
+                                onClicked: root.anotherAccount = true
+                            }
+                            ActionButton {
+                                objectName: "logoutButton"
+                                Layout.fillWidth: true
+                                text: "Log out"
+                                enabled: !root.locked
+                                onClicked: root.confirmingLogout = true
+                            }
+                        }
+
+                        // Inline logout confirmation
+                        ColumnLayout {
+                            visible: root.confirmingLogout
+                            Layout.fillWidth: true
+                            spacing: Theme.gapLarge
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Logging out invalidates your login. Applications"
+                                      + " launched with it won't be able to use it anymore."
+                                color: Theme.textVariant
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.bodySmall
+                                wrapMode: Text.WordWrap
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.gapLarge
+                                ActionButton {
+                                    objectName: "cancelLogoutButton"
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    text: "Cancel"
+                                    enabled: !root.locked
+                                    onClicked: root.confirmingLogout = false
+                                }
+                                ActionButton {
+                                    objectName: "confirmLogoutButton"
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    variant: "danger"
+                                    text: login.busy ? "Logging out…" : "Log out"
+                                    enabled: !root.locked
+                                    onClicked: login.logout()
+                                }
+                            }
+                        }
+                    }
+
                     // Page 1: sign in
                     ColumnLayout {
-                        visible: login.page === 1
+                        visible: login.page === 1 && !root.showSession
                         Layout.fillWidth: true
                         spacing: 16
 
@@ -400,18 +525,10 @@ Rectangle {
                                     }
                                 }
                             }
-
-                            Loader {
-                                // Only for the current session's server
-                                visible: login.isCurrentSession || login.canContinue
-                                active: visible
-                                Layout.fillWidth: true
-                                sourceComponent: sessionPanelComponent
-                            }
                         }
 
                         ColumnLayout {
-                            visible: login.browserSupported && !root.hideLoginOptions
+                            visible: login.browserSupported
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 
@@ -463,7 +580,7 @@ Rectangle {
 
                         // Separator between browser login and credentials
                         RowLayout {
-                            visible: login.browserSupported && !root.hideLoginOptions
+                            visible: login.browserSupported
                             Layout.fillWidth: true
                             spacing: 12
                             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.outlineVariant }
@@ -477,7 +594,6 @@ Rectangle {
                         }
 
                         ColumnLayout {
-                            visible: !root.hideLoginOptions
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 
@@ -554,6 +670,17 @@ Rectangle {
                                 enabled: !root.locked && username.text.trim().length > 0 && password.text.length > 0
                                 onClicked: login.signIn(username.text, password.text)
                                 onActiveFocusChanged: if (activeFocus) root.reveal(this)
+                            }
+
+                            // Back to the session the user is signed in with
+                            ActionButton {
+                                objectName: "backToSessionButton"
+                                visible: root.hasSession
+                                Layout.fillWidth: true
+                                variant: "text"
+                                text: "Back"
+                                enabled: !root.locked
+                                onClicked: root.anotherAccount = false
                             }
                         }
                     }

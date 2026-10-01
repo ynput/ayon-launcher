@@ -31,8 +31,9 @@ QtObject {
     readonly property color accentActive: "#23C093"
     readonly property color textOnAccent: "#1C2026"
 
-    // Login card: rgba(28, 32, 38, 0.95) over the surface color
-    readonly property color loginCard: "#1D2026"
+    // Login card: rgba(28, 32, 38, 0.95), over the surface color or the
+    // studio background
+    readonly property color loginCard: "#F21C2026"
 
     // Sizes
     readonly property int radiusM: 4

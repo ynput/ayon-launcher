@@ -1,8 +1,19 @@
 # QML login
 
-Both `ask_to_login` and `change_user` use `QmlServerLoginWindow`. In
-`change_user` the dialog shows the current session with an inline logout
-confirmation; a confirmed logout returns `(None, None, None, True)`.
+Both `ask_to_login` and `change_user` use `QmlServerLoginWindow`. When the
+user is signed in on the connected server (the current session in
+`change_user`, or a valid supplied API key in `ask_to_login`) the dialog
+shows the account with its avatar instead of the login options: continue,
+log into another account (shows the login options) or log out with an
+inline confirmation. Continuing the current session closes the dialog
+without changes; a confirmed logout of it returns `(None, None, None, True)`
+and the caller expires the token. Logging out of a supplied API key expires
+the token on the server right away and shows the login options.
+
+Once connected, the studio logo and login background set in the server's
+customization replace the AYON logo and the plain background. They and the
+avatar load in the background and fade in; the login flow never waits for
+them.
 
 The first page normalizes the server URL and checks the AYON API before
 enabling the sign-in page. Password authentication uses `login_to_server`;

@@ -4,11 +4,15 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 
 import ayon_api
 from ayon_api.exceptions import UnauthorizedError, UrlError
-from ayon_api.utils import login_to_server, validate_url
+from ayon_api.utils import (
+    login_to_server,
+    logout_from_server,
+    validate_url,
+)
 from qtpy import QtCore, QtGui, QtQuickWidgets, QtWidgets
 
 from ayon_common.resources import get_icon_path
@@ -19,6 +23,13 @@ from .server import LoginServerListener
 
 REQUEST_TIMEOUT = 10
 BROWSER_TIMEOUT = 180
+# Pixel size of the avatar passed to QML (twice the displayed size)
+AVATAR_SIZE = 96
+# Server info keys, maximum pixel size and encoding of the studio images
+STUDIO_IMAGES = {
+    "logo": (("studioLogo", "loginPageBrand"), (572, 120), "PNG"),
+    "background": (("loginPageBackground",), (1920, 1920), "JPG"),
+}
 
 
 def _normalize_url(url):
@@ -73,24 +84,104 @@ def password_login(url, username, password):
     return url, token, username
 
 
-def get_token_username(url, token):
-    """Return the authenticated username, or None for an invalid token."""
+def get_token_user(url, token):
+    """Return the authenticated user, or None for an invalid token."""
     api = ayon_api.ServerAPI(
         url, token=token, timeout=REQUEST_TIMEOUT, max_retries=0
     )
     try:
-        user = api.get_user()
+        return api.get_user()
     except UnauthorizedError:
-        user = None
+        return None
+
+
+def get_token_username(url, token):
+    """Return the authenticated username, or None for an invalid token."""
+    user = get_token_user(url, token)
     return user.get("name") if user else None
 
 
 def saved_login(url, token, expected_username):
     """Check supplied credentials; let network errors propagate for retry."""
-    username = get_token_username(url, token)
+    user = get_token_user(url, token)
+    username = user.get("name") if user else None
     if not username or (expected_username and username != expected_username):
         return None
-    return url, token, username
+    return url, token, username, user
+
+
+def _image_data_url(image, image_format="PNG"):
+    """Encode an image so QML can show it without a network request."""
+    data = QtCore.QByteArray()
+    buffer = QtCore.QBuffer(data)
+    buffer.open(QtCore.QIODevice.WriteOnly)
+    saved = image.save(buffer, image_format)
+    buffer.close()
+    if not saved:
+        return ""
+    mime = "image/jpeg" if image_format == "JPG" else "image/png"
+    return f"data:{mime};base64," + bytes(data.toBase64()).decode("ascii")
+
+
+def fetch_studio_image(url, kind):
+    """Return the studio logo or login background as a data URL, or ''."""
+    keys, (width, height), image_format = STUDIO_IMAGES[kind]
+    api = ayon_api.ServerAPI(url, timeout=REQUEST_TIMEOUT, max_retries=0)
+    info = api.raw_get(
+        "info", params={"full": "true"}, handle_invalid_token=False
+    ).data
+    path = next((info[key] for key in keys if info.get(key)), None)
+    if not path:
+        return ""
+    base_url = api.get_base_url()
+    image_url = urljoin(base_url + "/", path)
+    # Only load images from the server the user is connecting to.
+    if not image_url.startswith(base_url + "/"):
+        return ""
+    response = api.raw_get(image_url, handle_invalid_token=False)
+    if response.status_code != 200:
+        return ""
+    image = QtGui.QImage.fromData(response.content)
+    if image.isNull():
+        return ""
+    if image.width() > width or image.height() > height:
+        image = image.scaled(
+            width, height,
+            QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation,
+        )
+    return _image_data_url(image, image_format)
+
+
+def fetch_avatar(url, token, username):
+    """Return the round avatar of the user as a data URL, or ''."""
+    api = ayon_api.ServerAPI(
+        url, token=token, timeout=REQUEST_TIMEOUT, max_retries=0
+    )
+    response = api.raw_get(f"users/{username}/avatar")
+    # Users without an avatar get generated SVG initials; QML draws those.
+    if response.status_code != 200 or "svg" in (response.content_type or ""):
+        return ""
+    image = QtGui.QImage.fromData(response.content)
+    if image.isNull():
+        return ""
+    side = min(image.width(), image.height())
+    image = image.copy(
+        (image.width() - side) // 2, (image.height() - side) // 2, side, side
+    ).scaled(
+        AVATAR_SIZE, AVATAR_SIZE,
+        QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation,
+    )
+    avatar = QtGui.QImage(
+        AVATAR_SIZE, AVATAR_SIZE, QtGui.QImage.Format_ARGB32_Premultiplied
+    )
+    avatar.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(avatar)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing)
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(QtGui.QBrush(image))
+    painter.drawEllipse(0, 0, AVATAR_SIZE, AVATAR_SIZE)
+    painter.end()
+    return _image_data_url(avatar)
 
 
 def browser_login(url, token, forced_username):
@@ -151,8 +242,10 @@ class LoginController(QtCore.QObject):
     changed = QtCore.Signal()
     server_url_changed = QtCore.Signal()
     username_changed = QtCore.Signal()
+    images_changed = QtCore.Signal()
     authenticated = QtCore.Signal(str, str, str)
     logged_out = QtCore.Signal()
+    dismissed = QtCore.Signal()
     clear_password = QtCore.Signal()
 
     def __init__(self, parent=None):
@@ -166,9 +259,16 @@ class LoginController(QtCore.QObject):
         self._logged_in = False
         self._logged_in_username = ""
         self._logged_in_url = ""
+        self._logged_in_token = None
         # Valid supplied credentials (url, token, username) the user can
         #   continue with.
         self._session = None
+        # Details of the signed in user
+        self._session_user_loaded = False
+        self._full_name = ""
+        self._email = ""
+        # Optional images by kind ("avatar", "logo", "background")
+        self._images = {}
         self._page = 0
         self._busy = False
         self._error = ""
@@ -178,6 +278,9 @@ class LoginController(QtCore.QObject):
         self._deadline = 0
         self._request_id = 0
         self._requests = {}
+        self._fetch_id = 0
+        self._fetches = {}
+        self._latest_fetch = {}
         self._closed = False
         self._timer = QtCore.QTimer(self)
         self._timer.setInterval(100)
@@ -208,6 +311,34 @@ class LoginController(QtCore.QObject):
         if self._logged_in:
             return self._logged_in_username
         return self._session[2] if self._session else ""
+
+    @QtCore.Property(str, notify=changed)
+    def sessionDisplayName(self):
+        return self._full_name or self.sessionUsername
+
+    @QtCore.Property(str, notify=changed)
+    def sessionShortName(self):
+        """First name of the signed in user, username if it is not known."""
+        if self._full_name:
+            return self._full_name.split()[0]
+        return self.sessionUsername
+
+    @QtCore.Property(str, notify=changed)
+    def sessionEmail(self):
+        return self._email
+
+    # Images are data URLs, empty until they are loaded from the server.
+    @QtCore.Property(str, notify=images_changed)
+    def sessionAvatar(self):
+        return self._images.get("avatar", "")
+
+    @QtCore.Property(str, notify=images_changed)
+    def studioLogo(self):
+        return self._images.get("logo", "")
+
+    @QtCore.Property(str, notify=images_changed)
+    def studioBackground(self):
+        return self._images.get("background", "")
 
     @QtCore.Property(bool, notify=changed)
     def canContinue(self):
@@ -271,16 +402,33 @@ class LoginController(QtCore.QObject):
     def set_api_key(self, api_key):
         self._api_key = api_key or None
 
-    def set_logged_in(self, logged_in, username=None, url=None):
+    def set_logged_in(self, logged_in, username=None, url=None, api_key=None):
         """Show the current session and allow logout (change user mode).
 
         Login options are hidden while the current session's server is
-        selected; changing the server shows them again.
+        selected; changing the server shows them again. The api key is
+        only used to show details of the signed in user.
         """
         self._logged_in = bool(logged_in)
         self._logged_in_username = (username or "") if logged_in else ""
         self._logged_in_url = (url or self._url) if logged_in else ""
+        self._logged_in_token = (api_key or None) if logged_in else None
+        self._set_session_user(None)
+        self._session_user_loaded = False
         self.changed.emit()
+
+    def _set_session_user(self, user):
+        attrib = (user or {}).get("attrib") or {}
+        self._full_name = (attrib.get("fullName") or "").strip()
+        self._email = (attrib.get("email") or "").strip()
+        self._clear_images("avatar")
+
+    def _clear_images(self, *kinds):
+        """Forget loaded images and ignore the ones still loading."""
+        for kind in kinds:
+            self._images.pop(kind, None)
+            self._latest_fetch.pop(kind, None)
+        self.images_changed.emit()
 
     def initialize(self):
         """Validate prefilled connection details once the dialog is shown."""
@@ -301,13 +449,51 @@ class LoginController(QtCore.QObject):
         self.changed.emit()
         request.start(request_id, operation, function, args)
 
+    def _fetch_image(self, kind, function, *args):
+        """Load an optional image without blocking the login flow."""
+        self._fetch_id += 1
+        fetch_id = self._fetch_id
+        request = _Request()
+        self._fetches[fetch_id] = request
+        self._latest_fetch[kind] = fetch_id
+        request.completed.connect(self._fetched, QtCore.Qt.QueuedConnection)
+        request.start(fetch_id, kind, function, args)
+
+    @QtCore.Slot(int, str, object, str)
+    def _fetched(self, fetch_id, kind, result, error):
+        self._fetches.pop(fetch_id, None)
+        if (
+            self._closed or error or not result
+            or self._latest_fetch.get(kind) != fetch_id
+        ):
+            return
+        self._images[kind] = result
+        self.images_changed.emit()
+
+    def _fetch_avatar(self):
+        if self._session:
+            url, token, username = self._session
+        else:
+            url, token, username = (
+                self._url, self._logged_in_token, self._logged_in_username
+            )
+        if token and username:
+            self._fetch_image("avatar", fetch_avatar, url, token, username)
+
     @QtCore.Slot(int, str, object, str)
     def _complete(self, request_id, operation, result, error):
         self._requests.pop(request_id, None)
         if self._closed or request_id != self._request_id:
             return
         self._busy = False
-        if error:
+        if operation == "session_user":
+            # Details of the current session are optional.
+            self._session_user_loaded = True
+            self._page = 1
+            if result and not error:
+                self._set_session_user(result)
+                self._fetch_avatar()
+        elif error:
             self._error = error
             if operation in ("server", "saved_login"):
                 self._connection_failed = True
@@ -318,10 +504,25 @@ class LoginController(QtCore.QObject):
         elif operation == "server":
             self._url, self._browser_supported = result
             self.server_url_changed.emit()
+            self._clear_images(*STUDIO_IMAGES)
+            for kind in STUDIO_IMAGES:
+                self._fetch_image(kind, fetch_studio_image, self._url, kind)
             if self._api_key:
                 self._start(
                     "saved_login", saved_login,
                     self._url, self._api_key, self._username,
+                )
+                return
+            if (
+                self._logged_in_token
+                and not self._session_user_loaded
+                and _normalize_url(self._url) == _normalize_url(
+                    self._logged_in_url
+                )
+            ):
+                self._start(
+                    "session_user", get_token_user,
+                    self._url, self._logged_in_token,
                 )
                 return
             self._page = 1
@@ -336,8 +537,13 @@ class LoginController(QtCore.QObject):
             else:
                 # Do not continue automatically, the user may want to
                 #   login as a different user.
-                self._session = result
+                self._session = result[:3]
                 self._page = 1
+                self._set_session_user(result[3])
+                self._fetch_avatar()
+        elif operation == "logout":
+            self._session = None
+            self._set_session_user(None)
         elif operation in ("password", "browser_login"):
             self.clear_password.emit()
             self.authenticated.emit(*result)
@@ -438,16 +644,28 @@ class LoginController(QtCore.QObject):
 
     @QtCore.Slot()
     def continueSession(self):
-        if self._closed or self._busy or self._waiting or not self.canContinue:
+        if self._closed or self._busy or self._waiting:
             return
-        self.authenticated.emit(*self._session)
+        if self.canContinue:
+            self.authenticated.emit(*self._session)
+        elif self.isCurrentSession:
+            # Keep the current session as is.
+            self.dismissed.emit()
 
     @QtCore.Slot()
     def logout(self):
-        if self._closed or not self._logged_in:
+        if self._closed:
             return
-        self.cancelBrowser()
-        self.logged_out.emit()
+        if self._logged_in:
+            # The caller logs out the current session.
+            self.cancelBrowser()
+            self.logged_out.emit()
+        elif self.canContinue and not self._busy and not self._waiting:
+            # Expire the supplied credentials and ask to sign in again.
+            url, token, _ = self._session
+            self._start(
+                "logout", logout_from_server, url, token, REQUEST_TIMEOUT
+            )
 
     @QtCore.Slot()
     def clearError(self):
@@ -460,6 +678,7 @@ class LoginController(QtCore.QObject):
         self._closed = True
         self._api_key = None
         self._session = None
+        self._logged_in_token = None
         self.cancelBrowser()
         self.clear_password.emit()
 
@@ -484,11 +703,13 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         self.controller = LoginController(self.view)
         self.controller.authenticated.connect(self._authenticated)
         self.controller.logged_out.connect(self._logged_out)
+        self.controller.dismissed.connect(self.reject)
         self.controller.set_url(url)
         self.controller.set_username(username)
-        self.controller.set_api_key(api_key)
+        # The key of the current session is not used to log in again.
+        self.controller.set_api_key(None if logged_in else api_key)
         self.controller.set_force_username(force_username)
-        self.controller.set_logged_in(logged_in, username, url)
+        self.controller.set_logged_in(logged_in, username, url, api_key)
 
         self.view.setResizeMode(
             QtQuickWidgets.QQuickWidget.SizeRootObjectToView
@@ -519,8 +740,8 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
     def set_api_key(self, api_key):
         self.controller.set_api_key(api_key)
 
-    def set_logged_in(self, logged_in, username=None, url=None):
-        self.controller.set_logged_in(logged_in, username, url)
+    def set_logged_in(self, logged_in, username=None, url=None, api_key=None):
+        self.controller.set_logged_in(logged_in, username, url, api_key)
 
     def showEvent(self, event):
         super().showEvent(event)

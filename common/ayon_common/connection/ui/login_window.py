@@ -1104,15 +1104,15 @@ def change_user(url, username, api_key, always_on_top=False):
 
     Function creates new QApplication if is not created yet.
 
-    The current session is shown with an option to logout. The api key is
-    not used to log in again automatically, so the user can sign in with
-    different credentials.
+    The current session is shown with options to continue, log into another
+    account or logout. The api key is not used to log in again, so the user
+    can sign in with different credentials.
 
     Args:
         url (str): Server url that will be prefilled in dialog.
         username (str): Username that will be prefilled in dialog.
-        api_key (str): API key of current session. Not used by the dialog,
-            kept for backwards compatibility.
+        api_key (str): API key of current session. Only used to show details
+            of the signed in user (full name, email and avatar).
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
 
@@ -1129,6 +1129,7 @@ def change_user(url, username, api_key, always_on_top=False):
     window = QmlServerLoginWindow(
         url=url,
         username=username,
+        api_key=api_key,
         logged_in=True,
     )
     if always_on_top:
