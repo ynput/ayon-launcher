@@ -224,7 +224,9 @@ class LoginController(QtCore.QObject):
         return (
             self._logged_in
             and self._page == 1
-            and _normalize_url(self._url) == _normalize_url(self._logged_in_url)
+            and _normalize_url(self._url) == _normalize_url(
+                self._logged_in_url
+            )
         )
 
     @QtCore.Property(int, notify=changed)
