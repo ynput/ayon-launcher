@@ -1,29 +1,34 @@
 import QtQuick 2.15
 import QtQuick.Templates 2.15 as T
+import "."
 
+// Mirrors the ayon-react-components InputText.
 T.TextField {
     id: control
-    implicitWidth: 320
-    implicitHeight: 48
-    leftPadding: 14
-    rightPadding: 14
-    topPadding: 12
-    bottomPadding: 12
-    color: enabled ? "#edf2f4" : "#9ca6b2"
-    font.pixelSize: 14
-    selectionColor: "#a0e5d5"
-    selectedTextColor: "#122020"
+    implicitWidth: 286
+    implicitHeight: Theme.inputHeight
+    leftPadding: 8
+    rightPadding: 8
+    topPadding: 0
+    bottomPadding: 0
+    color: Theme.textColor
+    font.family: Theme.fontFamily
+    font.pixelSize: Theme.bodyMedium
+    selectionColor: Theme.primary
+    selectedTextColor: Theme.textOnPrimary
     selectByMouse: true
     persistentSelection: false
     verticalAlignment: TextInput.AlignVCenter
-    placeholderTextColor: "#747f8c"
+    placeholderTextColor: Theme.placeholder
+    opacity: enabled ? 1 : 0.5
+
     background: Rectangle {
-        radius: 8
-        color: "#11161c"
-        border.width: control.activeFocus ? 2 : 1
-        border.color: control.activeFocus ? "#a0e5d5" : "#38414c"
-        Behavior on border.color { ColorAnimation { duration: 120 } }
+        radius: Theme.radiusM
+        color: Theme.surfaceContainerLow
+        border.width: 1
+        border.color: control.activeFocus ? Theme.primary : Theme.outlineVariant
     }
+
     // Templates supply editing behavior; the placeholder is rendered here.
     Text {
         anchors.fill: parent

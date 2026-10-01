@@ -1,15 +1,16 @@
 import QtQuick 2.15
+import "."
 
 Item {
     id: spinner
-    implicitWidth: 22
-    implicitHeight: 22
+    implicitWidth: 18
+    implicitHeight: 18
     Rectangle {
         anchors.fill: parent
         radius: width / 2
         color: "transparent"
         border.width: 2
-        border.color: "#354c4b"
+        border.color: Theme.outlineVariant
     }
     Item {
         anchors.fill: parent
@@ -17,7 +18,7 @@ Item {
             width: 6
             height: 6
             radius: 3
-            color: "#a0e5d5"
+            color: Theme.primary
             anchors.horizontalCenter: parent.horizontalCenter
             y: -1
         }

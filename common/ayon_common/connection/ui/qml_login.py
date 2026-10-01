@@ -398,8 +398,8 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Sign in to AYON")
         self.setWindowIcon(QtGui.QIcon(get_icon_path()))
-        self.setMinimumSize(540, 700)
-        self.resize(940, 740)
+        self.setMinimumSize(480, 560)
+        self.resize(560, 720)
         self._result = (None, None, None, False)
 
         self.view = QtQuickWidgets.QQuickWidget(self)
@@ -415,7 +415,7 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         self.view.setResizeMode(
             QtQuickWidgets.QQuickWidget.SizeRootObjectToView
         )
-        self.view.setClearColor(QtGui.QColor("#101317"))
+        self.view.setClearColor(QtGui.QColor("#252B32"))
         self.view.rootContext().setContextProperty("login", self.controller)
         self.view.setSource(QtCore.QUrl.fromLocalFile(str(
             Path(__file__).parent / "qml" / "Login.qml"
