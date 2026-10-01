@@ -45,16 +45,10 @@ setting a process-wide Qt Quick Controls style. The `common` directory is
 already included by the launcher build; QML files and the existing AYON icon
 travel with it. The installed Qt runtime must include Qt Quick/QML plugins.
 
-## Offline tests
+## Testing
 
-With the same `PYTHONPATH`, run:
-
-```sh
-uv run python -m pytest common/ayon_common/connection/ui/tests/test_qml_login.py
-```
-
-For environments without a display, set `QT_QPA_PLATFORM=offscreen` and
-`QT_QUICK_BACKEND=software`. Tests use mocked authentication and a loopback
-callback; they do not need a real AYON server or open a browser. Manually
-check both login methods against a configured AYON server before release,
-and check supported platforms and frozen builds when validating packaging.
+There is no automated test suite for the dialog. Manually check both login
+methods against a configured AYON server before release, and check supported
+platforms and frozen builds when validating packaging. For environments
+without a display, set `QT_QPA_PLATFORM=offscreen` and
+`QT_QUICK_BACKEND=software`.
