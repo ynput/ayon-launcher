@@ -33,10 +33,17 @@ STUDIO_IMAGES = {
 
 
 def _normalize_url(url):
-    url = (url or "").strip().rstrip("/").lower()
+    """Normalize a url for comparison; its path stays case-sensitive."""
+    url = (url or "").strip().rstrip("/")
     if url and "://" not in url:
         url = "https://" + url
-    return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    return parts._replace(
+        scheme=parts.scheme.lower(), netloc=parts.netloc.lower()
+    ).geturl()
 
 
 class LoginError(Exception):
