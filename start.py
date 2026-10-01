@@ -87,8 +87,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import structlog
-
 from version import __version__
 
 
@@ -296,6 +294,10 @@ _python_paths.insert(0, common_path)
 sys.path.insert(0, os.path.join(AYON_ROOT, "vendor", "python"))
 
 os.environ["PYTHONPATH"] = os.pathsep.join(_python_paths)
+
+# Third-party modules can be imported only after 'dependencies' are
+#   added to 'sys.path', otherwise they are not found in frozen build.
+import structlog  # noqa: E402
 
 # enabled AYON state
 os.environ["USE_AYON_SERVER"] = "1"

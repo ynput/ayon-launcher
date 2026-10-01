@@ -8,6 +8,8 @@ Three opt-in observability levels are supported, additive to each other:
         setting 'AYON_VECTOR_LOG_URL'.
 """
 import atexit
+import datetime
+import functools
 import logging
 import os
 import queue
@@ -23,11 +25,16 @@ import requests.adapters
 import structlog
 import urllib3.util
 
-from ayon_common.utils import get_launcher_local_dir
+from ayon_common.utils import IS_BUILT_APPLICATION, get_launcher_local_dir
 
 VECTOR_LOG_URL = os.getenv("AYON_VECTOR_LOG_URL")
 LOG_FILE_ENABLED = os.getenv("AYON_LOG_FILE") == "1"
-LOG_FILE_RETENTION_DAYS = int(os.getenv("AYON_LOG_RETENTION_DAYS", "1"))
+try:
+    LOG_FILE_RETENTION_DAYS = max(
+        1, int(os.getenv("AYON_LOG_RETENTION_DAYS", "1"))
+    )
+except ValueError:
+    LOG_FILE_RETENTION_DAYS = 1
 # Each process writes its own file, see '_get_log_file_path'
 LOG_FILE_PREFIX = "ayon_"
 LOG_FILE_EXT = ".ndjson"
@@ -74,8 +81,8 @@ def get_log_level_from_env() -> int:
         if log_level.isdigit():
             level = int(log_level)
         else:
-            level = logging.getLevelName(log_level.upper())
-        if isinstance(level, int) and level > 0:
+            level = logging.getLevelNamesMapping().get(log_level.upper(), 0)
+        if level > 0:
             return level
 
     try:
@@ -272,7 +279,7 @@ class VectorHTTPSender:
     def __init__(
         self,
         url: str,
-        log_queue: queue.Queue[logging.LogRecord | object],
+        log_queue: queue.Queue[str | None],
         batch_size: int = VECTOR_BATCH_SIZE,
         flush_interval: float = VECTOR_FLUSH_INTERVAL,
         failure_threshold: int = VECTOR_FAILURE_THRESHOLD,
@@ -313,7 +320,7 @@ class VectorHTTPSender:
         if self._thread is None:
             return
         try:
-            self._queue.put(self._stop_sentinel, timeout=timeout)
+            self._queue.put(None, timeout=timeout)
         except queue.Full:
             pass
         self._thread.join(timeout)
@@ -324,7 +331,7 @@ class VectorHTTPSender:
         stop = False
         while not stop:
             item = self._queue.get()
-            if item is self._stop_sentinel:
+            if item is None:
                 break
             batch = [item]
             deadline = time.monotonic() + self._flush_interval
@@ -336,7 +343,7 @@ class VectorHTTPSender:
                     item = self._queue.get(timeout=remaining)
                 except queue.Empty:
                     break
-                if item is self._stop_sentinel:
+                if item is None:
                     stop = True
                     break
                 batch.append(item)
@@ -377,6 +384,100 @@ class VectorHTTPSender:
             self._consecutive_failures = 0
 
 
+def _get_console_exception_formatter(
+        colors: bool) -> structlog.types.ExceptionRenderer:
+    """Exception formatter for console output.
+
+    Rich tracebacks are used only when running from sources. Builds use
+    plain tracebacks. Locals are never shown, they may hold large or
+    sensitive values (e.g. credentials).
+
+    Args:
+        colors (bool): Console output uses colors.
+
+    Returns:
+        structlog.types.ExceptionRenderer: Exception formatter.
+
+    """
+    if not IS_BUILT_APPLICATION:
+        try:
+            import rich  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            return structlog.dev.RichTracebackFormatter(
+                color_system="truecolor" if colors else None,  # ty: ignore[invalid-argument-type]
+                show_locals=False,
+            )
+    return structlog.dev.plain_traceback
+
+
+class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
+    """ConsoleRenderer not initializing colorama on Windows.
+
+    'colorama.init()' replaces 'sys.stdout' and 'sys.stderr' of the whole
+    process, which breaks processes redirecting them. Whether the stream
+    supports colors is resolved by '_StderrHandler' instead.
+    """
+
+    @classmethod
+    def get_default_column_styles(cls, colors, force_colors=False):
+        if colors:
+            return structlog.dev._colorful_styles
+        return structlog.dev._plain_styles
+
+
+# Console mode flag enabling ANSI escape sequences on Windows
+_ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+
+
+@functools.lru_cache(maxsize=None)
+def _enable_windows_ansi(fileno: int) -> bool:
+    """Enable ANSI escape sequences in Windows console of 'fileno'.
+
+    Returns:
+        bool: The console supports ANSI escape sequences.
+
+    """
+    try:
+        import ctypes
+        import msvcrt
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = msvcrt.get_osfhandle(fileno)  # type: ignore[attr-defined]
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        if mode.value & _ENABLE_VIRTUAL_TERMINAL_PROCESSING:
+            return True
+        return bool(kernel32.SetConsoleMode(
+            handle, mode.value | _ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        ))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _stream_supports_colors(stream: TextIO) -> bool:
+    """Stream is a terminal able to show ANSI colors.
+
+    'NO_COLOR' and 'FORCE_COLOR' environment variables have precedence,
+    see https://no-color.org and https://force-color.org.
+    """
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    try:
+        if not stream.isatty():
+            return False
+        if sys.platform == "win32":
+            return _enable_windows_ansi(stream.fileno())
+    except (AttributeError, ValueError, OSError):
+        # Replaced streams may not implement 'isatty' or 'fileno'
+        return False
+    return os.environ.get("TERM") != "dumb"
+
+
 class _StderrHandler(logging.StreamHandler):
     """StreamHandler writing to the current 'sys.stderr'.
 
@@ -386,19 +487,62 @@ class _StderrHandler(logging.StreamHandler):
 
     Logs go to stderr so stdout of AYON launcher commands stays usable
     for their output.
+
+    Records are formatted with 'color_formatter' when the current stream
+    supports colors, otherwise with the handler's formatter.
     """
 
-    def __init__(self, level: int = logging.NOTSET):
+    def __init__(
+        self,
+        level: int = logging.NOTSET,
+        color_formatter: logging.Formatter | None = None,
+    ):
         logging.Handler.__init__(self, level)
+        self.color_formatter = color_formatter
 
     @property
     def stream(self) -> TextIO:
         return sys.stderr
 
+    def format(self, record: logging.LogRecord) -> str:
+        if (
+            self.color_formatter is not None
+            and _stream_supports_colors(sys.stderr)
+        ):
+            return self.color_formatter.format(record)
+        return super().format(record)
+
     def emit(self, record: logging.LogRecord) -> None:
+        stream = sys.stderr
         # 'sys.stderr' is None in GUI processes without console
-        if sys.stderr is not None:
-            super().emit(record)
+        if stream is None:
+            return
+        try:
+            msg = self.format(record) + self.terminator
+            try:
+                stream.write(msg)
+            except UnicodeEncodeError:
+                # Stream encoding can't represent some characters, e.g.
+                #   non-latin names on a 'cp1252' Windows console.
+                encoding = getattr(stream, "encoding", None) or "ascii"
+                stream.write(
+                    msg.encode(encoding, "backslashreplace").decode(encoding)
+                )
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:  # noqa: BLE001
+            self.handleError(record)
+
+    def formatTime(  # noqa: N802
+            self,
+            record: logging.LogRecord,
+            datefmt: str | None = None) -> str:
+        return (
+            datetime.datetime.fromtimestamp(record.created)
+            .astimezone(datetime.timezone.utc)
+            .isoformat(timespec="milliseconds")
+        )
 
 
 def configure_logging() -> None:
@@ -470,16 +614,21 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    console_formatter = _EventDictProcessorFormatter(
-        foreign_pre_chain=shared_processors,
-        processors=[
-            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            _drop_log_context,
-            structlog.dev.ConsoleRenderer(
-                exception_formatter=structlog.dev.rich_traceback,
-            ),
-        ],
-    )
+    def _create_console_formatter(colors: bool) -> logging.Formatter:
+        return _EventDictProcessorFormatter(
+            foreign_pre_chain=shared_processors,
+            processors=[
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                _drop_log_context,
+                _ConsoleRenderer(
+                    colors=colors,
+                    exception_formatter=(
+                        _get_console_exception_formatter(colors)
+                    ),
+                ),
+            ],
+        )
+
     json_formatter = _EventDictProcessorFormatter(
         foreign_pre_chain=shared_processors,
         processors=[
@@ -489,8 +638,10 @@ def configure_logging() -> None:
         ],
     )
 
-    handler = _StderrHandler()
-    handler.setFormatter(console_formatter)
+    handler = _StderrHandler(
+        color_formatter=_create_console_formatter(colors=True)
+    )
+    handler.setFormatter(_create_console_formatter(colors=False))
 
     if LOG_FILE_ENABLED:
         log_dir = get_launcher_local_dir("logs", create=True)
