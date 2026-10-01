@@ -22,6 +22,8 @@ QtObject {
     readonly property color textOnPrimary: "#00344F"
     readonly property color error: "#FFB4AB"
     readonly property color errorContainer: "#93000A"
+    readonly property color errorContainerHover: "#9C1F11"
+    readonly property color errorContainerActive: "#9E271A"
     readonly property color errorTextColor: "#FFDAD6"
     readonly property color placeholder: "#757575"
     readonly property color accent: "#27D6A4"

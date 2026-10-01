@@ -11,6 +11,12 @@ Rectangle {
     color: Theme.surface
     property int currentPage: login.page
     property bool locked: login.busy || login.waitingForBrowser
+    property bool confirmingLogout: false
+
+    function escapeHtml(value) {
+        return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    }
 
     function reveal(item) {
         var position = item.mapToItem(viewport.contentItem, 0, 0)
@@ -60,6 +66,95 @@ Rectangle {
         wrapMode: Text.WordWrap
     }
 
+    // Current session (change user mode); used below the server input
+    Component {
+        id: sessionPanelComponent
+
+        Rectangle {
+            objectName: "sessionPanel"
+            implicitHeight: sessionColumn.implicitHeight + 16
+            radius: Theme.radiusM
+            color: Theme.surfaceContainerLow
+            border.width: 1
+            border.color: root.confirmingLogout ? Theme.errorContainer : Theme.outlineVariant
+
+            ColumnLayout {
+                id: sessionColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 8
+                anchors.leftMargin: 10
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Rectangle { width: 6; height: 6; radius: 3; color: Theme.accent }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Logged in as <b>" + root.escapeHtml(login.sessionUsername) + "</b>"
+                        textFormat: Text.StyledText
+                        color: Theme.textColor
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.bodySmall
+                        elide: Text.ElideRight
+                    }
+                    ActionButton {
+                        objectName: "logoutButton"
+                        visible: login.loggedIn && !root.confirmingLogout
+                        compact: true
+                        text: "Logout"
+                        enabled: !root.locked
+                        onClicked: root.confirmingLogout = true
+                    }
+                    ActionButton {
+                        objectName: "continueSessionButton"
+                        visible: !login.loggedIn
+                        compact: true
+                        text: "Continue"
+                        enabled: !root.locked
+                        onClicked: login.continueSession()
+                    }
+                }
+
+                // Inline logout confirmation
+                ColumnLayout {
+                    visible: root.confirmingLogout
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Logging out invalidates your login. Applications"
+                              + " launched with it won't be able to use it anymore."
+                        color: Theme.textVariant
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.bodySmall
+                        wrapMode: Text.WordWrap
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Item { Layout.fillWidth: true }
+                        ActionButton {
+                            objectName: "cancelLogoutButton"
+                            compact: true
+                            variant: "text"
+                            text: "Cancel"
+                            onClicked: root.confirmingLogout = false
+                        }
+                        ActionButton {
+                            objectName: "confirmLogoutButton"
+                            compact: true
+                            variant: "danger"
+                            text: "Logout"
+                            onClicked: login.logout()
+                        }
+                    }
+                }
+            }
+        }
+    }
     Flickable {
         id: viewport
         anchors.fill: parent
@@ -165,6 +260,12 @@ Rectangle {
                             onTextEdited: login.clearError()
                             onAccepted: login.validateServer(text)
                             onActiveFocusChanged: if (activeFocus) root.reveal(serverUrl)
+                        }
+                        Loader {
+                            visible: login.loggedIn
+                            active: login.loggedIn
+                            Layout.fillWidth: true
+                            sourceComponent: sessionPanelComponent
                         }
                         ActionButton {
                             objectName: "connectButton"
@@ -272,10 +373,18 @@ Rectangle {
                                     }
                                 }
                             }
+
+                            Loader {
+                                // Only for the current session's server
+                                visible: login.isCurrentSession || login.canContinue
+                                active: visible
+                                Layout.fillWidth: true
+                                sourceComponent: sessionPanelComponent
+                            }
                         }
 
                         ColumnLayout {
-                            visible: login.browserSupported
+                            visible: login.browserSupported && !login.isCurrentSession
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 
@@ -327,7 +436,7 @@ Rectangle {
 
                         // Separator between browser login and credentials
                         RowLayout {
-                            visible: login.browserSupported
+                            visible: login.browserSupported && !login.isCurrentSession
                             Layout.fillWidth: true
                             spacing: 12
                             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.outlineVariant }
@@ -341,6 +450,7 @@ Rectangle {
                         }
 
                         ColumnLayout {
+                            visible: !login.isCurrentSession
                             Layout.fillWidth: true
                             spacing: Theme.gapLarge
 

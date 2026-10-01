@@ -1,8 +1,8 @@
 # QML login
 
-The default unsigned-in flow in `ask_to_login` uses `QmlServerLoginWindow`.
-Existing signed-in account management and `change_user` retain the widget
-dialog, including its logout confirmation and result contract.
+Both `ask_to_login` and `change_user` use `QmlServerLoginWindow`. In
+`change_user` the dialog shows the current session with an inline logout
+confirmation; a confirmed logout returns `(None, None, None, True)`.
 
 The first page normalizes the server URL and checks the AYON API before
 enabling the sign-in page. Password authentication uses `login_to_server`;

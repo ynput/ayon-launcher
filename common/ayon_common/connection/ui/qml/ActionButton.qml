@@ -3,7 +3,7 @@ import QtQuick.Templates 2.15 as T
 import "."
 
 // Mirrors the ayon-react-components Button ("surface" default, "text" variant)
-// plus an "accent" variant in AYON green.
+// plus "accent" (AYON green) and "danger" variants.
 T.Button {
     id: control
     property string variant: "surface"
@@ -23,7 +23,8 @@ T.Button {
         font.family: Theme.fontFamily
         font.pixelSize: control.compact ? Theme.bodySmall : Theme.bodyMedium
         font.weight: Font.Medium
-        color: control.variant === "accent" ? Theme.textOnAccent : Theme.textColor
+        color: control.variant === "accent" ? Theme.textOnAccent
+             : control.variant === "danger" ? Theme.errorTextColor : Theme.textColor
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -38,6 +39,13 @@ T.Button {
                 if (control.enabled && control.hovered)
                     return Theme.accentHover
                 return Theme.accent
+            }
+            if (control.variant === "danger") {
+                if (control.enabled && control.down)
+                    return Theme.errorContainerActive
+                if (control.enabled && control.hovered)
+                    return Theme.errorContainerHover
+                return Theme.errorContainer
             }
             if (control.enabled && control.down)
                 return Theme.surfaceContainerHighestActive

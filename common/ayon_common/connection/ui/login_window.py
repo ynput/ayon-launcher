@@ -1100,32 +1100,48 @@ def ask_to_login(
 
 
 def change_user(url, username, api_key, always_on_top=False):
-    """Ask user to login using Qt dialog.
+    """Ask user to change server or user using Qt dialog.
 
     Function creates new QApplication if is not created yet.
+
+    The current session is shown with an option to logout. The api key is
+    not used to log in again automatically, so the user can sign in with
+    different credentials.
 
     Args:
         url (str): Server url that will be prefilled in dialog.
         username (str): Username that will be prefilled in dialog.
-        api_key (str): API key that will be prefilled in dialog.
+        api_key (str): API key of current session. Not used by the dialog,
+            kept for backwards compatibility.
         always_on_top (Optional[bool]): Window will be drawn on top of
             other windows.
 
     Returns:
-        Tuple[str, str]: Returns Url and user's token. Url can be changed
-            during dialog lifetime that's why the url is returned.
+        tuple[str, str, str, bool]: Returns Url, user's token, username and
+            if user logged out. Url can be changed during dialog lifetime
+            that's why the url is returned.
     """
 
     app_instance = get_qt_app()
-    window = ServerLoginWindow()
+
+    from .qml_login import QmlServerLoginWindow
+
+    window = QmlServerLoginWindow(
+        url=url,
+        username=username,
+        logged_in=True,
+    )
     if always_on_top:
         window.setWindowFlags(
             window.windowFlags()
             | QtCore.Qt.WindowStaysOnTopHint
         )
-    window.set_logged_in(True, url, username, api_key)
 
     if not app_instance.startingUp():
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        window.showNormal()
         window.exec_()
     else:
         window.open()

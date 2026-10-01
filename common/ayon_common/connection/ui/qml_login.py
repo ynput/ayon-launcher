@@ -21,6 +21,13 @@ REQUEST_TIMEOUT = 10
 BROWSER_TIMEOUT = 180
 
 
+def _normalize_url(url):
+    url = (url or "").strip().rstrip("/").lower()
+    if url and "://" not in url:
+        url = "https://" + url
+    return url
+
+
 class LoginError(Exception):
     """An authentication error that can be displayed to the user."""
 
@@ -145,6 +152,7 @@ class LoginController(QtCore.QObject):
     server_url_changed = QtCore.Signal()
     username_changed = QtCore.Signal()
     authenticated = QtCore.Signal(str, str, str)
+    logged_out = QtCore.Signal()
     clear_password = QtCore.Signal()
 
     def __init__(self, parent=None):
@@ -155,6 +163,12 @@ class LoginController(QtCore.QObject):
         self._initialized = False
         self._connection_failed = False
         self._force_username = False
+        self._logged_in = False
+        self._logged_in_username = ""
+        self._logged_in_url = ""
+        # Valid supplied credentials (url, token, username) the user can
+        #   continue with.
+        self._session = None
         self._page = 0
         self._busy = False
         self._error = ""
@@ -180,6 +194,38 @@ class LoginController(QtCore.QObject):
     @QtCore.Property(bool, notify=changed)
     def forceUsername(self):
         return self._force_username
+
+    @QtCore.Property(bool, notify=changed)
+    def loggedIn(self):
+        return self._logged_in
+
+    @QtCore.Property(str, notify=changed)
+    def loggedInUsername(self):
+        return self._logged_in_username
+
+    @QtCore.Property(str, notify=changed)
+    def sessionUsername(self):
+        if self._logged_in:
+            return self._logged_in_username
+        return self._session[2] if self._session else ""
+
+    @QtCore.Property(bool, notify=changed)
+    def canContinue(self):
+        """Supplied credentials are valid for the server on sign-in page."""
+        return (
+            self._session is not None
+            and self._page == 1
+            and _normalize_url(self._url) == _normalize_url(self._session[0])
+        )
+
+    @QtCore.Property(bool, notify=changed)
+    def isCurrentSession(self):
+        """Server on the sign-in page is the one of the current session."""
+        return (
+            self._logged_in
+            and self._page == 1
+            and _normalize_url(self._url) == _normalize_url(self._logged_in_url)
+        )
 
     @QtCore.Property(int, notify=changed)
     def page(self):
@@ -222,6 +268,17 @@ class LoginController(QtCore.QObject):
 
     def set_api_key(self, api_key):
         self._api_key = api_key or None
+
+    def set_logged_in(self, logged_in, username=None, url=None):
+        """Show the current session and allow logout (change user mode).
+
+        Login options are hidden while the current session's server is
+        selected; changing the server shows them again.
+        """
+        self._logged_in = bool(logged_in)
+        self._logged_in_username = (username or "") if logged_in else ""
+        self._logged_in_url = (url or self._url) if logged_in else ""
+        self.changed.emit()
 
     def initialize(self):
         """Validate prefilled connection details once the dialog is shown."""
@@ -275,7 +332,10 @@ class LoginController(QtCore.QObject):
                     " Please sign in again."
                 )
             else:
-                self.authenticated.emit(*result)
+                # Do not continue automatically, the user may want to
+                #   login as a different user.
+                self._session = result
+                self._page = 1
         elif operation in ("password", "browser_login"):
             self.clear_password.emit()
             self.authenticated.emit(*result)
@@ -375,6 +435,19 @@ class LoginController(QtCore.QObject):
         self.changed.emit()
 
     @QtCore.Slot()
+    def continueSession(self):
+        if self._closed or self._busy or self._waiting or not self.canContinue:
+            return
+        self.authenticated.emit(*self._session)
+
+    @QtCore.Slot()
+    def logout(self):
+        if self._closed or not self._logged_in:
+            return
+        self.cancelBrowser()
+        self.logged_out.emit()
+
+    @QtCore.Slot()
     def clearError(self):
         if self._error or self._connection_failed:
             self._error = ""
@@ -384,6 +457,7 @@ class LoginController(QtCore.QObject):
     def shutdown(self):
         self._closed = True
         self._api_key = None
+        self._session = None
         self.cancelBrowser()
         self.clear_password.emit()
 
@@ -393,7 +467,7 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
 
     def __init__(
         self, parent=None, *, url=None, username=None, api_key=None,
-        force_username=False,
+        force_username=False, logged_in=False,
     ):
         super().__init__(parent)
         self.setWindowTitle("Sign in to AYON")
@@ -407,10 +481,12 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         # the controller alive until all bindings that reference it are gone.
         self.controller = LoginController(self.view)
         self.controller.authenticated.connect(self._authenticated)
+        self.controller.logged_out.connect(self._logged_out)
         self.controller.set_url(url)
         self.controller.set_username(username)
         self.controller.set_api_key(api_key)
         self.controller.set_force_username(force_username)
+        self.controller.set_logged_in(logged_in, username, url)
 
         self.view.setResizeMode(
             QtQuickWidgets.QQuickWidget.SizeRootObjectToView
@@ -441,6 +517,9 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
     def set_api_key(self, api_key):
         self.controller.set_api_key(api_key)
 
+    def set_logged_in(self, logged_in, username=None, url=None):
+        self.controller.set_logged_in(logged_in, username, url)
+
     def showEvent(self, event):
         super().showEvent(event)
         self.controller.initialize()
@@ -448,6 +527,11 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
     @QtCore.Slot(str, str, str)
     def _authenticated(self, url, token, username):
         self._result = (url, token, username, False)
+        self.accept()
+
+    @QtCore.Slot()
+    def _logged_out(self):
+        self._result = (None, None, None, True)
         self.accept()
 
     def result(self):
