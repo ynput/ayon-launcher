@@ -118,4 +118,5 @@ jobs:
     with:
       tag_name: ${{ needs.release.outputs.version }}
       enable_macos_signing: true
+      enable_windows_signing: true
     secrets: inherit
