@@ -18,7 +18,13 @@ import structlog
 
 # 'ayon_common' is imported as top level package, same as in 'start.py'
 sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    0,
+    os.path.join(
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        ),
+        "common",
+    ),
 )
 
 import ayon_common.logging  # noqa: E402
@@ -402,3 +408,70 @@ def test_rate_limited_logger_accepts_arguments(logging_module):
         logger.removeHandler(handler)
 
     assert handler.messages == ["Paused for 30.0 seconds."]
+
+
+def test_vector_sender_request_stop_does_not_wait(logging_module):
+    module = logging_module()
+    stub = _StubVector()
+    log_queue = queue.Queue()
+    sender = module.VectorHTTPSender(
+        stub.url, log_queue, batch_size=10, flush_interval=5.0
+    )
+    try:
+        for idx in range(5):
+            log_queue.put(json.dumps({"event": str(idx)}))
+        sender.start()
+        thread = sender._thread
+        sender.request_stop()
+        # Queued records are sent in the background, then thread ends
+        thread.join(5.0)
+        assert not thread.is_alive()
+        # 'stop' at exit does not wait for a finished thread
+        start = time.monotonic()
+        sender.stop()
+        assert time.monotonic() - start < 1.0
+    finally:
+        stub.close()
+
+    events = [item["event"] for body in stub.bodies for item in body]
+    assert events == [str(idx) for idx in range(5)]
+
+
+def test_release_logging_restores_logging(logging_module, monkeypatch):
+    """'ayon_core' configures logging after launcher released it."""
+    monkeypatch.setenv("AYON_LOG_LEVEL", "DEBUG")
+    root = logging.getLogger()
+    root.setLevel(logging.WARNING)
+    orig_handlers = list(root.handlers)
+    noisy_logger = logging.getLogger("urllib3")
+    orig_noisy_level = noisy_logger.level
+
+    module = logging_module()
+    assert root.level == logging.DEBUG
+    assert noisy_logger.level == logging.WARNING
+    assert len(root.handlers) > len(orig_handlers)
+    assert structlog.is_configured()
+
+    module.release_logging()
+
+    assert root.level == logging.WARNING
+    assert noisy_logger.level == orig_noisy_level
+    assert root.handlers == orig_handlers
+    assert not structlog.is_configured()
+    # Repeated release does nothing
+    module.release_logging()
+    assert root.handlers == orig_handlers
+
+
+def test_release_logging_without_configuration(logging_module):
+    """Nothing to release when logging was configured by other package."""
+    module = logging_module()
+    module.release_logging()
+    root_handlers = list(logging.getLogger().handlers)
+
+    structlog.configure()
+    module.configure_logging()
+    module.release_logging()
+
+    assert logging.getLogger().handlers == root_handlers
+    assert structlog.is_configured()

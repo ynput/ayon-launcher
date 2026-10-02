@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from logging.handlers import QueueHandler, TimedRotatingFileHandler
 from typing import Any, TextIO
 
@@ -319,13 +320,29 @@ class VectorHTTPSender:
         """Send records remaining in the queue and stop the thread."""
         if self._thread is None:
             return
-        try:
-            self._queue.put(None, timeout=timeout)
-        except queue.Full:
-            pass
-        self._thread.join(timeout)
+        # Thread may already be finished, see 'request_stop'
+        if self._thread.is_alive():
+            try:
+                self._queue.put(None, timeout=timeout)
+            except queue.Full:
+                pass
+            self._thread.join(timeout)
         self._thread = None
         self._session.close()
+
+    def request_stop(self) -> None:
+        """Stop the thread once records in the queue are sent.
+
+        Does not wait for the thread. 'stop' registered at exit still
+        waits for records which were not sent yet.
+        """
+        if self._thread is None:
+            return
+        try:
+            self._queue.put_nowait(None)
+        except queue.Full:
+            # Thread runs until exit, 'stop' handles it
+            pass
 
     def _run(self) -> None:
         stop = False
@@ -545,6 +562,19 @@ class _StderrHandler(logging.StreamHandler):
         )
 
 
+@dataclass
+class _LoggingState:
+    """What 'configure_logging' changed, to undo it in 'release_logging'."""
+
+    root_level: int
+    handlers: list[logging.Handler] = field(default_factory=list)
+    logger_levels: dict[str, int] = field(default_factory=dict)
+    vector_sender: VectorHTTPSender | None = None
+
+
+_logging_state: _LoggingState | None = None
+
+
 def configure_logging() -> None:
     """Set up logging for AYON common package.
 
@@ -556,6 +586,8 @@ def configure_logging() -> None:
     process has any effect, to avoid attaching duplicate handlers.
 
     """
+    global _logging_state
+
     # 'structlog.is_configured()' is process-wide, so it also guards
     # against other packages (e.g. 'ayon_core') configuring logging first.
     if structlog.is_configured():
@@ -671,20 +703,62 @@ def configure_logging() -> None:
 
     log_level = get_log_level_from_env()
     root_logger = logging.getLogger()
+    state = _LoggingState(root_level=root_logger.level)
     # Set level first, root logger default WARNING would drop INFO below
     root_logger.setLevel(log_level)
     root_logger.addHandler(handler)
+    state.handlers.append(handler)
     if LOG_FILE_ENABLED:
         root_logger.addHandler(file_handler)
+        state.handlers.append(file_handler)
     if VECTOR_LOG_URL:
         root_logger.info(
             "Vector logging enabled",
             extra={"vector_log_url": VECTOR_LOG_URL},
         )
         root_logger.addHandler(queue_handler)
+        state.handlers.append(queue_handler)
+        state.vector_sender = vector_sender
 
     if log_level < logging.INFO:
         # force silence for some very noisy loggers
-        logging.getLogger("urllib3").setLevel(logging.WARNING)
-        logging.getLogger("requests").setLevel(logging.WARNING)
-        logging.getLogger("GlobalServerAPI").setLevel(logging.WARNING)
+        for name in ("urllib3", "requests", "GlobalServerAPI"):
+            logger = logging.getLogger(name)
+            state.logger_levels[name] = logger.level
+            logger.setLevel(logging.WARNING)
+
+    _logging_state = state
+
+
+def release_logging() -> None:
+    """Undo 'configure_logging' before control is passed to 'ayon_core'.
+
+    Logging of the launcher process belongs to 'ayon_core' once it is
+    started, it configures logging for its own needs. Handlers added by
+    'configure_logging' are removed, levels of the root logger and of
+    silenced loggers are restored and structlog configuration is reset.
+
+    Records already queued for Vector are sent in the background, the
+    sender thread stops afterwards. Does nothing if 'configure_logging'
+    did not configure logging.
+    """
+    global _logging_state
+
+    state = _logging_state
+    if state is None:
+        return
+    _logging_state = None
+
+    root_logger = logging.getLogger()
+    for handler in state.handlers:
+        root_logger.removeHandler(handler)
+        handler.close()
+    root_logger.setLevel(state.root_level)
+    for name, level in state.logger_levels.items():
+        logging.getLogger(name).setLevel(level)
+
+    if state.vector_sender is not None:
+        state.vector_sender.request_stop()
+
+    structlog.reset_defaults()
+    structlog.contextvars.clear_contextvars()

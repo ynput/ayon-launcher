@@ -424,7 +424,7 @@ from ayon_common.distribution import (
     show_missing_bundle_information,
     show_missing_permissions,
 )
-from ayon_common.logging import configure_logging
+from ayon_common.logging import configure_logging, release_logging
 from ayon_common.startup import show_startup_error
 from ayon_common.utils import (
     ShimDeploymentError,
@@ -1131,6 +1131,20 @@ def main_cli():
     moment is fully dependent on 'ayon_core' addon. Which means it
     contains more logic than it should.
     """
+    # print info when not running scripts defined in 'silent commands'
+    if not SKIP_HEADERS:
+        info = get_info(
+            use_staging=is_staging_enabled(),
+            use_dev=is_dev_mode_enabled()
+        )
+        logger.info("AYON launcher initialized", info=info)
+
+    logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
+
+    # 'ayon_core' configures logging on import, launcher logging must be
+    #   released before
+    release_logging()
+
     try:
         import ayon_core  # noqa F401
     except ModuleNotFoundError:
@@ -1142,15 +1156,6 @@ def main_cli():
         logger.exception("Failed to import the AYON core CLI.")
         _on_main_addon_import_error(exc)
 
-    # print info when not running scripts defined in 'silent commands'
-    if not SKIP_HEADERS:
-        info = get_info(
-            use_staging=is_staging_enabled(),
-            use_dev=is_dev_mode_enabled()
-        )
-        logger.info("AYON launcher initialized", info=info)
-
-    logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
     try:
         cli.main()
     except Exception:
@@ -1227,6 +1232,9 @@ def script_cli(start_arg=None):
     # Read content and execute
     with open(filepath, "r") as stream:
         content = stream.read()
+
+    # Script may use 'ayon_core' which configures logging for itself
+    release_logging()
 
     script_globals = dict(globals())
     script_globals["__file__"] = filepath
