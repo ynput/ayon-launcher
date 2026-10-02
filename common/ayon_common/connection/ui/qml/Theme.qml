@@ -4,7 +4,12 @@ import QtQuick 2.15
 // Design tokens mirrored from @ynput/ayon-react-components (dark theme),
 // as used by the AYON web frontend login page.
 QtObject {
-    readonly property string fontFamily: "Nunito Sans"
+    // Bundled launcher font, used no matter what is installed on the system
+    readonly property FontLoader notoSans: FontLoader {
+        source: "../../../resources/NotoSans-Medium.ttf"
+    }
+    readonly property string fontFamily: notoSans.status === FontLoader.Ready
+        ? notoSans.name : "Noto Sans"
 
     // --md-sys-color-*-dark
     readonly property color surface: "#252B32"
