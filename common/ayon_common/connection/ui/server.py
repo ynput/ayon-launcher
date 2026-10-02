@@ -1,5 +1,4 @@
 import os
-import sys
 import threading
 from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -50,10 +49,8 @@ class LoginServerHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def log_message(self, *args, **kwargs):
-        # Avoid crash in process without stderr
-        # - e.g. UI build on windows
-        if sys.stderr is not None:
-            super().log_message(*args, **kwargs)
+        # Callback URLs contain access tokens; never write them to stderr.
+        pass
 
 
 class LoginHTTPServer(HTTPServer):
