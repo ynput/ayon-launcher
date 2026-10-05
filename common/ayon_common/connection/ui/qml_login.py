@@ -272,6 +272,7 @@ class LoginController(QtCore.QObject):
         self._session = None
         # Details of the signed in user
         self._session_user_loaded = False
+        self._session_expired = False
         self._full_name = ""
         self._email = ""
         # Optional images by kind ("avatar", "logo", "background")
@@ -361,6 +362,7 @@ class LoginController(QtCore.QObject):
         """Server on the sign-in page is the one of the current session."""
         return (
             self._logged_in
+            and not self._session_expired
             and self._page == 1
             and _normalize_url(self._url) == _normalize_url(
                 self._logged_in_url
@@ -422,7 +424,13 @@ class LoginController(QtCore.QObject):
         self._logged_in_token = (api_key or None) if logged_in else None
         self._set_session_user(None)
         self._session_user_loaded = False
+        self._session_expired = False
         self.changed.emit()
+
+    def _expire_session(self):
+        """The current session cannot be continued; ask to sign in."""
+        self._session_expired = True
+        self._error = "Your login has expired. Please sign in again."
 
     def _set_session_user(self, user):
         attrib = (user or {}).get("attrib") or {}
@@ -494,12 +502,16 @@ class LoginController(QtCore.QObject):
             return
         self._busy = False
         if operation == "session_user":
-            # Details of the current session are optional.
             self._session_user_loaded = True
             self._page = 1
-            if result and not error:
+            if error:
+                # Details of the current session are optional.
+                pass
+            elif result:
                 self._set_session_user(result)
                 self._fetch_avatar()
+            else:
+                self._expire_session()
         elif error:
             self._error = error
             if operation in ("server", "saved_login"):
@@ -520,19 +532,18 @@ class LoginController(QtCore.QObject):
                     self._url, self._api_key, self._username,
                 )
                 return
-            if (
-                self._logged_in_token
-                and not self._session_user_loaded
-                and _normalize_url(self._url) == _normalize_url(
-                    self._logged_in_url
-                )
-            ):
-                self._start(
-                    "session_user", get_token_user,
-                    self._url, self._logged_in_token,
-                )
-                return
             self._page = 1
+            if self.isCurrentSession and not self._session_user_loaded:
+                if not self._logged_in_token:
+                    self._expire_session()
+                else:
+                    # Check the current session before it is shown
+                    self._page = 0
+                    self._start(
+                        "session_user", get_token_user,
+                        self._url, self._logged_in_token,
+                    )
+                    return
         elif operation == "saved_login":
             self._api_key = None
             if result is None:
