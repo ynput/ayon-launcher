@@ -286,6 +286,11 @@ class LoginController(QtCore.QObject):
         self._deadline = 0
         self._request_id = 0
         self._requests = {}
+        # Opening the browser can block (e.g. 'webbrowser' waits for the
+        #   browser process on some platforms). It runs separately so it
+        #   never blocks processing of the callback token.
+        self._browser_open_id = 0
+        self._browser_open_request = None
         self._fetch_id = 0
         self._fetches = {}
         self._latest_fetch = {}
@@ -607,10 +612,33 @@ class LoginController(QtCore.QObject):
         redirect = f"http://localhost:{self._listener.port}"
         url = self._url + "/?" + urlencode({"auth_redirect": redirect})
         self._waiting = True
+        self._error = ""
         self._deadline = time.monotonic() + BROWSER_TIMEOUT
         self.clear_password.emit()
         self._timer.start()
-        self._start("open_browser", open_browser, url)
+        self.changed.emit()
+
+        self._browser_open_id += 1
+        request = _Request()
+        self._browser_open_request = request
+        request.completed.connect(
+            self._browser_opened, QtCore.Qt.QueuedConnection
+        )
+        request.start(
+            self._browser_open_id, "open_browser", open_browser, (url,)
+        )
+
+    @QtCore.Slot(int, str, object, str)
+    def _browser_opened(self, open_id, operation, result, error):
+        if open_id != self._browser_open_id:
+            return
+        self._browser_open_request = None
+        # Ignore errors when the login was cancelled or already finished.
+        if self._closed or not error or not self._listener:
+            return
+        self._stop_listener()
+        self._error = error
+        self.changed.emit()
 
     def _poll_browser(self):
         if not self._listener:

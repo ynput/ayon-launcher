@@ -1,7 +1,7 @@
 import os
 import threading
 from urllib.parse import urlparse, parse_qs
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,47 +13,64 @@ def get_resource_path(resource):
 class LoginServerHandler(BaseHTTPRequestHandler):
     """Login server handler."""
 
+    # Browsers may open speculative (preconnect) connections which never
+    #   send a request. Do not let them block a request handler forever.
+    timeout = 10
+
     def do_GET(self):
         """Override to handle requests ourselves."""
+        access_token = None
+        if self.path not in ("/index.css", "/favicon.ico"):
+            tokens = parse_qs(urlparse(self.path).query).get("token")
+            if tokens:
+                access_token = tokens[0]
+
+        try:
+            self._send_response(access_token)
+        finally:
+            # Store the token after the response was sent (or failed to be
+            #   sent), the login window may close the server right after it
+            #   receives the token.
+            # Never clear an already received token, browsers can send
+            #   additional requests (e.g. icons or repeated page loads).
+            if access_token:
+                self.server.set_token(access_token)
+
+    def _send_response(self, access_token):
         if self.path == "/index.css":
             filepath = get_resource_path("index.css")
-            with open(filepath, "rb") as stream:
-                content = stream.read()
             content_type = "text/css"
         elif self.path == "/favicon.ico":
             filepath = get_resource_path("favicon.ico")
-            with open(filepath, "rb") as stream:
-                content = stream.read()
             content_type = "image/x-icon"
         else:
-            parsed_path = urlparse(self.path)
-            query = parse_qs(parsed_path.query)
-            tokens = query.get("token")
-            access_token = None
-            if tokens:
-                access_token = tokens[0]
-            self.server.set_token(access_token)
-
             content_type = "text/html"
             if access_token:
                 filepath = get_resource_path("success.html")
             else:
                 filepath = get_resource_path("failed.html")
-            with open(filepath, "rb") as stream:
-                content = stream.read()
+
+        with open(filepath, "rb") as stream:
+            content = stream.read()
 
         # Set header with content type
         self.send_response(200)
         self.send_header("Content-type", content_type)
         self.end_headers()
         self.wfile.write(content)
+        self.wfile.flush()
 
     def log_message(self, *args, **kwargs):
         # Callback URLs contain access tokens; never write them to stderr.
         pass
 
 
-class LoginHTTPServer(HTTPServer):
+class LoginHTTPServer(ThreadingHTTPServer):
+    # Handle each connection in its own thread, an idle connection kept
+    #   open by the browser must not block the callback request.
+    daemon_threads = True
+    block_on_close = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._token = None
@@ -71,7 +88,11 @@ class LoginServerListener:
             ("localhost", 0),
             LoginServerHandler
         )
-        self._thread = threading.Thread(target=self._server.serve_forever)
+        # Daemon thread so a not yet stopped server never keeps the process
+        #   alive (stop is called asynchronously by the login window).
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, daemon=True
+        )
         self._token = None
         self._is_running = False
         self._started = False
