@@ -47,5 +47,4 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [lint.per-file-ignores]
-# mixed case for variable names (needed by pyblish context and instance
-"start.py" = ["module-import-not-at-top-of-file"]
+"start.py" = ["E402"]
