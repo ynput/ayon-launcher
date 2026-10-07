@@ -86,6 +86,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode, urlparse
+from typing import Optional
 
 from version import __version__
 
@@ -592,10 +593,22 @@ def _prepare_disk_mapping_args(src_path, dst_path):
     return []
 
 
-def _run_disk_mapping(
-    studio_bundle_name: str,
-    project_bundle_name: str,
-) -> None:
+def _get_core_settings(core_version: Optional[str]) -> dict:
+    """Get core addon settings used for disk mapping.
+
+    Only core addon settings are requested when project bundle is not
+        used, which is much cheaper than requesting settings of all addons.
+
+    """
+    if not core_version:
+        return {}
+    variant = os.environ[DEFAULT_VARIANT_ENV_KEY]
+    return ayon_api.get_addon_studio_settings(
+        "core", core_version, variant
+    ) or {}
+
+
+def _run_disk_mapping(core_version: Optional[str]) -> None:
     """Run disk mapping logic.
 
     Mapping of disks is taken from core addon settings. To run this logic
@@ -604,20 +617,7 @@ def _run_disk_mapping(
     """
     low_platform = platform.system().lower()
 
-    key_values = {
-        "bundle_name": studio_bundle_name,
-    }
-    if project_bundle_name and studio_bundle_name != project_bundle_name:
-        key_values["project_bundle_name"] = project_bundle_name
-
-    query = urlencode(key_values)
-
-    core_settings = {}
-    response = ayon_api.get(f"settings?{query}")
-    for addon in response.data["addons"]:
-        if addon["name"] == "core":
-            core_settings = addon["settings"] or {}
-
+    core_settings = _get_core_settings(core_version)
     disk_mapping = core_settings.get("disk_mapping") or {}
     platform_disk_mapping = disk_mapping.get(low_platform)
     if not platform_disk_mapping:
@@ -760,10 +760,9 @@ def _start_distribution():
         distribution.use_staging,
         project_bundle_name
     )
-    _run_disk_mapping(
-        studio_bundle_name,
-        project_bundle_name
-    )
+
+    core_version = project_bundle.addon_versions.get("core")
+    _run_disk_mapping(core_version)
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
     skip_auto_update = auto_update == "skip"
