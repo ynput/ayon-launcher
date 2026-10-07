@@ -69,9 +69,8 @@ _EVENT_DICT_ATTR = "_ayon_event_dict"
 def get_log_level_from_env() -> int:
     """Resolve the AYON log level from environment variables.
 
-    'AYON_LOG_LEVEL' has precedence and accepts a numeric ('10') or
-    a named ('DEBUG') level. When it is not set, or is invalid,
-    'AYON_DEBUG' greater than 0 enables DEBUG. Defaults to INFO.
+    'AYON_LOG_LEVEL' accepts a numeric ('10') or a named ('DEBUG') level.
+    Defaults to INFO when it is not set or is invalid.
 
     Returns:
         int: Log level.
@@ -85,12 +84,6 @@ def get_log_level_from_env() -> int:
             level = logging.getLevelNamesMapping().get(log_level.upper(), 0)
         if level > 0:
             return level
-
-    try:
-        if int(os.getenv("AYON_DEBUG", "0")) > 0:
-            return logging.DEBUG
-    except ValueError:
-        pass
     return logging.INFO
 
 

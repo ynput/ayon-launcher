@@ -134,7 +134,7 @@ Environment variables that are set during startup:
 - **AYON_VERSION** - Version of AYON launcher.
 - **AYON_BUNDLE_NAME** - Name of bundle that is used.
 - **AYON_LOG_LEVEL** - Log level that is used.
-- **AYON_DEBUG** - Debug flag enabled when set to '1'.
+- **AYON_DEBUG** - Debug flag enabled when set to '1'. Does not change log level, use `AYON_LOG_LEVEL` or `--debug`.
 - **AYON_USE_STAGING** - Use staging settings when set to '1'.
 - **AYON_USE_DEV** - Use dev mode settings when set to '1'.
 - **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.

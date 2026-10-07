@@ -96,12 +96,12 @@ def foreign_handler():
     "env, expected",
     [
         ({}, logging.INFO),
-        ({"AYON_DEBUG": "1"}, logging.DEBUG),
         ({"AYON_LOG_LEVEL": "10"}, logging.DEBUG),
         ({"AYON_LOG_LEVEL": "warning"}, logging.WARNING),
-        ({"AYON_LOG_LEVEL": "bogus", "AYON_DEBUG": "1"}, logging.DEBUG),
+        ({"AYON_LOG_LEVEL": "bogus"}, logging.INFO),
         ({"AYON_LOG_LEVEL": "0"}, logging.INFO),
-        ({"AYON_DEBUG": "yes"}, logging.INFO),
+        # Does not affect log level, see '--debug' of AYON launcher
+        ({"AYON_DEBUG": "1"}, logging.INFO),
     ],
 )
 def test_log_level_from_env(logging_module, monkeypatch, env, expected):
