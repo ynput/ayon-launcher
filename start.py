@@ -85,7 +85,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlparse
 from typing import Optional
 
 from version import __version__
@@ -750,7 +750,9 @@ def _start_distribution():
                 is_project_bundle=is_project_bundle,
             )
 
-        logger.debug("Startup finished.", timing=f"{_Timing.total_time():.2f}s")
+        logger.debug(
+            "Startup finished.",
+            timing=f"{_Timing.total_time():.2f}s")
         sys.exit(1)
 
     # With known bundle and states we can define default settings variant
@@ -1275,7 +1277,9 @@ def main():
     logger.debug("Reached main entry point", timing=f"{_Timing.next():.2f}s")
     if "init-ayon-launcher" in sys.argv:
         init_launcher_executable(ensure_protocol_is_registered=True)
-        logger.debug("Launcher initialized", timing=f"{_Timing.total_time():.2f}s")
+        logger.debug(
+            "Launcher initialized",
+            timing=f"{_Timing.total_time():.2f}s")
         sys.exit(0)
 
     if SHOW_LOGIN_UI:
@@ -1286,7 +1290,9 @@ def main():
             )
             sys.exit(1)
         _connect_to_ayon_server(True)
-        logger.debug("Connected to AYON server", timing=f"{_Timing.next():.2f}s")
+        logger.debug(
+            "Connected to AYON server",
+            timing=f"{_Timing.next():.2f}s")
 
     if process_uri():
         logger.debug("URI processed", timing=f"{_Timing.total_time():.2f}s")
