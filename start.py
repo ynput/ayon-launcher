@@ -296,9 +296,6 @@ sys.path.insert(0, os.path.join(AYON_ROOT, "vendor", "python"))
 
 os.environ["PYTHONPATH"] = os.pathsep.join(_python_paths)
 
-# Third-party modules can be imported only after 'dependencies' are
-#   added to 'sys.path', otherwise they are not found in frozen build.
-import structlog  # noqa: E402
 
 # enabled AYON state
 os.environ["USE_AYON_SERVER"] = "1"
@@ -308,8 +305,11 @@ os.environ["AYON_EXECUTABLE"] = sys.executable
 os.environ["AYON_ROOT"] = AYON_ROOT
 os.environ["AYON_MENU_LABEL"] = "AYON"
 
-import certifi  # noqa: E402
-import requests  # noqa: E402
+# Third-party modules can be imported only after 'dependencies' are
+#   added to 'sys.path', otherwise they are not found in frozen build.
+import certifi
+import requests
+import structlog
 
 # Create session id used for tracing logs across a process tree.
 # Format is `:` separated ids - the first one is a full UUID4 identifying
@@ -335,22 +335,17 @@ else:
 
 os.environ["AYON_SESSION_ID"] = SESSION_ID
 
-import blessed
-import certifi
-import requests
-
 def _is_stdout_tty() -> bool:
     try:
         return sys.__stdout__.isatty()
     except (AttributeError, ValueError, OSError):
         return False
 
-
 # Colors are used only in terminal, 'blessed' would not style output
 #   otherwise. Import of 'blessed' is slow, so it is imported only
 #   when it is needed.
 if sys.__stdout__ and _is_stdout_tty():
-    import blessed  # noqa: E402
+    import blessed
 
     term = blessed.Terminal()
 
@@ -437,7 +432,7 @@ from ayon_common.utils import (
 )
 
 configure_logging()
-logger = structlog.get_logger("startup")
+logger = structlog.get_logger("AYONstartup")
 
 
 def _connect_to_ayon_server(force=False, username=None):

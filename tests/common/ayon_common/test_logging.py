@@ -27,7 +27,7 @@ sys.path.insert(
     ),
 )
 
-import ayon_common.logging  # noqa: E402
+import ayon_common.logging
 
 
 @pytest.fixture
