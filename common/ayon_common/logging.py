@@ -643,6 +643,19 @@ def _get_console_exception_formatter(
     return structlog.dev.plain_traceback
 
 
+class _LevelColumnFormatter(structlog.dev.LogLevelColumnFormatter):
+    """Format a log level without padding, e.g. '[ debug ]'."""
+
+    def __call__(self, key: str, value: object) -> str:
+        level = str(value)
+        style = (
+            ""
+            if self.level_styles is None
+            else self.level_styles.get(level, "")
+        )
+        return f"[ {style}{level}{self.reset_style} ]"
+
+
 class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
     """ConsoleRenderer not initializing colorama on Windows.
 
@@ -650,7 +663,8 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
     process, which breaks processes redirecting them. Whether the stream
     supports colors is resolved by '_StderrHandler' instead.
 
-    Log levels use AYON colors, see '_LEVEL_STYLES'.
+    Log levels use AYON colors, see '_LEVEL_STYLES', and are not padded,
+    e.g. '[ info ] Message [AYONstartup] key=value'.
     """
 
     # ANSI 256-color styles of log levels, 'exception' is logged as error
@@ -676,6 +690,27 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         if colors:
             return dict(_ConsoleRenderer._LEVEL_STYLES)
         return dict.fromkeys(_ConsoleRenderer._LEVEL_STYLES, "")
+
+    def _configure_columns(self) -> None:
+        # Called by structlog whenever styles change, level column of the
+        #   base class is replaced by one without padding
+        super()._configure_columns()
+        columns = []
+        for column in self._columns:
+            formatter = column.formatter
+            if column.key == "level" and isinstance(
+                formatter, structlog.dev.LogLevelColumnFormatter
+            ):
+                column = structlog.dev.Column(
+                    column.key,
+                    _LevelColumnFormatter(
+                        formatter.level_styles,
+                        reset_style=formatter.reset_style,
+                        width=0,
+                    ),
+                )
+            columns.append(column)
+        self._columns = columns
 
 
 # Console mode flag enabling ANSI escape sequences on Windows
