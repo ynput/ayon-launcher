@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -45,6 +46,7 @@ def logging_module(monkeypatch):
         "AYON_DEBUG",
         "AYON_LOG_FILE",
         "AYON_VECTOR_LOG_URL",
+        "AYON_LOG_CONSOLE_TIME_FORMAT",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -211,6 +213,55 @@ def test_console_hides_context_ids(logging_module, monkeypatch):
         "session-value", "trace-value", "span-value", "parent-value"
     ):
         assert value not in output
+
+
+@pytest.mark.parametrize(
+    "time_format, pattern",
+    [
+        (None, r"^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} "),
+        ("%H:%M:%S.%f", r"^\d{2}:\d{2}:\d{2}\.\d{6} "),
+    ],
+)
+def test_console_timestamp_format(
+    logging_module, monkeypatch, foreign_handler, time_format, pattern
+):
+    if time_format is not None:
+        monkeypatch.setenv("AYON_LOG_CONSOLE_TIME_FORMAT", time_format)
+    module = logging_module()
+    log = structlog.get_logger("ayon_common.tests.console_time")
+    stream = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stream)
+
+    log.info("Timed")
+    logging.getLogger("ayon_common.tests.console_time_foreign").info("Foreign")
+
+    lines = stream.getvalue().splitlines()
+    assert len(lines) == 2
+    for line in lines:
+        assert re.match(pattern, line), line
+
+    # JSON output keeps ISO timestamps
+    json_formatter = module._EventDictProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.JSONRenderer(),
+        ],
+    )
+    payload = json.loads(json_formatter.format(foreign_handler.records[0]))
+    assert re.match(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", payload["timestamp"]
+    )
+
+
+def test_console_time_format_from_env(logging_module, monkeypatch):
+    module = logging_module()
+
+    assert (
+        module.get_console_time_format_from_env()
+        == module.DEFAULT_CONSOLE_TIME_FORMAT
+    )
+    monkeypatch.setenv("AYON_LOG_CONSOLE_TIME_FORMAT", "%H:%M")
+    assert module.get_console_time_format_from_env() == "%H:%M"
 
 
 def test_console_handler_uses_current_stderr(logging_module, monkeypatch):

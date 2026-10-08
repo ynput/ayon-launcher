@@ -6,6 +6,10 @@ Three opt-in observability levels are supported, additive to each other:
         file with retention. Enabled with 'AYON_LOG_FILE=1'.
     3. Vector - forward JSON logs to a Vector HTTP source. Enabled by
         setting 'AYON_VECTOR_LOG_URL'.
+
+Console timestamps are in local time, formatted by
+'AYON_LOG_CONSOLE_TIME_FORMAT' ('strftime' format, default
+'%Y/%m/%d %H:%M:%S'). JSON output always uses ISO 8601 in UTC.
 """
 import atexit
 import contextvars
@@ -41,6 +45,10 @@ except ValueError:
 # Each process writes its own file, see '_get_log_file_path'
 LOG_FILE_PREFIX = "ayon_"
 LOG_FILE_EXT = ".ndjson"
+
+# Default 'strftime' format of console timestamps, see
+#   'get_console_time_format_from_env'
+DEFAULT_CONSOLE_TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 # Max records buffered for Vector delivery. Beyond this, new records are
 # dropped rather than growing memory unbounded during an outage.
@@ -94,6 +102,53 @@ def get_log_level_from_env() -> int:
         if level > 0:
             return level
     return logging.INFO
+
+
+def get_console_time_format_from_env() -> str:
+    """Resolve format of console timestamps from environment variables.
+
+    'AYON_LOG_CONSOLE_TIME_FORMAT' accepts a 'strftime' format, e.g.
+    '%H:%M:%S.%f'. Defaults to 'DEFAULT_CONSOLE_TIME_FORMAT' when it is
+    not set or is invalid.
+
+    Returns:
+        str: Format of console timestamps.
+
+    """
+    time_format = os.getenv("AYON_LOG_CONSOLE_TIME_FORMAT", "")
+    if not time_format:
+        return DEFAULT_CONSOLE_TIME_FORMAT
+    try:
+        # Invalid directives raise 'ValueError' on some platforms
+        datetime.datetime.now().strftime(time_format)
+    except ValueError:
+        return DEFAULT_CONSOLE_TIME_FORMAT
+    return time_format
+
+
+def _create_console_timestamper(time_format: str) -> Callable:
+    """Processor replacing 'timestamp' with local time in 'time_format'.
+
+    Shared processors add ISO timestamp in UTC used by JSON output. Console
+    shows time of the log record instead. Must run before
+    'ProcessorFormatter.remove_processors_meta' removes the record.
+
+    Args:
+        time_format (str): 'strftime' format of the timestamp.
+
+    Returns:
+        Callable: structlog processor.
+
+    """
+    def _format_timestamp(logger, method_name, event_dict):
+        record = event_dict.get("_record")
+        if record is not None:
+            event_dict["timestamp"] = datetime.datetime.fromtimestamp(
+                record.created
+            ).strftime(time_format)
+        return event_dict
+
+    return _format_timestamp
 
 
 class log_span:  # noqa: N801
@@ -805,10 +860,15 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
+    console_timestamper = _create_console_timestamper(
+        get_console_time_format_from_env()
+    )
+
     def _create_console_formatter(colors: bool) -> logging.Formatter:
         return _EventDictProcessorFormatter(
             foreign_pre_chain=shared_processors,
             processors=[
+                console_timestamper,
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                 _drop_log_context,
                 _ConsoleRenderer(
