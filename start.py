@@ -78,13 +78,14 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import site
 import subprocess
 import sys
 import time
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from urllib.parse import parse_qs, urlparse
 from typing import Optional
 
@@ -977,6 +978,20 @@ def _on_main_addon_import_error(exception):
     sys.exit(1)
 
 
+def _redact_launcher_args(args: list[str]) -> list[str]:
+    """Hide tokens of 'ayon-launcher://' URIs in arguments for logging.
+
+    URI arguments carry a web action token, see 'process_uri'. Logs may
+    be written to a file or sent to Vector, they must not contain it.
+    """
+    return [
+        re.sub(r"([?&]token=)[^&\"]*", r"\g<1>***", arg)
+        if arg.strip('"').startswith("ayon-launcher:")
+        else arg
+        for arg in args
+    ]
+
+
 def process_uri():
     if len(sys.argv) <= 1:
         return False
@@ -1134,7 +1149,7 @@ def main_cli():
             use_staging=is_staging_enabled(),
             use_dev=is_dev_mode_enabled()
         )
-        logger.info("AYON launcher initialized", info=info)
+        logger.info("AYON launcher initialized", info=asdict(info))
 
     logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
 
@@ -1272,7 +1287,9 @@ def get_info(use_staging=None, use_dev=None) -> RuntimeInfo:
 
 def main():
     # AYON launcher was started to initialize itself
-    logger.info("Starting AYON launcher", args=sys.argv)
+    logger.info(
+        "Starting AYON launcher", args=_redact_launcher_args(sys.argv)
+    )
 
     logger.debug("Reached main entry point", timing=f"{_Timing.next():.2f}s")
     if "init-ayon-launcher" in sys.argv:
