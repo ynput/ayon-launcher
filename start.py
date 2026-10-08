@@ -92,23 +92,9 @@ from typing import Optional
 from version import __version__
 
 
-class _Timing:
-    """Helper to time the process."""
-    start_time = time.time()
-    last_time = start_time
-
-    @classmethod
-    def next(cls) -> float:
-        """Return time since the last call to this method."""
-        new_time = time.time()
-        output = new_time - cls.last_time
-        cls.last_time = new_time
-        return output
-
-    @classmethod
-    def total_time(cls) -> float:
-        """Return total time since start of process."""
-        return time.time() - cls.start_time
+# Start of the launcher, beginning of 'launcher.startup' span. Imports below
+#   are part of the startup.
+_START_TIME = time.perf_counter()
 
 
 ORIGINAL_ARGS = list(sys.argv)
@@ -422,7 +408,7 @@ from ayon_common.distribution import (
     show_missing_bundle_information,
     show_missing_permissions,
 )
-from ayon_common.logging import configure_logging, release_logging
+from ayon_common.logging import configure_logging, log_span, release_logging
 from ayon_common.startup import show_startup_error
 from ayon_common.utils import (
     ShimDeploymentError,
@@ -435,6 +421,23 @@ from ayon_common.utils import (
 
 configure_logging()
 logger = structlog.get_logger("AYONstartup")
+
+
+# Root span of the launcher startup, one record per launcher process.
+#   Spans of startup steps are nested in it. It ends before control is
+#   passed elsewhere ('ayon_core', script, other launcher) as logging of
+#   the launcher is released then. Attributes 'mode', 'variant' and
+#   bundle names are set during startup. 'interactive' marks startups
+#   which waited for the user, their duration is not startup performance.
+_STARTUP_SPAN = log_span(
+    "launcher.startup",
+    start=_START_TIME,
+    version=__version__,
+    platform=platform.system().lower(),
+    built=IS_BUILT_APPLICATION,
+    headless=HEADLESS_MODE_ENABLED,
+    interactive=False,
+)
 
 
 def _connect_to_ayon_server(force=False, username=None):
@@ -504,13 +507,15 @@ def _connect_to_ayon_server(force=False, username=None):
         sys.exit(1)
 
     # Show login dialog
-    url, token, username = ask_to_login_ui(
-        current_url,
-        always_on_top=False,
-        username=username,
-        api_key=api_key,
-        force_username=bool(username)
-    )
+    _STARTUP_SPAN.set(interactive=True)
+    with log_span("launcher.login_ui", interactive=True):
+        url, token, username = ask_to_login_ui(
+            current_url,
+            always_on_top=False,
+            username=username,
+            api_key=api_key,
+            force_username=bool(username)
+        )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
         return
@@ -665,8 +670,7 @@ def _start_distribution():
     except PermissionError:
         logger.exception(
             "Failed to initialize distribution"
-            " because of permissions error.",
-            timing=f"{_Timing.total_time():.2f}s",
+            " because of permissions error."
         )
         if not HEADLESS_MODE_ENABLED:
             show_missing_permissions()
@@ -689,6 +693,17 @@ def _start_distribution():
             project_bundle_name = project_bundle.name
     except BundleNotFoundError as exc:
         project_bundle_name = exc.bundle_name
+
+    variant = "production"
+    if distribution.use_dev:
+        variant = "dev"
+    elif distribution.use_staging:
+        variant = "staging"
+    _STARTUP_SPAN.set(
+        variant=variant,
+        studio_bundle=studio_bundle_name,
+        project_bundle=project_bundle_name,
+    )
 
     if studio_bundle is None or project_bundle is None:
         url = get_base_url()
@@ -736,7 +751,6 @@ def _start_distribution():
                     f" as \"{mode}\" on the AYON server '{url}'."
                 )
 
-
         if not HEADLESS_MODE_ENABLED:
             missing_bundle_name = studio_bundle_name
             is_project_bundle = False
@@ -751,9 +765,6 @@ def _start_distribution():
                 is_project_bundle=is_project_bundle,
             )
 
-        logger.debug(
-            "Startup finished.",
-            timing=f"{_Timing.total_time():.2f}s")
         sys.exit(1)
 
     # With known bundle and states we can define default settings variant
@@ -773,8 +784,7 @@ def _start_distribution():
     if distribution.need_distribution and not skip_auto_update:
         if block_auto_update:
             logger.error(
-                "Automatic update is blocked by 'AYON_AUTO_UPDATE'.",
-                timing=f"{_Timing.total_time():.2f}s"
+                "Automatic update is blocked by 'AYON_AUTO_UPDATE'."
             )
             if not HEADLESS_MODE_ENABLED:
                 show_blocked_auto_update(
@@ -785,8 +795,7 @@ def _start_distribution():
         if distribution.is_missing_permissions:
             logger.error(
                 "Failed to initialize distribution"
-                " because of permissions error",
-                timing=f"{_Timing.total_time():.2f}s"
+                " because of permissions error"
             )
             if not HEADLESS_MODE_ENABLED:
                 show_missing_permissions()
@@ -798,12 +807,9 @@ def _start_distribution():
             update_window_manager.start()
 
         try:
-            distribution.distribute()
+            with log_span("launcher.distribute"):
+                distribution.distribute()
         finally:
-            logger.debug(
-                "Distributing resources done.",
-                timing=f"{_Timing.next():.2f}s"
-            )
             update_window_manager.stop()
 
         # Skip validation of addons and dep packages if launcher
@@ -823,10 +829,6 @@ def _start_distribution():
                     error,
                     distribution.installer_filepath
                 )
-            logger.debug(
-                "Finished changing installer.",
-                timing=f"{_Timing.total_time():.2f}s"
-            )
             sys.exit(1)
 
         # Use new executable to relaunch different AYON launcher version
@@ -852,10 +854,16 @@ def _start_distribution():
 
         # TODO figure out how this should be launched
         #   - it can technically cause infinite loop of subprocesses
-        logger.debug(
+        logger.info(
             "Launching different AYON launcher version",
-            timing=f"{_Timing.total_time():.2f}s",
+            executable=executable,
         )
+        # Startup continues in the other launcher, it logs its own spans.
+        #   Finishing also ends 'launcher.bootstrap' and
+        #   'launcher.distribution', they would last until the other
+        #   launcher exits.
+        _STARTUP_SPAN.set(mode="installer_change")
+        _STARTUP_SPAN.finish()
         sys.exit(subprocess.call(args, env=env))
 
     # TODO check failed distribution and inform user
@@ -879,10 +887,6 @@ def _start_distribution():
         sys.path.insert(0, path)
 
     os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
-    logger.debug(
-        "Distribution finished.",
-        timing=f"{_Timing.next():.2f}s"
-    )
 
 
 def init_launcher_executable(ensure_protocol_is_registered=False):
@@ -904,10 +908,7 @@ def init_launcher_executable(ensure_protocol_is_registered=False):
             show_failed_shim_deployment(str(exc))
         sys.exit(1)
     except Exception:
-        logger.exception(
-            "Unexpected error during shim deployment.",
-            timing=f"{_Timing.total_time():.2f}s",
-        )
+        logger.exception("Unexpected error during shim deployment.")
         if not HEADLESS_MODE_ENABLED:
             show_failed_shim_deployment()
         sys.exit(1)
@@ -924,19 +925,18 @@ def fill_pythonpath():
 
 def boot():
     """Bootstrap AYON launcher."""
-    init_launcher_executable()
+    with log_span("launcher.init_executable"):
+        init_launcher_executable()
 
     # Setup site id in environment variable for all possible subprocesses
     if SITE_ID_ENV_KEY not in os.environ:
         os.environ[SITE_ID_ENV_KEY] = get_local_site_id()
 
-    _connect_to_ayon_server()
-    create_global_connection()
-    logger.debug(
-        "Global AYON connection created.",
-        timing=f"{_Timing.total_time():.2f}s"
-    )
-    _start_distribution()
+    with log_span("launcher.connection"):
+        _connect_to_ayon_server()
+        create_global_connection()
+    with log_span("launcher.distribution"):
+        _start_distribution()
     fill_pythonpath()
 
     # Call launcher storage dir getters to make sure their
@@ -1151,10 +1151,10 @@ def main_cli():
         )
         logger.info("AYON launcher initialized", info=asdict(info))
 
-    logger.debug("Initializing done", timing=f"{_Timing.next():.2f}s")
-
     # 'ayon_core' configures logging on import, launcher logging must be
     #   released before
+    _STARTUP_SPAN.set(mode="cli")
+    _STARTUP_SPAN.finish()
     release_logging()
 
     try:
@@ -1246,6 +1246,8 @@ def script_cli(start_arg=None):
         content = stream.read()
 
     # Script may use 'ayon_core' which configures logging for itself
+    _STARTUP_SPAN.set(mode="script")
+    _STARTUP_SPAN.finish()
     release_logging()
 
     script_globals = dict(globals())
@@ -1286,17 +1288,26 @@ def get_info(use_staging=None, use_dev=None) -> RuntimeInfo:
     )
 
 def main():
+    # Span ends earlier when control is passed elsewhere, ending it
+    #   on exit covers failures and exits during startup.
+    with _STARTUP_SPAN:
+        _main()
+
+
+def _main():
     # AYON launcher was started to initialize itself
     logger.info(
         "Starting AYON launcher", args=_redact_launcher_args(sys.argv)
     )
+    # Time spent by imports and module level setup
+    _STARTUP_SPAN.set(
+        entry_ms=round((time.perf_counter() - _START_TIME) * 1000, 3)
+    )
 
-    logger.debug("Reached main entry point", timing=f"{_Timing.next():.2f}s")
     if "init-ayon-launcher" in sys.argv:
-        init_launcher_executable(ensure_protocol_is_registered=True)
-        logger.debug(
-            "Launcher initialized",
-            timing=f"{_Timing.total_time():.2f}s")
+        _STARTUP_SPAN.set(mode="init_launcher")
+        with log_span("launcher.init_executable"):
+            init_launcher_executable(ensure_protocol_is_registered=True)
         sys.exit(0)
 
     if SHOW_LOGIN_UI:
@@ -1307,25 +1318,18 @@ def main():
             )
             sys.exit(1)
         _connect_to_ayon_server(True)
-        logger.debug(
-            "Connected to AYON server",
-            timing=f"{_Timing.next():.2f}s")
 
     if process_uri():
-        logger.debug("URI processed", timing=f"{_Timing.total_time():.2f}s")
+        _STARTUP_SPAN.set(mode="uri")
         sys.exit(0)
 
     with webaction_event_handler():
         if SKIP_BOOTSTRAP:
             fill_pythonpath()
-            logger.debug(
-                "Starting script", timing=f"{_Timing.total_time():.2f}s")
             return script_cli()
 
-        boot()
-        logger.debug(
-            "Bootstrap finished", timing=f"{_Timing.total_time():.2f}s"
-        )
+        with log_span("launcher.bootstrap"):
+            boot()
 
         start_arg = StartArgScript.from_args(sys.argv)
         if start_arg.is_valid:

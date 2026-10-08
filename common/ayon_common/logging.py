@@ -8,11 +8,13 @@ Three opt-in observability levels are supported, additive to each other:
         setting 'AYON_VECTOR_LOG_URL'.
 """
 import atexit
+import contextvars
 import datetime
 import functools
 import logging
 import os
 import queue
+import secrets
 import sys
 import threading
 import time
@@ -65,6 +67,13 @@ _VECTOR_LOGGER_NAME = "ayon.vector_log"
 #   'ProcessorFormatter' would expect the event dict in 'record.msg'
 _EVENT_DICT_ATTR = "_ayon_event_dict"
 
+# Logger of span records, same as 'SPAN_LOGGER_NAME' of 'ayon_core.lib.log'
+SPAN_LOGGER_NAME = "ayon.span"
+# Currently open span in this context, see 'log_span'.
+_current_span: contextvars.ContextVar["log_span | None"] = (
+    contextvars.ContextVar("ayon_launcher_current_span", default=None)
+)
+
 
 def get_log_level_from_env() -> int:
     """Resolve the AYON log level from environment variables.
@@ -85,6 +94,163 @@ def get_log_level_from_env() -> int:
         if level > 0:
             return level
     return logging.INFO
+
+
+class log_span:  # noqa: N801
+    """Measure a block of code and log it as one structured span record.
+
+    Launcher counterpart of 'ayon_core.lib.log_span' producing the same
+    fields, so spans of the launcher are queried as those of 'ayon_core'.
+    'ayon_core' is not available during launcher startup, and it can't
+    use this class because older launchers don't have it.
+
+    Record is logged when the span ends, with the span name as the event
+    and fields 'duration_ms', 'status' ('ok' or 'error'), 'trace_id',
+    'span_id', 'parent_span_id' and passed attributes. 'SystemExit' with
+    a non-zero code is an error, the code is stored as 'exit_code'.
+
+    While the span is open, 'trace_id' and 'span_id' are bound to
+    structlog context variables, so all records logged meanwhile carry
+    them. Nested spans share 'trace_id' of the outermost span.
+
+    Span can end before its block with 'finish', e.g. before logging is
+    released. Spans nested in it which are still open are finished first,
+    as successful. Ending a span again has no effect, so their blocks may
+    end later.
+
+    Args:
+        name (str): Span name used as the log event. Should be stable and
+            low-cardinality (e.g. 'launcher.distribute').
+        level (int): Log level of the span record.
+        start (Optional[float]): 'time.perf_counter()' value when the span
+            started. Time of entering the span is used by default.
+        **attributes (Any): Additional fields of the span record.
+
+    Example:
+        with log_span("launcher.distribute") as span:
+            distribution.distribute()
+            span.set(need_installer_change=True)
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        level: int = logging.INFO,
+        start: float | None = None,
+        **attributes: Any,
+    ) -> None:
+        self._name = name
+        self._level = level
+        self._start = start
+        self._attributes = attributes
+        self._trace_id = ""
+        self._span_id = ""
+        self._parent: log_span | None = None
+        self._span_token: contextvars.Token | None = None
+        self._contextvars_tokens: dict[str, contextvars.Token] = {}
+        self._finished = False
+
+    @property
+    def trace_id(self) -> str:
+        return self._trace_id
+
+    @property
+    def span_id(self) -> str:
+        return self._span_id
+
+    def set(self, **attributes: Any) -> None:
+        """Add attributes known only after the span started.
+
+        Args:
+            **attributes (Any): Additional fields of the span record.
+
+        """
+        self._attributes.update(attributes)
+
+    def __enter__(self) -> "log_span":
+        self._parent = _current_span.get()
+        if self._parent is None:
+            self._trace_id = secrets.token_hex(16)
+        else:
+            self._trace_id = self._parent.trace_id
+        self._span_id = secrets.token_hex(8)
+        self._span_token = _current_span.set(self)
+        self._contextvars_tokens = structlog.contextvars.bind_contextvars(
+            trace_id=self._trace_id,
+            span_id=self._span_id,
+        )
+        if self._start is None:
+            self._start = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb) -> None:
+        self.finish(exc_type, exc_value)
+
+    def finish(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+    ) -> None:
+        """End the span and log its record.
+
+        Args:
+            exc_type (Optional[type[BaseException]]): Type of exception
+                which ended the span.
+            exc_value (Optional[BaseException]): Exception which ended
+                the span.
+
+        """
+        if self._finished or self._span_token is None:
+            return
+
+        # Finish nested spans still open, innermost first, so context
+        #   variables are restored in order
+        nested = []
+        span = _current_span.get()
+        while span is not None and span is not self:
+            nested.append(span)
+            span = span._parent
+        if span is self:
+            for span in nested:
+                span.finish()
+
+        self._finished = True
+        duration = time.perf_counter() - (self._start or 0.0)
+        structlog.contextvars.reset_contextvars(**self._contextvars_tokens)
+        _current_span.reset(self._span_token)
+
+        if not logging.getLogger(SPAN_LOGGER_NAME).isEnabledFor(self._level):
+            return
+
+        fields: dict[str, Any] = {
+            "trace_id": self._trace_id,
+            "span_id": self._span_id,
+            "duration_ms": round(duration * 1000, 3),
+        }
+        fields.update(self._attributes)
+        status = "ok"
+        if isinstance(exc_value, SystemExit):
+            code = exc_value.code
+            # Same exit code as the interpreter uses, 'None' is success
+            #   and other non-int values (e.g. message) are failure
+            exit_code = (
+                code if isinstance(code, int) else int(code is not None)
+            )
+            fields["exit_code"] = exit_code
+            if exit_code != 0:
+                status = "error"
+        elif exc_type is not None:
+            status = "error"
+            fields["error_type"] = exc_type.__name__
+        fields["status"] = status
+        if self._parent is not None:
+            fields["parent_span_id"] = self._parent.span_id
+
+        structlog.get_logger(SPAN_LOGGER_NAME).log(
+            self._level, self._name, **fields
+        )
 
 
 def _render_for_stdlib(

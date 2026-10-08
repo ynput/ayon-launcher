@@ -475,3 +475,110 @@ def test_release_logging_without_configuration(logging_module):
 
     assert logging.getLogger().handlers == root_handlers
     assert structlog.is_configured()
+
+
+def _span_events(module, handler):
+    return [
+        getattr(record, module._EVENT_DICT_ATTR)[2]
+        for record in handler.records
+        if record.name == module.SPAN_LOGGER_NAME
+    ]
+
+
+def test_log_span_nesting(logging_module, foreign_handler):
+    module = logging_module()
+    log = structlog.get_logger("ayon_common.tests.span")
+
+    with module.log_span("tests.outer", key="value") as outer:
+        with module.log_span("tests.inner") as inner:
+            log.info("Inside")
+
+    inside = getattr(foreign_handler.records[0], module._EVENT_DICT_ATTR)[2]
+    assert inside["trace_id"] == outer.trace_id
+    assert inside["span_id"] == inner.span_id
+
+    inner_event, outer_event = _span_events(module, foreign_handler)
+    assert inner_event["event"] == "tests.inner"
+    assert inner_event["trace_id"] == outer.trace_id
+    assert inner_event["parent_span_id"] == outer.span_id
+    assert outer_event["event"] == "tests.outer"
+    assert outer_event["key"] == "value"
+    assert outer_event["status"] == "ok"
+    assert "parent_span_id" not in outer_event
+    assert isinstance(outer_event["duration_ms"], float)
+
+    # Ids are not bound once spans ended
+    log.info("Outside")
+    outside = getattr(foreign_handler.records[-1], module._EVENT_DICT_ATTR)[2]
+    assert "trace_id" not in outside
+
+
+def test_log_span_finish_before_end(logging_module, foreign_handler):
+    """Span can end before its block, e.g. before logging is released."""
+    module = logging_module()
+    start = time.perf_counter() - 1.0
+
+    with pytest.raises(SystemExit):
+        with module.log_span("tests.root", start=start) as span:
+            span.set(mode="cli")
+            span.finish()
+            sys.exit(1)
+
+    (event,) = _span_events(module, foreign_handler)
+    assert event["status"] == "ok"
+    assert event["mode"] == "cli"
+    assert event["duration_ms"] >= 1000
+
+
+def test_log_span_finish_ends_nested_spans(logging_module, foreign_handler):
+    """Nested spans still open end before the finished span."""
+    module = logging_module()
+    log = structlog.get_logger("ayon_common.tests.span_nested")
+
+    with pytest.raises(SystemExit):
+        with module.log_span("tests.root") as root:
+            with module.log_span("tests.outer") as outer:
+                with module.log_span("tests.inner"):
+                    root.finish()
+                    log.info("After finish")
+                    sys.exit(3)
+
+    events = _span_events(module, foreign_handler)
+    assert [event["event"] for event in events] == [
+        "tests.inner", "tests.outer", "tests.root"
+    ]
+    assert [event["status"] for event in events] == ["ok", "ok", "ok"]
+    assert events[0]["parent_span_id"] == outer.span_id
+    assert events[1]["parent_span_id"] == root.span_id
+    # Context of finished spans is not bound anymore
+    after = next(
+        getattr(record, module._EVENT_DICT_ATTR)[2]
+        for record in foreign_handler.records
+        if record.getMessage() == "After finish"
+    )
+    assert "trace_id" not in after
+
+
+@pytest.mark.parametrize(
+    "exception, status, extra",
+    [
+        (SystemExit(0), "ok", {"exit_code": 0}),
+        (SystemExit(None), "ok", {"exit_code": 0}),
+        (SystemExit(2), "error", {"exit_code": 2}),
+        (SystemExit("Failed"), "error", {"exit_code": 1}),
+        (ValueError("boom"), "error", {"error_type": "ValueError"}),
+    ],
+)
+def test_log_span_status(
+    logging_module, foreign_handler, exception, status, extra
+):
+    module = logging_module()
+
+    with pytest.raises(type(exception)):
+        with module.log_span("tests.status"):
+            raise exception
+
+    (event,) = _span_events(module, foreign_handler)
+    assert event["status"] == status
+    for key, value in extra.items():
+        assert event[key] == value
