@@ -177,7 +177,8 @@ There are three outputs, additive to each other:
 Log level is set by `AYON_LOG_LEVEL` and applies to all outputs. It accepts a name (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) or a number (`10`). Default is `INFO`. Arguments `--verbose <LOG LEVEL>` and `--debug` set it too.
 
 ### Console
-- Additional fields (`key=value`) are shown only with `DEBUG` log level, except `duration_ms` and `status` of spans. Log file and Vector always contain all fields.
+- Additional fields (`key=value`) are shown only with `DEBUG` log level. Log file and Vector always contain all fields.
+- Message of spans contains their duration, e.g. `launcher.bootstrap (duration 3.65s)`. Log file and Vector keep the span name as `event` and the duration in `duration_ms`.
 - Context fields (`site_id`, `session_id`, `trace_id`, `span_id`, `parent_span_id`) are never shown in console.
 - Timestamps are in local time.
 

@@ -13,10 +13,12 @@ Console timestamps are in local time, formatted by
 
 Console layout is set by 'AYON_LOG_CONSOLE_STYLE':
     - 'ayon' (default) - log level without padding, e.g. '[info]', and
-        'key=value' fields of records shown only with DEBUG log level,
-        except 'duration_ms' and 'status' of spans.
+        'key=value' fields of records shown only with DEBUG log level.
     - 'structlog' - default structlog layout, padded log level and
         'key=value' fields always shown.
+
+Console message of spans contains their duration, e.g.
+'launcher.bootstrap (duration 3.65s)', see 'log_span'.
 """
 import atexit
 import contextvars
@@ -29,7 +31,7 @@ import secrets
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from logging.handlers import QueueHandler, TimedRotatingFileHandler
 from typing import Any, TextIO
@@ -189,6 +191,8 @@ class log_span:  # noqa: N801
     and fields 'duration_ms', 'status' ('ok' or 'error'), 'trace_id',
     'span_id', 'parent_span_id' and passed attributes. 'SystemExit' with
     a non-zero code is an error, the code is stored as 'exit_code'.
+    Console message also contains the duration, e.g.
+    'launcher.bootstrap (duration 3.65s)'.
 
     While the span is open, 'trace_id' and 'span_id' are bound to
     structlog context variables, so all records logged meanwhile carry
@@ -682,27 +686,27 @@ class _LevelColumnFormatter(structlog.dev.LogLevelColumnFormatter):
         return f"[{style}{level}{self.reset_style}]"
 
 
-class _ShownKeysColumnFormatter:
-    """Column formatter showing only some fields, see '_ConsoleRenderer'.
+def _hide_key_value(key: str, value: object) -> str:
+    """Column formatter hiding the value, see '_ConsoleRenderer'."""
+    return ""
 
-    Args:
-        formatter (Callable[[str, object], str]): Formatter of shown fields.
-        keys (Iterable[str]): Keys of shown fields.
 
+def _add_span_duration_to_event(logger, method_name, event_dict):
+    """Show duration of span in console message.
+
+    E.g. 'launcher.bootstrap (duration 3.65s)'. Only for console, JSON
+    output keeps the span name as the event, so records of a span can be
+    grouped by it, and the duration in 'duration_ms'.
     """
-
-    def __init__(
-        self,
-        formatter: Callable[[str, object], str],
-        keys: Iterable[str],
-    ) -> None:
-        self._formatter = formatter
-        self._keys = frozenset(keys)
-
-    def __call__(self, key: str, value: object) -> str:
-        if key in self._keys:
-            return self._formatter(key, value)
-        return ""
+    duration_ms = event_dict.get("duration_ms")
+    if (
+        event_dict.get("logger") == SPAN_LOGGER_NAME
+        and isinstance(duration_ms, (int, float))
+    ):
+        event_dict["event"] = (
+            f"{event_dict.get('event')} (duration {duration_ms / 1000:.2f}s)"
+        )
+    return event_dict
 
 
 class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
@@ -718,8 +722,7 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         compact_level (bool): Log level is not padded, e.g. '[info]'
             instead of '[info     ]'.
         show_key_values (bool): Show additional fields of the event as
-            'key=value' pairs. Fields in '_ALWAYS_SHOWN_KEYS' are shown
-            always.
+            'key=value' pairs.
         *args (Any): Arguments of 'ConsoleRenderer'.
         **kwargs (Any): Keyword arguments of 'ConsoleRenderer'.
 
@@ -736,10 +739,6 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         self._compact_level = compact_level
         self._show_key_values = show_key_values
         super().__init__(*args, **kwargs)
-
-    # Fields shown even when other key values are hidden, timing of spans
-    #   is useful in console output, see 'log_span'
-    _ALWAYS_SHOWN_KEYS = ("duration_ms", "status")
 
     # ANSI 256-color styles of log levels, 'exception' is logged as error
     _LEVEL_STYLES = {
@@ -771,9 +770,7 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         super()._configure_columns()
         if not self._show_key_values:
             # Fields without own column, exceptions are rendered separately
-            self._default_column_formatter = _ShownKeysColumnFormatter(
-                self._default_column_formatter, self._ALWAYS_SHOWN_KEYS
-            )
+            self._default_column_formatter = _hide_key_value
         if not self._compact_level:
             return
 
@@ -1013,6 +1010,7 @@ def configure_logging() -> None:
                 console_timestamper,
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                 _drop_log_context,
+                _add_span_duration_to_event,
                 _ConsoleRenderer(
                     colors=colors,
                     exception_formatter=(
