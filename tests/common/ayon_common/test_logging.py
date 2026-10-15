@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from logging.handlers import TimedRotatingFileHandler
 
 import pytest
 import structlog
@@ -124,6 +125,64 @@ def test_positional_arguments_are_formatted(logging_module, foreign_handler):
     assert foreign_handler.messages == ["Loaded asset from disk"]
 
 
+def test_disabled_level_is_not_processed(logging_module, foreign_handler):
+    """Events of disabled level are dropped before processors run."""
+    logging_module()
+    processed = []
+
+    def _record_method(logger, method_name, event_dict):
+        processed.append(method_name)
+        return event_dict
+
+    structlog.get_config()["processors"].insert(0, _record_method)
+    name = "ayon_common.tests.disabled"
+    log = structlog.get_logger(name)
+
+    log.debug("Disabled %s", "debug")
+    log.log(logging.DEBUG, "Disabled log")
+    # Arguments not matching the message are not formatted either
+    log.debug("Data:", [1, 2])
+    log.info("Enabled")
+
+    assert processed == ["info"]
+    assert foreign_handler.messages == ["Enabled"]
+
+    # Level set on a single logger is respected
+    logger = logging.getLogger(name)
+    orig_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    try:
+        log.debug("Enabled %s", "debug")
+    finally:
+        logger.setLevel(orig_level)
+
+    assert processed == ["info", "debug"]
+    assert foreign_handler.messages == ["Enabled", "Enabled debug"]
+
+
+@pytest.mark.parametrize(
+    "message, args, expected",
+    [
+        # Too few arguments
+        ("Loaded %s from %s", ("asset",), "Loaded %s from %s 'asset'"),
+        # Arguments passed like to 'print'
+        ("Data:", ([1, 2],), "Data: [1, 2]"),
+        # Wrong type of argument
+        ("Version %d", ("v001",), "Version %d 'v001'"),
+    ],
+)
+def test_mismatched_arguments_do_not_raise(
+    logging_module, foreign_handler, message, args, expected
+):
+    """Logging must not break the caller, arguments are kept in message."""
+    logging_module()
+    log = structlog.get_logger("ayon_common.tests.bad_args")
+
+    log.info(message, *args)
+
+    assert foreign_handler.messages == [expected]
+
+
 def test_foreign_handlers_get_plain_message(logging_module, foreign_handler):
     logging_module()
     log = structlog.get_logger("ayon_common.tests.foreign")
@@ -142,8 +201,8 @@ def test_console_formatter_ignores_mutated_record_msg(
     logging_module, monkeypatch, foreign_handler
 ):
     """Other handlers may replace 'record.msg', e.g. pyblish does."""
-    # Key values are shown only with DEBUG level
-    monkeypatch.setenv("AYON_LOG_LEVEL", "DEBUG")
+    # Key values are shown only by structlog layout
+    monkeypatch.setenv("AYON_LOG_CONSOLE_STYLE", "structlog")
     module = logging_module()
     log = structlog.get_logger("ayon_common.tests.mutated")
     handler = next(
@@ -196,8 +255,8 @@ def test_session_id_in_records_of_all_threads(
 
 
 def test_console_hides_context_ids(logging_module, monkeypatch):
-    # Other key values are shown only with DEBUG level
-    monkeypatch.setenv("AYON_LOG_LEVEL", "DEBUG")
+    # Other key values are shown only by structlog layout
+    monkeypatch.setenv("AYON_LOG_CONSOLE_STYLE", "structlog")
     monkeypatch.setenv("AYON_SESSION_ID", "session-value")
     logging_module()
     log = structlog.get_logger("ayon_common.tests.console_ids")
@@ -288,22 +347,29 @@ def test_console_level_colors(logging_module, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "env, info, warning, key_values",
+    "env, info, warning, logger_shown, key_values",
     [
-        # Key values are shown only with DEBUG level
-        ({}, r"\[info\]", r"\[warning\]", ""),
-        ({"AYON_LOG_LEVEL": "DEBUG"}, r"\[info\]", r"\[warning\]", " key=1"),
+        # Key values are never shown, logger name only with DEBUG level
+        ({}, r"\[info\]", r"\[warning\]", False, ""),
+        (
+            {"AYON_LOG_LEVEL": "DEBUG"},
+            r"\[info\]",
+            r"\[warning\]",
+            True,
+            "",
+        ),
         # Default structlog layout
         (
             {"AYON_LOG_CONSOLE_STYLE": "structlog"},
             r"\[info {5}\]",
             r"\[warning {2}\]",
+            True,
             " key=1",
         ),
     ],
 )
 def test_console_layout(
-    logging_module, monkeypatch, env, info, warning, key_values
+    logging_module, monkeypatch, env, info, warning, logger_shown, key_values
 ):
     monkeypatch.setenv("NO_COLOR", "1")
     for key, value in env.items():
@@ -316,14 +382,99 @@ def test_console_layout(
     logging.getLogger("ayon_common.tests.layout_foreign").warning("Foreign")
 
     structlog_line, foreign_line = stream.getvalue().splitlines()
+    structlog_logger = r" +\[ayon_common\.tests\.layout\]"
+    foreign_logger = r" +\[ayon_common\.tests\.layout_foreign\]"
+    if not logger_shown:
+        structlog_logger = foreign_logger = ""
     assert re.search(
-        rf"{info} Message +\[ayon_common\.tests\.layout\]{key_values}$",
+        rf"{info} Message{structlog_logger}{key_values}$",
         structlog_line,
     ), structlog_line
     assert re.search(
-        rf"{warning} Foreign +\[ayon_common\.tests\.layout_foreign\]$",
+        rf"{warning} Foreign{foreign_logger}$",
         foreign_line,
     ), foreign_line
+
+
+@pytest.mark.parametrize(
+    "template, fields, expected",
+    [
+        ("Loaded {product}", {"product": "modelMain"}, "Loaded modelMain"),
+        # Tokens without a field are kept
+        ("Loaded {product} {missing}", {"product": "a"}, "Loaded a {missing}"),
+        # Fields not used in the template are ignored
+        ("Done", {"unused": 1}, "Done"),
+        ("{version:03d}", {"version": 3}, "003"),
+        # Value not matching format spec is rendered by 'str'
+        ("{version:03d} {name}", {"version": "v3", "name": "a"}, "v3 a"),
+        # Missing field is kept with its conversion and format spec
+        ("{missing!r:>5} {name}", {"name": "a"}, "{missing!r:>5} a"),
+        ("[{name:>5}][{name:<5}]", {"name": "ab"}, "[   ab][ab   ]"),
+        ("{name!r} {name!s} {name!a}", {"name": "é"}, "'é' é '\\xe9'"),
+        ("{{name}} {name}", {"name": "ab"}, "{name} ab"),
+        # Only fields looked up by name are rendered
+        (
+            "{0} {} {name.upper} {data[key]} {name}",
+            {"name": "ab", "data": {"key": 1}},
+            "{0} {} {name.upper} {data[key]} ab",
+        ),
+        # Not valid format strings, kept as they are
+        ("Unclosed {name", {"name": "ab"}, "Unclosed {name"),
+        ("Single } {name}", {"name": "ab"}, "Single } {name}"),
+        # Without fields escaped braces are kept
+        ("{{literal}}", {}, "{{literal}}"),
+    ],
+)
+def test_render_message_template(logging_module, template, fields, expected):
+    module = logging_module()
+
+    assert module.render_message_template(template, fields) == expected
+
+
+def test_message_template(logging_module, monkeypatch, foreign_handler):
+    """Message is rendered from template, JSON keeps the template."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    module = logging_module()
+    stream = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stream)
+    log = structlog.get_logger("ayon_common.tests.template")
+
+    log.info(
+        "Published {product} v{version:03d} {missing}",
+        product="modelMain",
+        version=3,
+    )
+    # Not templates
+    log.info("Plain {{braces}}")
+    log.info("Loaded %s {product}", "a", product="b")
+
+    assert foreign_handler.messages == [
+        "Published modelMain v003 {missing}",
+        "Plain {{braces}}",
+        "Loaded a {product}",
+    ]
+    lines = stream.getvalue().splitlines()
+    assert lines[0].endswith("[info] Published modelMain v003 {missing}")
+    assert "message_template" not in stream.getvalue()
+
+    json_formatter = module._EventDictProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.JSONRenderer(),
+        ],
+    )
+    payloads = [
+        json.loads(json_formatter.format(record))
+        for record in foreign_handler.records
+    ]
+    assert payloads[0]["event"] == "Published modelMain v003 {missing}"
+    assert payloads[0]["message_template"] == (
+        "Published {product} v{version:03d} {missing}"
+    )
+    assert payloads[0]["product"] == "modelMain"
+    assert payloads[0]["version"] == 3
+    assert "message_template" not in payloads[1]
+    assert "message_template" not in payloads[2]
 
 
 def test_console_span_message_has_duration(
@@ -339,8 +490,8 @@ def test_console_span_message_has_duration(
         pass
 
     output = stream.getvalue()
-    assert re.search(r"\[info\] tests\.span \(duration \d+\.\d{2}s\)", output)
-    # Key values are hidden without DEBUG level
+    assert re.search(r"\[info\] tests\.span \(duration \d+\.\d{2}s\)$", output)
+    # Key values are hidden
     for value in ("hidden-value", "duration_ms", "status"):
         assert value not in output
 
@@ -439,6 +590,53 @@ def test_log_file_per_process_and_cleanup(
         for line in (logs_dir / own_files[0]).read_text().splitlines()
     ]
     assert [r["event"] for r in records] == ["To file"]
+
+
+def test_log_file_failure_does_not_break_logging(
+    logging_module, monkeypatch, tmp_path, foreign_handler
+):
+    not_a_dir = tmp_path / "not_a_dir"
+    not_a_dir.write_text("")
+    monkeypatch.setenv("AYON_LOG_TO_FILE", "1")
+    monkeypatch.setattr(
+        "ayon_common.utils.get_launcher_local_dir",
+        lambda *args, **kwargs: str(not_a_dir.joinpath(*args)),
+    )
+
+    module = logging_module()
+    structlog.get_logger("ayon_common.tests.file").info("Still logged")
+
+    handler_types = [type(handler) for handler in logging.getLogger().handlers]
+    assert TimedRotatingFileHandler not in handler_types
+    assert module._StderrHandler in handler_types
+    assert any(
+        message.startswith("Failed to create AYON log file")
+        for message in foreign_handler.messages
+    )
+    assert "Still logged" in foreign_handler.messages
+
+
+def test_vector_failure_does_not_break_logging(
+    logging_module, monkeypatch, foreign_handler
+):
+    monkeypatch.setenv("AYON_VECTOR_LOG_URL", "http://127.0.0.1:1/")
+
+    def _raise(*args, **kwargs):
+        raise RuntimeError("Can't create session")
+
+    monkeypatch.setattr("requests.Session", _raise)
+
+    module = logging_module()
+    structlog.get_logger("ayon_common.tests.vector").info("Still logged")
+
+    handler_types = [type(handler) for handler in logging.getLogger().handlers]
+    assert module._DroppingQueueHandler not in handler_types
+    assert module._logging_state.vector_sender is None
+    assert any(
+        message.startswith("Failed to start sending of logs to Vector")
+        for message in foreign_handler.messages
+    )
+    assert "Still logged" in foreign_handler.messages
 
 
 def test_vector_queue_renders_in_logging_thread(logging_module):
@@ -568,8 +766,69 @@ def test_vector_sender_survives_failures(logging_module):
     assert len(stub.bodies) == 2
 
 
-def test_rate_limited_logger_accepts_arguments(logging_module):
+def test_vector_sender_does_not_retry_unreachable_endpoint(logging_module):
+    """Each attempt to connect waits for the timeout again."""
     module = logging_module()
+    url = "http://127.0.0.1:1/"
+    sender = module.VectorHTTPSender(url, queue.Queue())
+
+    retries = sender._session.get_adapter(url).max_retries
+
+    assert retries.connect == 0
+    assert retries.read == 0
+    # Temporary error responses of reachable endpoint are still retried
+    assert retries.total == 2
+    assert 503 in retries.status_forcelist
+
+
+def test_vector_sender_stop_gives_up_after_failed_request(
+    logging_module, monkeypatch
+):
+    """Unreachable endpoint must not delay exit of the process."""
+    module = logging_module()
+    log_queue = queue.Queue()
+    sender = module.VectorHTTPSender(
+        "http://127.0.0.1:1/",
+        log_queue,
+        batch_size=1,
+        flush_interval=5.0,
+        failure_threshold=100,
+    )
+    request_started = threading.Event()
+    release_request = threading.Event()
+    requests_count = []
+
+    def _post(*args, **kwargs):
+        requests_count.append(1)
+        request_started.set()
+        release_request.wait(5.0)
+        raise ConnectionError("Endpoint is unreachable")
+
+    monkeypatch.setattr(sender._session, "post", _post)
+    for idx in range(5):
+        log_queue.put(json.dumps({"event": str(idx)}))
+    sender.start()
+    assert request_started.wait(5.0)
+
+    # 'stop' is called on exit while the first request is in progress
+    stop_thread = threading.Thread(target=sender.stop)
+    stop_thread.start()
+    deadline = time.monotonic() + 5.0
+    while not sender._stopping and time.monotonic() < deadline:
+        time.sleep(0.01)
+    release_request.set()
+    stop_thread.join(5.0)
+
+    assert not stop_thread.is_alive()
+    # Remaining 4 batches were dropped without a request
+    assert len(requests_count) == 1
+    assert log_queue.empty()
+
+
+def test_rate_limited_logger_accepts_arguments(logging_module, monkeypatch):
+    module = logging_module()
+    # Monotonic clock shortly after boot, e.g. on a fresh CI machine
+    monkeypatch.setattr(module.time, "monotonic", lambda: 5.0)
     handler = _ListHandler()
     logger = logging.getLogger("ayon_common.tests.rate_limited")
     logger.addHandler(handler)
@@ -756,3 +1015,31 @@ def test_log_span_status(
     assert event["status"] == status
     for key, value in extra.items():
         assert event[key] == value
+
+
+class _BrokenStream:
+    """Stream which fails on every write, like some host streams do."""
+
+    def write(self, _text):
+        raise SystemError("<built-in function write> returned a result")
+
+    def flush(self):
+        pass
+
+
+def test_console_does_not_raise_on_broken_stream(logging_module, monkeypatch):
+    """A failing stream must not break the code that is logging."""
+    logging_module()
+    log = structlog.get_logger("ayon_common.tests.broken_stream")
+
+    stream = _BrokenStream()
+    # Standard streams are replaced too, so neither printing nor the
+    # 'handleError' report to 'sys.stderr' can succeed.
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setattr(sys, "stderr", stream)
+
+    log.info("message %s", "value")
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        log.exception("failed")

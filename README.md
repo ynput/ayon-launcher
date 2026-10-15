@@ -166,7 +166,7 @@ Environment variables that are set during startup:
 Logging environment variables are described in [Logging](#logging).
 
 ## Logging
-AYON launcher uses structured logging ([structlog](https://www.structlog.org)). Each record has a message and additional fields, e.g. `logger.info("Distribution finished", bundle=bundle_name)`. Logging is configured by AYON launcher until control is passed to `ayon_core` (or to a script), which configures logging for its own needs with the same environment variables, see [ayon-core](https://github.com/ynput/ayon-core#logging).
+AYON launcher uses structured logging ([structlog](https://www.structlog.org)). Each record has a message and additional fields, e.g. `logger.info("Distribution of {bundle} finished", bundle=bundle_name)`. Message is a message template using [Python format string](https://docs.python.org/3/library/string.html#format-string-syntax) syntax, same as in [ayon-core](https://github.com/ynput/ayon-core#message-templates): fields are rendered into the message, tokens without a field are kept as they are, and the template is stored in `message_template` field of JSON records. Logging is configured by AYON launcher until control is passed to `ayon_core` (or to a script), which configures logging for its own needs with the same environment variables, see [ayon-core](https://github.com/ynput/ayon-core#logging).
 
 There are three outputs, additive to each other:
 1. **Console** - human readable output to stderr. Always enabled.
@@ -177,14 +177,15 @@ There are three outputs, additive to each other:
 Log level is set by `AYON_LOG_LEVEL` and applies to all outputs. It accepts a name (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) or a number (`10`). Default is `INFO`. Arguments `--verbose <LOG LEVEL>` and `--debug` set it too.
 
 ### Console
-- Additional fields (`key=value`) are shown only with `DEBUG` log level. Log file and Vector always contain all fields.
-- Message of spans contains their duration, e.g. `launcher.bootstrap (duration 3.65s)`. Log file and Vector keep the span name as `event` and the duration in `duration_ms`.
+- Only the message is shown, additional fields (`key=value`) are not. Use message template to show them. Log file and Vector always contain all fields.
+- Logger name is shown only with `DEBUG` log level.
+- Message of spans contains their duration, e.g. `launcher.bootstrap (duration 3.65s)`.
 - Context fields (`site_id`, `session_id`, `trace_id`, `span_id`, `parent_span_id`) are never shown in console.
 - Timestamps are in local time.
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `AYON_LOG_CONSOLE_STYLE` | `ayon` - more compressed layout. `structlog` - default structlog layout with padded log level and all fields always shown. | `ayon` |
+| `AYON_LOG_CONSOLE_STYLE` | `ayon` - log level without padding, e.g. `[info]`, `structlog` - default structlog layout with padded log level, e.g. `[info     ]`, logger name and all fields always shown. | `ayon` |
 | `AYON_LOG_CONSOLE_TIME_FORMAT` | [strftime](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes) format of timestamps, e.g. `%H:%M:%S.%f`. Invalid format falls back to the default. | `%Y/%m/%d %H:%M:%S` |
 
 ### Log file
@@ -203,7 +204,7 @@ Log files are stored in `logs` subfolder of **AYON_LAUNCHER_LOCAL_DIR**, e.g. `%
 Records are sent in batches as JSON arrays from a background thread. When Vector is unreachable, records are dropped and sending is paused for a while.
 
 ### Record fields
-JSON records (log file and Vector) contain `event` (message), `level`, `logger`, `timestamp` and additional fields of the record, plus context fields:
+JSON records (log file and Vector) contain `event` (rendered message), `message_template` (when the message is a template), `level`, `logger`, `timestamp` and additional fields of the record, plus context fields:
 - `site_id` - from `AYON_SITE_ID`.
 - `session_id` - from `AYON_SESSION_ID`, correlates records of related processes.
 - `trace_id`, `span_id`, `parent_span_id` - of the span in which the record was logged.

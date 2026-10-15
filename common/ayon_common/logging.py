@@ -12,13 +12,17 @@ Console timestamps are in local time, formatted by
 '%Y/%m/%d %H:%M:%S'). JSON output always uses ISO 8601 in UTC.
 
 Console layout is set by 'AYON_LOG_CONSOLE_STYLE':
-    - 'ayon' (default) - log level without padding, e.g. '[info]', and
-        'key=value' fields of records shown only with DEBUG log level.
-    - 'structlog' - default structlog layout, padded log level and
-        'key=value' fields always shown.
+    - 'ayon' (default) - log level without padding, e.g. '[info]', only
+        the message is shown, logger name only with DEBUG log level.
+    - 'structlog' - default structlog layout with padded log level,
+        e.g. '[info     ]', logger name and additional fields of records
+        as 'key=value'.
 
 Console message of spans contains their duration, e.g.
 'launcher.bootstrap (duration 3.65s)', see 'log_span'.
+
+Messages are message templates, e.g. 'log.info("Loaded {product}",
+product=name)', see 'render_message_template'.
 """
 import atexit
 import contextvars
@@ -28,10 +32,11 @@ import logging
 import os
 import queue
 import secrets
+import string
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from logging.handlers import QueueHandler, TimedRotatingFileHandler
 from typing import Any, TextIO
@@ -141,8 +146,14 @@ def get_console_time_format_from_env() -> str:
 def get_console_style_from_env() -> str:
     """Resolve console layout from environment variables.
 
-    'AYON_LOG_CONSOLE_STYLE' accepts 'ayon' or 'structlog'. Defaults to
-    'ayon' when it is not set or is invalid.
+    'AYON_LOG_CONSOLE_STYLE' accepts:
+        - 'ayon' (default) - log level without padding, e.g. '[info]',
+            'key=value' fields of records never shown and logger name
+            shown only with DEBUG log level.
+        - 'structlog' - default structlog layout, padded log level,
+            logger name and 'key=value' fields always shown.
+
+    Invalid value is handled as 'ayon'.
 
     Returns:
         str: 'CONSOLE_STYLE_AYON' or 'CONSOLE_STYLE_STRUCTLOG'.
@@ -372,6 +383,173 @@ def _render_for_stdlib(
     return (str(event_dict.get("event", "")),), kwargs
 
 
+# Field of JSON records holding the message template, see
+#   'render_message_template'
+MESSAGE_TEMPLATE_KEY = "message_template"
+# Parser of Python format strings, used for message templates
+_TEMPLATE_PARSER = string.Formatter()
+
+
+@functools.lru_cache(maxsize=1024)
+def _parse_message_template(
+    message: str,
+) -> tuple[tuple[str, str | None, str | None, str | None], ...] | None:
+    """Parse message as Python format string.
+
+    Parsed templates are cached, messages logged repeatedly are parsed
+    only once.
+
+    Args:
+        message (str): Message of a log record.
+
+    Returns:
+        Optional[tuple]: Items of 'string.Formatter.parse', 'None' when
+            the message is not a template, i.e. has no replacement
+            field or is not a valid format string, e.g. 'Unclosed {'.
+
+    """
+    try:
+        parsed = tuple(_TEMPLATE_PARSER.parse(message))
+    except ValueError:
+        return None
+    if all(field_name is None for _, field_name, _, _ in parsed):
+        return None
+    return parsed
+
+
+def _get_message_template(
+    message: Any,
+) -> tuple[tuple[str, str | None, str | None, str | None], ...] | None:
+    """Parsed message template, 'None' if 'message' is not a template."""
+    if not isinstance(message, str) or "{" not in message:
+        return None
+    return _parse_message_template(message)
+
+
+def render_message_template(
+    template: str, fields: Mapping[str, Any]
+) -> str:
+    """Render a message template with values of fields.
+
+    Template uses Python format string syntax with named fields, e.g.
+    'Published {product} v{version:03d}'. Conversions ('{name!r}') and
+    format specs ('{name:>10}') are supported, '{{' and '}}' are literal
+    braces.
+
+    Unlike 'str.format', rendering never raises and each field is handled
+    on its own:
+        - Field without a value is kept as written, e.g. '{missing:03d}'.
+        - Positional ('{}', '{0}'), attribute ('{obj.name}') and index
+            ('{data[key]}') fields are kept as written, values are only
+            looked up by name.
+        - Value not matching its format spec is rendered by 'str'.
+        - Message which is not a valid format string, e.g. 'Unclosed {',
+            is returned unchanged.
+
+    Args:
+        template (str): Message template, e.g. 'Loaded {product}'.
+        fields (Mapping[str, Any]): Values of fields.
+
+    Returns:
+        str: Rendered message.
+
+    """
+    parsed = _get_message_template(template)
+    if parsed is None:
+        return template
+
+    parts = []
+    for literal, field_name, format_spec, conversion in parsed:
+        parts.append(literal)
+        if field_name is None:
+            continue
+        if field_name not in fields:
+            token = "{" + field_name
+            if conversion:
+                token += "!" + conversion
+            if format_spec:
+                token += ":" + format_spec
+            parts.append(token + "}")
+            continue
+        value = fields[field_name]
+        try:
+            if conversion == "r":
+                value = repr(value)
+            elif conversion == "s":
+                value = str(value)
+            elif conversion == "a":
+                value = ascii(value)
+            parts.append(format(value, format_spec or ""))
+        except Exception:  # noqa: BLE001
+            try:
+                parts.append(str(value))
+            except Exception:  # noqa: BLE001
+                parts.append("{" + field_name + "}")
+    return "".join(parts)
+
+
+def _render_message(logger, method_name, event_dict):
+    """Processor rendering the message template of the event.
+
+    E.g. 'log.info("Loaded {product}", product="modelMain")' has message
+    'Loaded modelMain', field 'product' and the template in field
+    'MESSAGE_TEMPLATE_KEY', so records of the same message can be grouped.
+    Message which is not a template is kept as it is, also its escaped
+    braces.
+
+    Messages with '%s' style arguments are not handled as templates.
+    """
+    template = event_dict.get("event")
+    if (
+        event_dict.get("positional_args")
+        or _get_message_template(template) is None
+    ):
+        return event_dict
+    event_dict["event"] = render_message_template(template, event_dict)
+    event_dict[MESSAGE_TEMPLATE_KEY] = template
+    return event_dict
+
+
+# Levels of logging methods of structlog loggers, see
+#   '_LevelAwareBoundLogger'
+_METHOD_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "warn": logging.WARNING,
+    "error": logging.ERROR,
+    "exception": logging.ERROR,
+    "critical": logging.CRITICAL,
+    "fatal": logging.CRITICAL,
+}
+
+
+class _LevelAwareBoundLogger(structlog.stdlib.BoundLogger):
+    """BoundLogger checking the log level before processing an event.
+
+    'structlog.stdlib.BoundLogger' runs all processors first and leaves
+    the level check to the standard library logger. A call of disabled
+    level, e.g. 'log.debug' with INFO log level, then costs as much as
+    an enabled one without the output, and raises when '%s' style
+    arguments do not match the message, which standard library logger
+    never formats for a disabled level.
+    """
+
+    def _proxy_to_logger(
+        self,
+        method_name: str,
+        event: str | None = None,
+        *event_args: Any,
+        **event_kw: Any,
+    ) -> Any:
+        level = _METHOD_LEVELS.get(method_name)
+        if level is not None and not self._logger.isEnabledFor(level):
+            return None
+        return super()._proxy_to_logger(
+            method_name, event, *event_args, **event_kw
+        )
+
+
 class _EventDictProcessorFormatter(structlog.stdlib.ProcessorFormatter):
     """ProcessorFormatter reading the event dict from the record.
 
@@ -444,7 +622,9 @@ class _RateLimitedLogger:
     def __init__(self, logger: logging.Logger, interval: float):
         self._logger = logger
         self._interval = interval
-        self._last_emit = 0.0
+        # Not '0.0', 'time.monotonic' may be lower than 'interval' shortly
+        #   after boot and the first warning would be suppressed.
+        self._last_emit: float | None = None
 
     def warning(self, msg: str, *args: Any) -> None:
         """Log a warning message if the rate limit allows.
@@ -458,7 +638,10 @@ class _RateLimitedLogger:
 
         """
         now = time.monotonic()
-        if now - self._last_emit < self._interval:
+        if (
+            self._last_emit is not None
+            and now - self._last_emit < self._interval
+        ):
             return
         self._last_emit = now
         # Only positional arguments - the wrapped logger is a plain
@@ -517,6 +700,9 @@ class VectorHTTPSender:
     A circuit breaker stops sending for 'cooldown' seconds after
     'failure_threshold' consecutive failed requests. Records are dropped
     meanwhile so a dead endpoint cannot slow down the process.
+
+    Failed requests are not repeated, except for a temporary error
+    response of the endpoint. The next batch is the next attempt.
     """
 
     _stop_sentinel = object()
@@ -539,11 +725,20 @@ class VectorHTTPSender:
         self._consecutive_failures = 0
         self._circuit_open_until = 0.0
         self._thread: threading.Thread | None = None
+        # 'stop' was called, see '_send'
+        self._stopping = False
+        self._gave_up = False
         # Reuse a single session so repeated POSTs reuse pooled
         # connections instead of opening a new one per request.
         self._session = requests.Session()
+        # Only temporary error responses are retried. Connection and read
+        #   errors are not: an unreachable endpoint rarely recovers within
+        #   the backoff, each attempt waits for the timeout again, and
+        #   a batch whose response was not read would be sent twice.
         retry = urllib3.util.Retry(
             total=2,
+            connect=0,
+            read=0,
             backoff_factor=0.3,
             status_forcelist=(502, 503, 504),
             allowed_methods=("POST",),
@@ -555,15 +750,23 @@ class VectorHTTPSender:
         self._session.mount("https://", adapter)
 
     def start(self) -> None:
+        self._stopping = False
+        self._gave_up = False
         self._thread = threading.Thread(
             target=self._run, name="AYONVectorSender", daemon=True
         )
         self._thread.start()
 
     def stop(self, timeout: float = 5.0) -> None:
-        """Send records remaining in the queue and stop the thread."""
+        """Send records remaining in the queue and stop the thread.
+
+        Called on exit of the process. Remaining records are dropped
+        after the first failed request, an unreachable endpoint must
+        not delay the exit by an attempt for each remaining batch.
+        """
         if self._thread is None:
             return
+        self._stopping = True
         # Thread may already be finished, see 'request_stop'
         if self._thread.is_alive():
             try:
@@ -616,6 +819,8 @@ class VectorHTTPSender:
             # Circuit is open - skip the HTTP attempt entirely so a dead
             # Vector endpoint cannot slow down the sender thread.
             return
+        if self._gave_up:
+            return
         try:
             response = self._session.post(
                 self._url,
@@ -627,6 +832,9 @@ class VectorHTTPSender:
             )
             response.raise_for_status()
         except Exception:  # noqa: BLE001
+            if self._stopping:
+                # Process is exiting, see 'stop'
+                self._gave_up = True
             self._consecutive_failures += 1
             if self._consecutive_failures >= self._failure_threshold:
                 self._circuit_open_until = now + self._cooldown
@@ -686,7 +894,7 @@ class _LevelColumnFormatter(structlog.dev.LogLevelColumnFormatter):
         return f"[{style}{level}{self.reset_style}]"
 
 
-def _hide_key_value(key: str, value: object) -> str:
+def _hide_column(key: str, value: object) -> str:
     """Column formatter hiding the value, see '_ConsoleRenderer'."""
     return ""
 
@@ -723,6 +931,7 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
             instead of '[info     ]'.
         show_key_values (bool): Show additional fields of the event as
             'key=value' pairs.
+        show_logger_name (bool): Show name of the logger.
         *args (Any): Arguments of 'ConsoleRenderer'.
         **kwargs (Any): Keyword arguments of 'ConsoleRenderer'.
 
@@ -733,11 +942,13 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         *args: Any,
         compact_level: bool = False,
         show_key_values: bool = True,
+        show_logger_name: bool = True,
         **kwargs: Any,
     ) -> None:
         # Used by '_configure_columns' called in '__init__' of base class
         self._compact_level = compact_level
         self._show_key_values = show_key_values
+        self._show_logger_name = show_logger_name
         super().__init__(*args, **kwargs)
 
     # ANSI 256-color styles of log levels, 'exception' is logged as error
@@ -770,15 +981,22 @@ class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
         super()._configure_columns()
         if not self._show_key_values:
             # Fields without own column, exceptions are rendered separately
-            self._default_column_formatter = _hide_key_value
-        if not self._compact_level:
-            return
+            self._default_column_formatter = _hide_column
 
         columns = []
         for column in self._columns:
             formatter = column.formatter
-            if column.key == "level" and isinstance(
-                formatter, structlog.dev.LogLevelColumnFormatter
+            if (
+                not self._show_logger_name
+                and column.key in ("logger", "logger_name")
+            ):
+                column = structlog.dev.Column(column.key, _hide_column)
+            elif (
+                self._compact_level
+                and column.key == "level"
+                and isinstance(
+                    formatter, structlog.dev.LogLevelColumnFormatter
+                )
             ):
                 column = structlog.dev.Column(
                     column.key,
@@ -897,7 +1115,14 @@ class _StderrHandler(logging.StreamHandler):
         except RecursionError:
             raise
         except Exception:  # noqa: BLE001
-            self.handleError(record)
+            # Logging must never break the caller. Some processes replace
+            # 'sys.stdout' and 'sys.stderr' with streams that raise when
+            # written to from a non-main thread, in which case reporting
+            # the error through 'handleError' fails as well.
+            try:
+                self.handleError(record)
+            except Exception:  # noqa: BLE001
+                pass
 
     def formatTime(  # noqa: N802
             self,
@@ -965,9 +1190,39 @@ def configure_logging() -> None:
             "trace_id",
             "span_id",
             "parent_span_id",
+            MESSAGE_TEMPLATE_KEY,
         ):
             event_dict.pop(key, None)
         return event_dict
+
+    positional_args_formatter = (
+        structlog.stdlib.PositionalArgumentsFormatter()
+    )
+
+    def _format_positional_args(logger, method_name, event_dict):
+        # Arguments not matching the message must not raise in the
+        #   code that logs, e.g. 'log.info("Data:", data)'. Standard
+        #   library logger reports them to stderr and drops the
+        #   record, here they are added to the message instead.
+        try:
+            return positional_args_formatter(
+                logger, method_name, event_dict
+            )
+        except Exception:  # noqa: BLE001
+            args = event_dict.pop("positional_args", ())
+            try:
+                formatted_args = " ".join(repr(arg) for arg in args)
+            except Exception:  # noqa: BLE001
+                formatted_args = "<unprintable arguments>"
+            event_dict["event"] = (
+                f"{event_dict.get('event')} {formatted_args}"
+            )
+            return event_dict
+
+    def _format_message(logger, method_name, event_dict):
+        # Message template, or '%s' style arguments
+        event_dict = _render_message(logger, method_name, event_dict)
+        return _format_positional_args(logger, method_name, event_dict)
 
     shared_processors: list[Callable] = [
         structlog.contextvars.merge_contextvars,
@@ -981,16 +1236,17 @@ def configure_logging() -> None:
 
     structlog.configure(
         processors=shared_processors + [
-            # Support '%s' style arguments, e.g.
-            #   'log.info("Loaded %s", name)'. Records from plain
-            #   stdlib loggers are already formatted by
+            # Support message templates, e.g.
+            #   'log.info("Loaded {name}", name=name)', and '%s' style
+            #   arguments, e.g. 'log.info("Loaded %s", name)'. Records
+            #   from plain stdlib loggers are already formatted by
             #   'ProcessorFormatter' via 'record.getMessage()'.
-            structlog.stdlib.PositionalArgumentsFormatter(),
+            _format_message,
             # Hand over to standard logging, rendered by formatters
             _render_for_stdlib,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        wrapper_class=_LevelAwareBoundLogger,
         cache_logger_on_first_use=True,
     )
 
@@ -998,19 +1254,25 @@ def configure_logging() -> None:
         get_console_time_format_from_env()
     )
     ayon_console_style = get_console_style_from_env() == CONSOLE_STYLE_AYON
-    show_key_values = (
+    # AYON layout shows only the message, fields are in log file and
+    #   Vector. Logger name is shown only for debugging.
+    show_key_values = not ayon_console_style
+    show_logger_name = (
         not ayon_console_style
         or get_log_level_from_env() <= logging.DEBUG
     )
+    console_processors: list[Callable] = [
+        console_timestamper,
+        structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+        _drop_log_context,
+        _add_span_duration_to_event,
+    ]
 
     def _create_console_formatter(colors: bool) -> logging.Formatter:
         return _EventDictProcessorFormatter(
             foreign_pre_chain=shared_processors,
             processors=[
-                console_timestamper,
-                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                _drop_log_context,
-                _add_span_duration_to_event,
+                *console_processors,
                 _ConsoleRenderer(
                     colors=colors,
                     exception_formatter=(
@@ -1018,6 +1280,7 @@ def configure_logging() -> None:
                     ),
                     compact_level=ayon_console_style,
                     show_key_values=show_key_values,
+                    show_logger_name=show_logger_name,
                 ),
             ],
         )
@@ -1036,31 +1299,56 @@ def configure_logging() -> None:
     )
     handler.setFormatter(_create_console_formatter(colors=False))
 
+    # Failed setup of log file or Vector must not break the process,
+    #   console output is kept. Warnings are logged once handlers are
+    #   added.
+    setup_warnings: list[tuple[str, Exception]] = []
+    file_handler: TimedRotatingFileHandler | None = None
     if LOG_FILE_ENABLED:
-        log_dir = get_launcher_local_dir("logs", create=True)
-        _remove_old_log_files(log_dir, LOG_FILE_RETENTION_DAYS)
-        file_handler = TimedRotatingFileHandler(
-            _get_log_file_path(log_dir),
-            when="midnight",
-            backupCount=LOG_FILE_RETENTION_DAYS,
-            encoding="utf-8",
-        )
-        file_handler.setFormatter(json_formatter)
+        try:
+            log_dir = get_launcher_local_dir("logs", create=True)
+            _remove_old_log_files(log_dir, LOG_FILE_RETENTION_DAYS)
+            file_handler = TimedRotatingFileHandler(
+                _get_log_file_path(log_dir),
+                when="midnight",
+                backupCount=LOG_FILE_RETENTION_DAYS,
+                encoding="utf-8",
+            )
+        except Exception as exc:  # noqa: BLE001
+            # E.g. the directory is not writable or the disk is full
+            setup_warnings.append((
+                "Failed to create AYON log file, logging to file"
+                " is disabled: %s",
+                exc,
+            ))
+        else:
+            file_handler.setFormatter(json_formatter)
 
+    queue_handler: _DroppingQueueHandler | None = None
+    vector_sender: VectorHTTPSender | None = None
     if VECTOR_LOG_URL:
         # Send logs to Vector asynchronously so HTTP calls
         # don't block the app.
         # Queue is bounded so a Vector outage drops records instead of
         # growing memory without bound.
         log_queue: queue.Queue = queue.Queue(VECTOR_QUEUE_MAX_SIZE)
-        queue_handler = _DroppingQueueHandler(log_queue)
-        queue_handler.setFormatter(json_formatter)
-        vector_sender = VectorHTTPSender(VECTOR_LOG_URL, log_queue)
-        vector_sender.start()
-        # The sender thread is a daemon thread, it would be killed on
-        # interpreter exit with records still in the queue. Stopping it
-        # at exit delivers the queued records first.
-        atexit.register(vector_sender.stop)
+        try:
+            vector_sender = VectorHTTPSender(VECTOR_LOG_URL, log_queue)
+            vector_sender.start()
+        except Exception as exc:  # noqa: BLE001
+            vector_sender = None
+            setup_warnings.append((
+                "Failed to start sending of logs to Vector, it"
+                " is disabled: %s",
+                exc,
+            ))
+        else:
+            queue_handler = _DroppingQueueHandler(log_queue)
+            queue_handler.setFormatter(json_formatter)
+            # The sender thread is a daemon thread, it would be killed
+            # on interpreter exit with records still in the queue.
+            # Stopping it at exit delivers the queued records first.
+            atexit.register(vector_sender.stop)
 
     log_level = get_log_level_from_env()
     root_logger = logging.getLogger()
@@ -1069,10 +1357,10 @@ def configure_logging() -> None:
     root_logger.setLevel(log_level)
     root_logger.addHandler(handler)
     state.handlers.append(handler)
-    if LOG_FILE_ENABLED:
+    if file_handler is not None:
         root_logger.addHandler(file_handler)
         state.handlers.append(file_handler)
-    if VECTOR_LOG_URL:
+    if queue_handler is not None:
         root_logger.info(
             "Vector logging enabled",
             extra={"vector_log_url": VECTOR_LOG_URL},
@@ -1080,6 +1368,8 @@ def configure_logging() -> None:
         root_logger.addHandler(queue_handler)
         state.handlers.append(queue_handler)
         state.vector_sender = vector_sender
+    for message, exc in setup_warnings:
+        logging.getLogger(__name__).warning(message, exc)
 
     if log_level < logging.INFO:
         # force silence for some very noisy loggers

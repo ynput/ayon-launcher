@@ -420,7 +420,7 @@ from ayon_common.utils import (
 )
 
 configure_logging()
-logger = structlog.get_logger("AYONstartup")
+logger = structlog.get_logger("ayon_launcher.start")
 
 
 # Root span of the launcher startup, one record per launcher process.
@@ -1150,6 +1150,11 @@ def main_cli():
             use_dev=is_dev_mode_enabled()
         )
         logger.info("AYON launcher initialized", info=asdict(info))
+        _print(">>> AYON Launcher Runtime Info:")
+        _print(f"  - version: {info.version}")
+        _print(f"  - variant: {info.variant}")
+        _print(f"  - studio bundle: {info.studio_bundle}")
+        _print(f"  - project bundle: {info.project_bundle}")
 
     # 'ayon_core' configures logging on import, launcher logging must be
     #   released before
