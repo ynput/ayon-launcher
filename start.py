@@ -992,6 +992,37 @@ def _redact_launcher_args(args: list[str]) -> list[str]:
     ]
 
 
+def _get_cli_command(args: list[str], max_words: int = 3) -> str:
+    """Command of 'ayon_core' CLI for logging, e.g. 'addon applications'.
+
+    Leading positional arguments up to the first option. Arguments which
+    look like a path or URI end the command, they may identify users or
+    projects and would make the command unique per call. Launcher
+    arguments, e.g. '--bundle', are already removed at this point.
+
+    Args:
+        args (list[str]): Arguments without the executable.
+        max_words (int): Maximum number of words of the command.
+
+    Returns:
+        str: Command, 'tray' when no command is passed (default command
+            of 'ayon_core').
+
+    """
+    if not args:
+        return "tray"
+    words: list[str] = []
+    for arg in args:
+        if (
+            len(words) >= max_words
+            or arg.startswith("-")
+            or any(char in arg for char in "/\\:.")
+        ):
+            break
+        words.append(arg)
+    return " ".join(words)
+
+
 def process_uri():
     if len(sys.argv) <= 1:
         return False
@@ -1158,7 +1189,7 @@ def main_cli():
 
     # 'ayon_core' configures logging on import, launcher logging must be
     #   released before
-    _STARTUP_SPAN.set(mode="cli")
+    _STARTUP_SPAN.set(mode="cli", command=_get_cli_command(sys.argv[1:]))
     _STARTUP_SPAN.finish()
     release_logging()
 
