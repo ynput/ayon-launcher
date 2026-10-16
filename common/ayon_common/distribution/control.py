@@ -2969,6 +2969,7 @@ class AYONDistribution:
             "summary": "true",
             "bundle_name": studio_bundle_name,
             "project_bundle_name": self._project_bundle_name,
+            "variant": "staging" if self.use_staging else "production",
         }
         query = urlencode(key_values)
 
