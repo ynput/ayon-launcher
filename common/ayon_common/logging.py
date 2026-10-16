@@ -464,12 +464,9 @@ def render_message_template(
         if field_name is None:
             continue
         if field_name not in fields:
-            token = "{" + field_name
-            if conversion:
-                token += "!" + conversion
-            if format_spec:
-                token += ":" + format_spec
-            parts.append(token + "}")
+            conversion = f"!{conversion}" if conversion else ""
+            format_spec = f":{format_spec}" if format_spec else ""
+            parts.append(f"{{{field_name}{conversion}{format_spec}}}")
             continue
         value = fields[field_name]
         try:
