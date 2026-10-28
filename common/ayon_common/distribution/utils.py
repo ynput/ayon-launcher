@@ -15,7 +15,9 @@ from ayon_common.utils import (
 def get_addons_dir():
     """Directory where addon packages are stored.
 
-    Path to addons is defined using python module 'appdirs' which
+    Path to addons is defined using 'get_launcher_storage_dir' which uses
+    the 'AYON_LAUNCHER_STORAGE_DIR' environment variable, or the user data
+    directory resolved by 'platformdirs'.
 
     The path is stored into environment variable 'AYON_ADDONS_DIR'.
     Value of environment variable can be overriden, but we highly recommended
@@ -37,7 +39,9 @@ def get_addons_dir():
 def get_dependencies_dir():
     """Directory where dependency packages are stored.
 
-    Path to addons is defined using python module 'appdirs' which
+    Path to dependency packages is defined using 'get_launcher_storage_dir'
+    which uses the 'AYON_LAUNCHER_STORAGE_DIR' environment variable, or
+    the user data directory resolved by 'platformdirs'.
 
     The path is stored into environment variable 'AYON_DEPENDENCIES_DIR'.
     Value of environment variable can be overriden, but we highly recommended

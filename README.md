@@ -219,5 +219,4 @@ Developer mode enables to skip standard distribution process and use local sourc
 
 
 ## TODOs
-- [ ] Use 'platformdirs' instead of 'appdirs'.
 - [ ] Remove unused 'acre' dependency. Now has to be kept for ayon-core compatibility.
