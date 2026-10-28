@@ -699,10 +699,16 @@ def _start_distribution():
         variant = "dev"
     elif distribution.use_staging:
         variant = "staging"
+    dependency_package_name = None
+    if project_bundle is not None:
+        dependency_package_name = project_bundle.dependency_packages.get(
+            platform.system().lower()
+        )
     _STARTUP_SPAN.set(
         variant=variant,
         studio_bundle=studio_bundle_name,
         project_bundle=project_bundle_name,
+        dependency_package=dependency_package_name,
     )
 
     if studio_bundle is None or project_bundle is None:
@@ -766,6 +772,11 @@ def _start_distribution():
             )
 
         sys.exit(1)
+
+    logger.info(
+        "Selected dependency package: {dependency_package}",
+        dependency_package=dependency_package_name,
+    )
 
     # With known bundle and states we can define default settings variant
     #   in global connection
