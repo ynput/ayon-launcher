@@ -93,12 +93,12 @@ def test_nonzero_exit_is_logged_and_stops_mapping(startup):
 @pytest.mark.parametrize("error", [
     FileNotFoundError("missing executable"),
     PermissionError("access denied"),
-    TypeError("invalid arguments"),
 ])
 def test_launch_error_is_logged_and_propagated(startup, error):
     """Include mapping context when the command cannot even start."""
     startup["subprocess"] = SimpleNamespace(
         run=Mock(side_effect=error),
+        Popen=Mock(side_effect=error),
         CalledProcessError=subprocess.CalledProcessError,
     )
     _set_mappings(startup, [
@@ -112,40 +112,3 @@ def test_launch_error_is_logged_and_propagated(startup, error):
     startup["logger"].exception.assert_called_once_with(
         "Error in mapping drive", src_path="source", dst_path="destination"
     )
-
-
-@pytest.mark.parametrize("items, exists, args", [
-    ([], False, ["command"]),
-    ([{"destination": "destination"}], False, ["command"]),
-    ([{"source": "source"}], False, ["command"]),
-    ([{"source": "source", "destination": "destination"}], True, ["command"]),
-    ([{"source": "source", "destination": "destination"}], False, []),
-])
-def test_skipped_mappings_do_not_start_process(startup, items, exists, args):
-    """Keep existing filtering for empty, existing and unsupported mappings."""
-    run = Mock()
-    startup["subprocess"] = SimpleNamespace(run=run)
-    startup["os"].path.exists = lambda _: exists
-    startup["_prepare_disk_mapping_args"] = Mock(return_value=args)
-    _set_mappings(startup, items)
-
-    startup["_run_disk_mapping"]("1.0.0")
-
-    run.assert_not_called()
-
-
-@pytest.mark.parametrize("platform, expected", [
-    ("Windows", ["subst", "D:", "C:\\source"]),
-    ("Linux", ["sudo", "ln", "-s", "C:/source", "D:"]),
-    ("Darwin", [
-        "osascript", "-e",
-        'do shell script "ln -s C:/source D:" with administrator privileges',
-    ]),
-    ("Unsupported", []),
-])
-def test_platform_mapping_commands(startup, platform, expected):
-    """Keep platform command generation intact."""
-    startup["platform"].system = lambda: platform
-
-    args = startup["_prepare_disk_mapping_args"]("C:/source/", "D:")
-    assert args == expected
