@@ -1009,7 +1009,8 @@ def _deploy_shim_windows(
 def _deploy_shim_linux(installer_shim_root: str) -> bool:
     """Deploy shim executable on Linux.
 
-    Linux shim is deployed using zip file exported to appdirs.
+    Linux shim is deployed using archive file extracted to launcher
+    local directory.
 
     Args:
         installer_shim_root (str): Path to installer root.

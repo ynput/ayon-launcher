@@ -466,8 +466,8 @@ def load_environments():
     'AYON_SERVER_URL' and 'AYON_API_KEY'.
 
     Server is looked up from environment. Already set environent is not
-    changed. If environemnt is not filled then last server stored in appdirs
-    is used.
+    changed. If environemnt is not filled then last server stored in
+    launcher local directory is used.
 
     Token is skipped if url is not available. Otherwise, is also checked from
     env and if is not available then uses 'load_token' to try to get token
