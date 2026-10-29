@@ -644,12 +644,8 @@ def _run_disk_mapping(core_version: Optional[str]) -> None:
 
         logger.info("Disk mapping arguments", args=args)
         try:
-            output = subprocess.Popen(args)
-            if output.returncode and output.returncode != 0:
-                exc_msg = f'Executing was not successful: "{args}"'
-
-                raise RuntimeError(exc_msg)
-        except TypeError:
+            subprocess.run(args, check=True)
+        except (OSError, subprocess.CalledProcessError, TypeError):
             logger.exception(
                 "Error in mapping drive", src_path=src_path, dst_path=dst_path)
             raise
