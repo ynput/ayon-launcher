@@ -48,6 +48,7 @@ from .downloaders import (
     get_default_download_factory,
     DownloadFactory,
 )
+from .file_lock import DistributionLock
 
 
 def _unknown_bool(self):
@@ -56,7 +57,8 @@ def _unknown_bool(self):
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
-MOVE_WAIT_TRESHOLD_TIME = 20
+# Folder next to distributed items where lock files are stored
+DIST_LOCKS_DIRNAME = ".dist_locks"
 IS_WINDOWS = platform.system().lower() == "windows"
 
 
@@ -123,11 +125,17 @@ class DistFileStates(Enum):
 
 def _read_progress_file(progress_dir: str):
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
-    try:
-        with open(progress_path, "r") as stream:
-            return json.loads(stream.read())
-    except Exception:
-        return {}
+    # On Windows the file can't be opened for a moment while other process
+    #   replaces it
+    for _ in range(5):
+        try:
+            with open(progress_path, "r") as stream:
+                return json.loads(stream.read())
+        except PermissionError:
+            time.sleep(0.02)
+        except Exception:
+            break
+    return {}
 
 
 def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
@@ -142,11 +150,37 @@ def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
                 "progress directory: {progress_dir}"
             )
 
-    with open(progress_path, "w") as stream:
+    # Write to temp file and replace so other processes never read
+    #   a partially written file
+    tmp_path = f"{progress_path}.{uuid.uuid4().hex}.tmp"
+    with open(tmp_path, "w") as stream:
         json.dump(progress_info, stream)
 
     with suppress(Exception):
-        os.chmod(progress_path, 0o777)
+        os.chmod(tmp_path, 0o777)
+
+    _replace_file(tmp_path, progress_path)
+
+
+def _replace_file(src_path: str, dst_path: str):
+    """Replace file with 'src_path' file.
+
+    On Windows 'os.replace' fails while other process has the destination
+    open, which is usually only for a moment. If it keeps failing the
+    content is copied over the destination instead.
+    """
+    for _ in range(40):
+        try:
+            os.replace(src_path, dst_path)
+            return
+        except PermissionError:
+            time.sleep(0.05)
+
+    try:
+        shutil.copyfile(src_path, dst_path)
+    finally:
+        with suppress(Exception):
+            os.remove(src_path)
 
 
 def _create_progress_file(
@@ -174,85 +208,24 @@ def _create_progress_file(
     _store_progress_file(progress_dir, progress_info)
 
 
-def _clean_dist_dir(dist_dirpath: str):
-    if not os.path.exists(dist_dirpath):
-        return
-    for subname in os.listdir(dist_dirpath):
-        if subname == DIST_PROGRESS_FILENAME:
-            continue
-        path = os.path.join(dist_dirpath, subname)
-        if os.path.isdir(path):
-            shutil.rmtree(path)
-        else:
-            os.remove(path)
+def _get_dist_lock_path(progress_dir: str) -> str:
+    """Path to lock file used while distributing into 'progress_dir'.
 
-
-def _wait_for_other_process(
-    progress_dir: str,
-    progress_id: str,
-    log: logging.Logger,
-) -> Generator[Optional[bool], None, None]:
-    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
-    started = time.time()
-    progress_existed = False
-    threshold_time = None
-    state = None
-    output = False
-    while True:
-        if not os.path.exists(progress_path):
-            if progress_existed:
-                log.debug(
-                    "Other processed didn't finish download or extraction,"
-                    " trying to do so."
-                )
-            break
-
-        progress_info = _read_progress_file(progress_dir)
-        if progress_info.get("progress_id") == progress_id:
-            break
-
-        current_state = progress_info.get("state")
-
-        if not progress_existed:
-            log.debug(
-                "Other process already created progress file"
-                " in target directory. Waiting for finishing it."
-            )
-
-        progress_existed = True
-        if current_state is None:
-            log.warning(
-                "Other process did not store 'state' to progress file."
-            )
-            break
-
-        if current_state == DistFileStates.done.value:
-            log.debug("Other process finished distribution.")
-            output = True
-            break
-
-        if current_state == DistFileStates.failed.value:
-            log.debug("Other process failed distribution.")
-            state = current_state
-            threshold_time = 0
-
-        if current_state != state:
-            started = time.time()
-            threshold_time = None
-            state = current_state
-
-        if threshold_time is None:
-            threshold_time = MOVE_WAIT_TRESHOLD_TIME
-
-        if (time.time() - started) > threshold_time:
-            log.debug(
-                f"Waited for treshold time ({threshold_time}s)."
-                f" Extracting downloaded content."
-            )
-            _clean_dist_dir(progress_dir)
-            break
-        yield None
-    yield output
+    Lock files are stored in a hidden folder next to the distributed
+    folders, e.g. '{addons}/.dist_locks/core_1.0.0.lock'.
+    """
+    progress_dir = os.path.normpath(progress_dir)
+    locks_dir = os.path.join(
+        os.path.dirname(progress_dir), DIST_LOCKS_DIRNAME
+    )
+    if not os.path.exists(locks_dir):
+        os.makedirs(locks_dir, exist_ok=True)
+        # Other users must be able to take over stale locks
+        with suppress(Exception):
+            os.chmod(locks_dir, 0o777)
+    return os.path.join(
+        locks_dir, f"{os.path.basename(progress_dir)}.lock"
+    )
 
 
 def change_permissions_recursive(path: str, mode: int = 0o777) -> None:
@@ -602,6 +575,7 @@ class BaseDistributionItem(ABC):
 
         self._progress_id = uuid.uuid4().hex
         self._progress_dir = progress_dir
+        self._dist_lock: Optional[DistributionLock] = None
 
         self._error_msg = None
         self._error_detail = None
@@ -877,6 +851,50 @@ class BaseDistributionItem(ABC):
 
         _store_progress_file(self._progress_dir, progress_info)
 
+    def _acquire_dist_lock(self) -> Generator[Optional[bool], None, None]:
+        """Wait until no other process distributes the same item.
+
+        Other processes can be on other machines when storage is shared.
+
+        Returns:
+            Generator[Optional[bool], None, None]: None while waiting.
+                Then True if the item was distributed by other process
+                in the meantime, otherwise False and distribution should
+                continue (with the lock if it could be acquired).
+
+        """
+        if not self._progress_dir:
+            yield False
+            return
+
+        try:
+            lock_path = _get_dist_lock_path(self._progress_dir)
+        except OSError:
+            self.log.warning(
+                f"{self.item_label}: Failed to prepare lock directory."
+                " Continuing without lock.",
+                exc_info=True,
+            )
+            lock_path = None
+
+        if lock_path:
+            lock = DistributionLock(lock_path, logger=self.log)
+            acquired = False
+            for acquired in lock.acquire_iter():
+                if acquired is not None:
+                    break
+                yield None
+            if acquired:
+                self._dist_lock = lock
+
+        progress_info = _read_progress_file(self._progress_dir)
+        yield progress_info.get("state") == DistFileStates.done.value
+
+    def _release_dist_lock(self):
+        if self._dist_lock is not None:
+            self._dist_lock.release()
+            self._dist_lock = None
+
     def _distribute(self) -> Generator[bool, None, None]:
         if not self.sources:
             message = (
@@ -890,19 +908,13 @@ class BaseDistributionItem(ABC):
             return
 
         # Progress file
-        # - Check if other process/machine already started the job
+        # - Wait if other process/machine is distributing the same item
         if self._progress_dir:
             result = False
-            for result in _wait_for_other_process(
-                self._progress_dir,
-                self._progress_id,
-                self.log
-            ):
+            for result in self._acquire_dist_lock():
                 if result is not None:
-                    # Give other distribution items option to start waiting
-                    #   cycle
-                    yield False
                     break
+                # Give other distribution items option to continue
                 yield False
 
             if result is True:
@@ -964,10 +976,11 @@ class BaseDistributionItem(ABC):
                     yield False
 
             except DistributionProgressInterupted:
+                # Other process took over the lock, e.g. this machine was
+                #   suspended for longer than lock stale timeout.
+                self._release_dist_lock()
                 wait_result = False
-                for wait_result in _wait_for_other_process(
-                    self._progress_dir, self._progress_id, self.log
-                ):
+                for wait_result in self._acquire_dist_lock():
                     if wait_result is not None:
                         break
                     yield False
@@ -1003,7 +1016,10 @@ class BaseDistributionItem(ABC):
                 self.state = UpdateState.UPDATE_FAILED
                 self._error_msg = "Distribution failed"
 
-            self._post_distribute()
+            try:
+                self._post_distribute()
+            finally:
+                self._release_dist_lock()
             yield True
 
 
@@ -1372,19 +1388,6 @@ class DistributionItem(BaseDistributionItem):
         downloader: SourceDownloader,
     ) -> Generator[Optional[bool], None, None]:
         source_progress.set_unzip_started()
-        result = False
-        for result in _wait_for_other_process(
-            self._progress_dir, self._progress_id, self.log
-        ):
-            if result is not None:
-                break
-            yield None
-
-        if result is True:
-            self.state = UpdateState.UPDATED
-            yield True
-            return
-
         filename = os.path.basename(self.target_dirpath)
         unzip_dirpath = os.path.join(self.unzip_temp_dir, filename)
         # NOTE This is a workaround for dependency packages
@@ -1424,19 +1427,6 @@ class DistributionItem(BaseDistributionItem):
         source_progress.set_unzip_finished()
 
         yield None
-
-        result = False
-        for result in _wait_for_other_process(
-            self._progress_dir, self._progress_id, self.log
-        ):
-            if result is not None:
-                break
-            yield None
-
-        if result is True:
-            self.state = UpdateState.UPDATED
-            yield True
-            return
 
         failed = False
         renamed_mapping = []

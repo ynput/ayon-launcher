@@ -145,6 +145,8 @@ Environment variables that are set during startup:
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_AUTO_UPDATE** - Modify auto-update behavior which might be useful for shared distribution location. Missing AYON launcher, addon or dependency package won't be updated if is set to 'skip', instead will try to continue. And won't allow user to launch if is set to 'block' with brief explanation in a dialog.
+- **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** - Seconds without a heartbeat after which a distribution lock of another process is considered abandoned and taken over. Default `120`. Increase it if a shared storage file system caches file content for longer.
+- **AYON_LAUNCHER_DIST_LOCK_WAIT_TIMEOUT** - Maximum seconds to wait for another process that is distributing the same addon or dependency package. After that the item is distributed by this process too. Default `3600`.
 
 > [!NOTE]
 > Environment variables **AYON_LAUNCHER_STORAGE_DIR** and **AYON_LAUNCHER_LOCAL_DIR** are by default set to the same folder. Path is based on OS.
