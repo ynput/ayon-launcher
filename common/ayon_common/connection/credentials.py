@@ -10,6 +10,7 @@ AYON launcher version. The connection object lives in 'ayon_api'.
 
 import os
 import json
+import logging
 import platform
 import datetime
 import contextlib
@@ -31,6 +32,8 @@ from ayon_common.utils import (
     get_local_site_id,
     get_ayon_launch_args,
 )
+
+log = logging.getLogger(__name__)
 
 
 class ChangeUserResult:
@@ -497,18 +500,61 @@ def set_environments(url: str, token: str):
     ayon_api.set_environments(url, token)
 
 
-def create_global_connection():
+def create_global_connection() -> "ayon_api.GlobalServerAPI":
     """Create global connection with site id and AYON launcher version.
 
     Make sure this function is called once during process runtime.
 
     The global connection in 'ayon_api' have entered site id and
         AYON launcher version.
-    """
 
-    ayon_api.create_connection(
+    Returns:
+        ayon_api.GlobalServerAPI: Created global connection.
+
+    """
+    return ayon_api.create_connection(
         get_local_site_id(), os.environ.get("AYON_VERSION")
     )
+
+
+def connect_and_check_login(
+    username: Optional[str] = None,
+) -> tuple[bool, bool]:
+    """Create global connection and check if server url or login are needed.
+
+    Replaces 'need_server_or_login' followed by 'create_global_connection'
+        on startup. These validated the same url and token twice, now only
+        the global connection validates them.
+
+    Args:
+        username (Optional[str]): Token must belong to user with this
+            username. Ignored if is 'None'.
+
+    Returns:
+        tuple[bool, bool]: Server url or login are needed. Both are 'False'
+            if url and token are valid.
+
+    """
+    if not os.environ.get(SERVER_URL_ENV_KEY):
+        return True, True
+
+    try:
+        con = create_global_connection()
+    except Exception as exc:
+        log.warning("Failed to connect to AYON server: %s", exc)
+        log.debug("Connection error details.", exc_info=True)
+        return True, True
+
+    if not con.has_valid_token:
+        return False, True
+
+    if username:
+        # Only name is needed, 'get_user' would also request attributes
+        response = con.get("users/me")
+        if response.status_code != 200:
+            return False, True
+        return False, response.data.get("name") != username
+    return False, False
 
 
 def is_token_valid(

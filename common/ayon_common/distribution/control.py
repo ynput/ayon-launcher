@@ -1709,8 +1709,11 @@ class AYONDistribution:
     @property
     def active_user(self) -> str:
         if self._active_user is None:
-            user = ayon_api.get_user()
-            self._active_user = user["name"]
+            # Only name is needed, 'ayon_api.get_user' would also request
+            #   attributes to fill their default values
+            response = ayon_api.get("users/me")
+            response.raise_for_status()
+            self._active_user = response.data["name"]
         return self._active_user
 
     @property
@@ -1832,7 +1835,17 @@ class AYONDistribution:
 
         """
         if self._studio_dev_bundle is NOT_SET:
-            self._prepare_bundles()
+            # Resolved only when needed, finding the bundle of active user
+            #   requires a server request
+            studio_dev_bundle = None
+            for bundle in self.bundle_items:
+                if (
+                    not bundle.is_project_bundle
+                    and bundle.is_dev
+                    and bundle.active_dev_user == self.active_user
+                ):
+                    studio_dev_bundle = bundle
+            self._studio_dev_bundle = studio_dev_bundle
         return self._studio_dev_bundle
 
     @property
@@ -2733,9 +2746,9 @@ class AYONDistribution:
         return output
 
     def _prepare_bundles(self):
+        # Dev bundle is resolved in 'studio_dev_bundle'
         studio_production_bundle = None
         studio_staging_bundle = None
-        studio_dev_bundle = None
         for bundle in self.bundle_items:
             if bundle.is_project_bundle:
                 continue
@@ -2744,12 +2757,9 @@ class AYONDistribution:
                 studio_production_bundle = bundle
             if bundle.is_staging:
                 studio_staging_bundle = bundle
-            if bundle.is_dev and bundle.active_dev_user == self.active_user:
-                studio_dev_bundle = bundle
 
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
-        self._studio_dev_bundle = studio_dev_bundle
 
     def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
         addons_metadata = self.get_addons_metadata()
@@ -2857,8 +2867,59 @@ class AYONDistribution:
             })
         return output
 
+    def _get_distributed_dependency_package(
+        self
+    ) -> Optional[DependencyItem]:
+        """Dependency package of bundle if it is already distributed.
+
+        Server information about dependency packages is needed only to
+            distribute a package. The bundle defines the package filename,
+            so when the package is already distributed the request for all
+            dependency packages on server can be skipped.
+
+        Returns:
+            Optional[DependencyItem]: Package item without sources, or
+                'None' if the package is not distributed.
+
+        """
+        bundle = self.project_bundle_to_use
+        if bundle is None:
+            return None
+
+        platform_name = platform.system().lower()
+        filename = bundle.dependency_packages.get(platform_name)
+        if not filename:
+            return None
+
+        # Same lookup as in '_prepare_dependency_progress'
+        progress_info = _read_progress_file(
+            os.path.join(self._dependency_dirpath, filename)
+        )
+        if not progress_info:
+            progress_info = _read_progress_file(os.path.join(
+                self._dependency_dirpath, os.path.splitext(filename)[0]
+            ))
+
+        if progress_info.get("state") != DistFileStates.done.value:
+            return None
+
+        return DependencyItem(
+            filename=filename,
+            platform_name=platform_name,
+            checksum=progress_info.get("checksum"),
+            checksum_algorithm=progress_info.get("checksum_algorithm"),
+            sources=[],
+            unknown_sources=[],
+            source_addons={},
+            python_modules={},
+        )
+
     def _prepare_dependency_progress(self) -> Optional[DistributionItem]:
-        package = self.dependency_package_item
+        # Request information about all dependency packages from server
+        #   only if the bundle's package is not distributed yet
+        package = self._get_distributed_dependency_package()
+        if package is None:
+            package = self.dependency_package_item
         if package is None:
             return None
 
