@@ -16,7 +16,7 @@ import subprocess
 import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Optional, Any, Generator
+from typing import Optional, Any, Generator, Callable
 from urllib.parse import urlencode
 
 import ayon_api
@@ -59,11 +59,17 @@ NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
 # Folder next to distributed items where lock files are stored
 DIST_LOCKS_DIRNAME = ".dist_locks"
+# Temp folder next to distributed items where they are extracted before
+#   they are renamed to the final folder
+DIST_UNZIP_TEMP_DIRNAME = ".unzip_temp"
+# File in temp folders with time when other processes can remove them
+DIST_EXPIRE_FILENAME = "download_info.json"
+DIST_TEMP_DIR_LIFETIME = 60 * 60
+# Extraction to shared storage over slow network can take long
+DIST_UNZIP_TEMP_DIR_LIFETIME = 24 * 60 * 60
+# Temp folders without expire file (from older launchers or just created)
+DIST_UNMARKED_DIR_LIFETIME = 24 * 60 * 60
 IS_WINDOWS = platform.system().lower() == "windows"
-
-
-class DistributionProgressInterupted(Exception):
-    pass
 
 
 def _windows_dir_requires_permissions(dirpath: str) -> bool:
@@ -228,34 +234,45 @@ def _get_dist_lock_path(progress_dir: str) -> str:
     )
 
 
-def change_permissions_recursive(path: str, mode: int = 0o777) -> None:
+def change_permissions_recursive(
+    path: str, mode: int = 0o777, ignore_errors: bool = False
+) -> None:
     """Change permission recursively.
 
-    This will raise PermissionError if chmod fails.
+    This will raise PermissionError if chmod fails, unless 'ignore_errors'
+    is set.
 
     Args:
         path (str): Path to the directory.
         mode (int): Permission mode.
+        ignore_errors (bool): Skip files and directories that can't be
+            changed, e.g. owned by other user.
 
     """
     if IS_WINDOWS or not os.path.exists(path):
         return
 
+    def _chmod(_path):
+        try:
+            os.chmod(_path, mode)
+        except OSError:
+            if not ignore_errors:
+                raise
+
     if os.path.isfile(path):
         # If the path is a file, change its permissions directly
-        os.chmod(path, mode)
+        _chmod(path)
         return
 
     # Traverse the directory tree starting from 'path' to top
     for root, dirnames, filenames in os.walk(path, topdown=False):
         # Change the permissions of each directory
         for dirname in dirnames:
-            dirpath = os.path.join(root, dirname)
-            os.chmod(dirpath, mode)
+            _chmod(os.path.join(root, dirname))
 
         for filename in filenames:
-            filepath = os.path.join(root, filename)
-            os.chmod(filepath, mode)
+            _chmod(os.path.join(root, filename))
+    _chmod(path)
 
 
 def _has_read_write(path: str) -> bool:
@@ -296,17 +313,22 @@ def _get_dist_download_dir(*args):
     return output
 
 
-def _create_dist_expire_file(process_dir: str):
+def _create_dist_expire_file(
+    process_dir: str, lifetime: float = DIST_TEMP_DIR_LIFETIME
+):
     """Create distribution temp directory with metadata file.
 
     The metadata file contains information about expiration time of the
-        temp folder. Lifetime is 1 hour (more than should be needed).
+        temp folder. Other processes remove the folder only after it
+        expired.
 
     Args:
         process_dir (str): Path to distribution temp directory.
+        lifetime (float): Seconds after which the folder can be removed
+            by other processes. Default is 1 hour.
 
     """
-    info_path = os.path.join(process_dir, "download_info.json")
+    info_path = os.path.join(process_dir, DIST_EXPIRE_FILENAME)
     if os.path.exists(info_path):
         return
 
@@ -319,7 +341,7 @@ def _create_dist_expire_file(process_dir: str):
 
     with open(info_path, "w") as stream:
         json.dump(
-            {"expiration_time": time.time() + (60 * 60)},
+            {"expiration_time": time.time() + lifetime},
             stream,
         )
 
@@ -328,11 +350,15 @@ def _create_dist_expire_file(process_dir: str):
     except PermissionError:
         print(f"Permission denied for {info_path}")
 
-    change_permissions_recursive(process_dir)
+    change_permissions_recursive(process_dir, ignore_errors=True)
 
 
 def _dist_expire_file_expired(process_dir: str) -> bool:
     """Check if distribution temp directory is expired.
+
+    Directory without the metadata file is expired only when it was not
+    modified for a long time. It may be a folder that other process just
+    created and did not create the file yet.
 
     Args:
         process_dir (str): Path to distribution temp directory.
@@ -341,9 +367,13 @@ def _dist_expire_file_expired(process_dir: str) -> bool:
         bool: Directory is expired and can be removed.
 
     """
-    info_path = os.path.join(process_dir, "download_info.json")
+    info_path = os.path.join(process_dir, DIST_EXPIRE_FILENAME)
     if not os.path.exists(info_path):
-        return True
+        try:
+            modified = os.path.getmtime(process_dir)
+        except OSError:
+            return False
+        return (time.time() - modified) > DIST_UNMARKED_DIR_LIFETIME
 
     try:
         with open(info_path, "r") as stream:
@@ -351,7 +381,10 @@ def _dist_expire_file_expired(process_dir: str) -> bool:
     except Exception:
         data = {}
     expiration_time = data.get("expiration_time")
-    if not isinstance(expiration_time, int):
+    if (
+        not isinstance(expiration_time, (int, float))
+        or isinstance(expiration_time, bool)
+    ):
         return False
     return expiration_time < time.time()
 
@@ -572,6 +605,7 @@ class BaseDistributionItem(ABC):
         self._used_source_progress = None
         self._used_source = None
         self._dist_started = False
+        self._dist_started_dt: Optional[str] = None
 
         self._progress_id = uuid.uuid4().hex
         self._progress_dir = progress_dir
@@ -826,31 +860,6 @@ class BaseDistributionItem(ABC):
             )
             yield False
 
-    def _set_progress_state(self, state: DistFileStates):
-        if not self._progress_dir:
-            return
-
-        progress_info = _read_progress_file(self._progress_dir)
-        if progress_info.get("progress_id") != self._progress_id:
-            # Ignore if wanted to set 'failed' state
-            if state == DistFileStates.failed:
-                return
-            raise DistributionProgressInterupted(
-                "Different process took over progress file."
-            )
-
-        progress_info["state"] = state.value
-        if state == DistFileStates.done:
-            # Update checksum if it was not set from server information
-            if not progress_info["checksum"] and self.checksum:
-                progress_info["checksum"] = self.checksum
-                progress_info["checksum_algorithm"] = self.checksum_algorithm
-            progress_info["dist_finished"] = (
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            )
-
-        _store_progress_file(self._progress_dir, progress_info)
-
     def _acquire_dist_lock(self) -> Generator[Optional[bool], None, None]:
         """Wait until no other process distributes the same item.
 
@@ -923,13 +932,6 @@ class BaseDistributionItem(ABC):
                 yield True
                 return
 
-            _create_progress_file(
-                self._progress_dir,
-                self._progress_id,
-                self.checksum,
-                self.checksum_algorithm,
-            )
-
         # Download
         for source, source_progress in self.sources:
             yield False
@@ -944,11 +946,9 @@ class BaseDistributionItem(ABC):
         last_progress = self._current_source_progress
         self._current_source_progress = None
         if self.state == UpdateState.UPDATED:
-            self._set_progress_state(DistFileStates.done)
             self._used_source_progress = last_progress
             self.log.info(f"{self.item_label}: Distributed")
         else:
-            self._set_progress_state(DistFileStates.failed)
             self.log.error(f"{self.item_label}: Failed to distribute")
             self._error_msg = "Failed to receive or install source files"
         yield True
@@ -968,37 +968,14 @@ class BaseDistributionItem(ABC):
             return
 
         self._dist_started = True
+        self._dist_started_dt = (
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
         try:
-            try:
-                for result in self._distribute():
-                    if result:
-                        break
-                    yield False
-
-            except DistributionProgressInterupted:
-                # Other process took over the lock, e.g. this machine was
-                #   suspended for longer than lock stale timeout.
-                self._release_dist_lock()
-                wait_result = False
-                for wait_result in self._acquire_dist_lock():
-                    if wait_result is not None:
-                        break
-                    yield False
-
-                if wait_result:
-                    self.state = UpdateState.UPDATED
-                else:
-                    self.state = UpdateState.UPDATE_FAILED
-                    self._error_msg = (
-                        "Other process took over distribution and failed."
-                    )
-                    self._error_detail = (
-                        "Please try to start AYON again and contact"
-                        " administrator if issue persist."
-                    )
-                    self.log.error(
-                        f"{self.item_label}: {self._error_msg}"
-                    )
+            for result in self._distribute():
+                if result:
+                    break
+                yield False
 
         except Exception as exc:
             self.state = UpdateState.UPDATE_FAILED
@@ -1387,6 +1364,14 @@ class DistributionItem(BaseDistributionItem):
         source_progress: DistributeTransferProgress,
         downloader: SourceDownloader,
     ) -> Generator[Optional[bool], None, None]:
+        """Extract source and publish it to target directory.
+
+        Content is extracted to a temp directory next to the target
+        directory (same file system), a finished progress file is stored
+        into it and then the whole directory is renamed to the target.
+        Target directory therefore either does not exist or is complete,
+        which is required when the storage is shared by more machines.
+        """
         source_progress.set_unzip_started()
         filename = os.path.basename(self.target_dirpath)
         unzip_dirpath = os.path.join(self.unzip_temp_dir, filename)
@@ -1400,17 +1385,12 @@ class DistributionItem(BaseDistributionItem):
             os.rename(filepath, new_filepath)
             filepath = new_filepath
 
-        # Create directory
+        # Expire file makes sure other processes don't remove the temp
+        #   directory while it is used
+        _create_dist_expire_file(
+            self.unzip_temp_dir, DIST_UNZIP_TEMP_DIR_LIFETIME
+        )
         os.makedirs(unzip_dirpath, exist_ok=True)
-        try:
-            os.chmod(unzip_dirpath, 0o777)
-            change_permissions_recursive(unzip_dirpath)
-        except PermissionError:
-            message = f"Permission denied for {unzip_dirpath}"
-            self.log.exception(
-                f"{self.item_label}: {message}",
-                exc_info=True
-            )
 
         try:
             downloader.unzip(filepath, unzip_dirpath)
@@ -1428,119 +1408,26 @@ class DistributionItem(BaseDistributionItem):
 
         yield None
 
-        failed = False
-        renamed_mapping = []
+        # Allow other users to use the content (Linux and macOS)
+        change_permissions_recursive(unzip_dirpath, ignore_errors=True)
 
-        # Target directory can contain only distribution metadata file
-        #   anything else is temporarily moved to different directory
-        #   - next to target directory
-        # NOTE: We might validate if the content is exactly same?
-        tmp_subfolder = os.path.join(
-            os.path.dirname(self.target_dirpath), uuid.uuid4().hex
-        )
-        if not os.path.exists(self.target_dirpath):
-            os.makedirs(self.target_dirpath, exist_ok=True)
-            try:
-                os.chmod(self.target_dirpath, 0o777)
-                change_permissions_recursive(self.target_dirpath)
-            except PermissionError:
-                self.log.exception(
-                    f"{self.item_label}: permission denied "
-                    f"for {self.target_dirpath}",
-                )
+        # Store finished progress file before the directory is published
+        progress_info = {
+            "state": DistFileStates.done.value,
+            "progress_id": self._progress_id,
+            "checksum": self.checksum,
+            "checksum_algorithm": self.checksum_algorithm,
+            "dist_started": self._dist_started_dt,
+            "dist_finished": (
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ),
+        }
+        _store_progress_file(unzip_dirpath, progress_info)
 
-        for name in os.listdir(self.target_dirpath):
-            if name == DIST_PROGRESS_FILENAME:
-                continue
-            if not os.path.exists(tmp_subfolder):
-                os.makedirs(tmp_subfolder, exist_ok=True)
-                try:
-                    os.chmod(self.target_dirpath, 0o777)
-                    change_permissions_recursive(tmp_subfolder)
-                except PermissionError:
-                    self.log.exception(
-                        f"{self.item_label}: permission denied "
-                        f"for {self.target_dirpath}",
-                    )
-
-            current_path = os.path.join(self.target_dirpath, name)
-            new_path = os.path.join(tmp_subfolder, name)
-            try:
-                os.rename(current_path, new_path)
-            except Exception:
-                message = (
-                    "Target files already exist and can't be renamed."
-                )
-                source_progress.set_failed(message)
-                self.log.warning(
-                    f"{self.item_label}: {message}",
-                    exc_info=True
-                )
-                failed = True
-                break
-            renamed_mapping.append((current_path, new_path))
-
-        if failed:
-            # Rollback renamed files
-            for src_path, renamed_path in renamed_mapping:
-                os.rename(renamed_path, src_path)
-            yield False
-            return
-
-        yield None
-
-        # Move unzipped content to target directory
-        moved_paths = []
-        rename_attemps = 5
-        for subname in os.listdir(unzip_dirpath):
-            target_path = os.path.join(self.target_dirpath, subname)
-            src_path = os.path.join(unzip_dirpath, subname)
-            dst_path = os.path.join(self.target_dirpath, subname)
-            self.log.debug("Copying %s to %s", src_path, dst_path)
-            # Sometimes 'os.rename' crashes because of permissions issue
-            #   even though it can be done in a future attempt (probably some
-            #   service traversing through files blocking it?)
-            for attempt in range(rename_attemps):
-                try:
-                    os.rename(src_path, dst_path)
-                    break
-                except Exception:
-                    if attempt < (rename_attemps - 1):
-                        yield None
-                        continue
-                    message = (
-                        "Failed to move unzipped content to target directory."
-                    )
-                    source_progress.set_failed(message)
-                    self.log.warning(
-                        f"{self.item_label}: {message}",
-                        exc_info=True
-                    )
-                    failed = True
-
-            if failed:
-                break
-
-            moved_paths.append(target_path)
-
-        # Handle failed movement
-        if failed:
-            # Remove moved files
-            for path in moved_paths:
-                if os.path.isfile(path):
-                    os.remove(path)
-                else:
-                    shutil.rmtree(path)
-
-            # Rename renamed files back to original
-            for src_path, renamed_path in renamed_mapping:
-                os.rename(renamed_path, src_path)
-
-        # Remove temp subfolder used for renaming
-        if os.path.exists(tmp_subfolder):
-            shutil.rmtree(tmp_subfolder)
-
-        if failed:
+        if not self._publish_dir(unzip_dirpath):
+            message = "Failed to move unzipped content to target directory."
+            source_progress.set_failed(message)
+            self.log.warning(f"{self.item_label}: {message}")
             yield False
             return
 
@@ -1548,18 +1435,67 @@ class DistributionItem(BaseDistributionItem):
             filepath, source_data, source_progress, downloader
         )
 
-    def _post_distribute(self):
-        if (
-            self.state != UpdateState.UPDATED
-            and self.target_dirpath
-            and os.path.isdir(self.target_dirpath)
-        ):
-            self.log.debug(f"Cleaning {self.target_dirpath}")
-            # TODO use '_clean_dist_dir' when backwards compatibility with
-            #   previous versions of AYON launchers is not needed.
-            # _clean_dist_dir(self.target_dirpath)
-            shutil.rmtree(self.target_dirpath)
+    def _publish_dir(self, src_dirpath: str) -> bool:
+        """Rename extracted directory to target directory.
 
+        Args:
+            src_dirpath (str): Extracted content with finished progress file.
+
+        Returns:
+            bool: Target directory contains distributed content. It might
+                be published by other process in the meantime.
+
+        """
+        target_dirpath = self.target_dirpath
+        attempts = 20
+        for attempt in range(attempts):
+            if os.path.exists(target_dirpath):
+                progress_info = _read_progress_file(target_dirpath)
+                if progress_info.get("state") == DistFileStates.done.value:
+                    # Other process published it in the meantime
+                    self.log.info(
+                        f"{self.item_label}: Was distributed by other"
+                        " process in the meantime."
+                    )
+                    return True
+
+                # Leftover of interrupted distribution, move it away
+                #   to temp directory which is removed with it
+                replaced_dirpath = os.path.join(
+                    self.unzip_temp_dir, f"replaced_{uuid.uuid4().hex}"
+                )
+                self.log.debug(
+                    f"{self.item_label}: Removing unfinished"
+                    f" {target_dirpath}"
+                )
+                try:
+                    os.rename(target_dirpath, replaced_dirpath)
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    time.sleep(0.1 * (attempt + 1))
+                    continue
+                shutil.rmtree(replaced_dirpath, ignore_errors=True)
+
+            try:
+                os.rename(src_dirpath, target_dirpath)
+                with suppress(Exception):
+                    os.chmod(target_dirpath, 0o777)
+                return True
+
+            except OSError:
+                # Target was created in the meantime, or a service (e.g.
+                #   antivirus) holds a file in the directory for a moment
+                if attempt == attempts - 1:
+                    self.log.warning(
+                        f"{self.item_label}: Failed to rename"
+                        f" {src_dirpath} to {target_dirpath}",
+                        exc_info=True,
+                    )
+                    return False
+                if not os.path.exists(target_dirpath):
+                    time.sleep(0.1 * (attempt + 1))
+        return False
 
 class AYONDistribution:
     """Distribution control.
@@ -1639,10 +1575,10 @@ class AYONDistribution:
         self._dist_unzip_dirs = []
 
         self._dist_addons_unzip_temp = os.path.join(
-            self._addons_dirpath, ".unzip_temp"
+            self._addons_dirpath, DIST_UNZIP_TEMP_DIRNAME
         )
         self._dist_dep_packages_unzip_temp = os.path.join(
-            self._dependency_dirpath, ".unzip_temp"
+            self._dependency_dirpath, DIST_UNZIP_TEMP_DIRNAME
         )
 
         self._installers_info = installers_info
@@ -2383,12 +2319,19 @@ class AYONDistribution:
         if not os.path.exists(filepath):
             return default_value
 
-        try:
-            with open(filepath, "r") as stream:
-                data = json.load(stream)
-        except ValueError:
-            data = default_value
-        return data
+        # On Windows the file can't be opened for a moment while other
+        #   process replaces it
+        for _ in range(20):
+            try:
+                with open(filepath, "r") as stream:
+                    return json.load(stream)
+            except ValueError:
+                return default_value
+            except FileNotFoundError:
+                return default_value
+            except PermissionError:
+                time.sleep(0.05)
+        return default_value
 
     @staticmethod
     def save_metadata_file(filepath: str, data: dict[str, Any]):
@@ -2402,15 +2345,52 @@ class AYONDistribution:
 
         """
         dirpath = os.path.dirname(filepath)
-        os.makedirs(dirpath, exist_ok=True)
-        try:
-            os.chmod(dirpath, 0o777)
-        except PermissionError:
-            print(f"Failed to change permissions for {dirpath}.")
-        with open(filepath, "w") as stream:
-            json.dump(data, stream, indent=4)
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath, exist_ok=True)
+            try:
+                os.chmod(dirpath, 0o777)
+            except PermissionError:
+                print(f"Failed to change permissions for {dirpath}.")
 
-        change_permissions_recursive(dirpath)
+        # Write to temp file and replace, so other processes (possibly on
+        #   other machines) never read partially written file
+        tmp_path = f"{filepath}.{uuid.uuid4().hex}.tmp"
+        with open(tmp_path, "w") as stream:
+            json.dump(data, stream, indent=4)
+        with suppress(Exception):
+            os.chmod(tmp_path, 0o777)
+        _replace_file(tmp_path, filepath)
+
+    def _update_metadata_file(
+        self,
+        filepath: str,
+        update_func: Callable[[dict[str, Any]], None],
+    ):
+        """Read, update and store metadata file under a lock.
+
+        Multiple processes (machines) may update the same file at the same
+        time when storage is shared.
+        """
+        lock = None
+        try:
+            lock = DistributionLock(
+                _get_dist_lock_path(filepath),
+                wait_timeout=60,
+                logger=self.log,
+            )
+            lock.acquire()
+        except OSError:
+            self.log.warning(
+                f"Failed to lock {filepath}. Updating without lock.",
+                exc_info=True,
+            )
+        try:
+            data = self.read_metadata_file(filepath, {})
+            update_func(data)
+            self.save_metadata_file(filepath, data)
+        finally:
+            if lock is not None:
+                lock.release()
 
     def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
@@ -2419,10 +2399,12 @@ class AYONDistribution:
     def update_dependency_metadata(
         self, package_name: str, data: dict[str, Any]
     ):
-        dependency_metadata = self.get_dependency_metadata()
-        dependency_metadata[package_name] = data
-        filepath = self.get_dependency_metadata_filepath()
-        self.save_metadata_file(filepath, dependency_metadata)
+        def _update(dependency_metadata):
+            dependency_metadata[package_name] = data
+
+        self._update_metadata_file(
+            self.get_dependency_metadata_filepath(), _update
+        )
 
     def get_addons_metadata(self) -> dict[str, Any]:
         filepath = self.get_addons_metadata_filepath()
@@ -2431,15 +2413,17 @@ class AYONDistribution:
     def update_addons_metadata(self, addons_information: dict[str, Any]):
         if not addons_information:
             return
-        addons_metadata = self.get_addons_metadata()
-        for addon_name, version_value in addons_information.items():
-            if addon_name not in addons_metadata:
-                addons_metadata[addon_name] = {}
-            for addon_version, version_data in version_value.items():
-                addons_metadata[addon_name][addon_version] = version_data
 
-        filepath = self.get_addons_metadata_filepath()
-        self.save_metadata_file(filepath, addons_metadata)
+        def _update(addons_metadata):
+            for addon_name, version_value in addons_information.items():
+                if addon_name not in addons_metadata:
+                    addons_metadata[addon_name] = {}
+                for addon_version, version_data in version_value.items():
+                    addons_metadata[addon_name][addon_version] = version_data
+
+        self._update_metadata_file(
+            self.get_addons_metadata_filepath(), _update
+        )
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
@@ -2751,7 +2735,7 @@ class AYONDistribution:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
 
-        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
+        unzip_temp = self._dist_addons_unzip_temp
         if not os.path.exists(unzip_temp):
             os.makedirs(unzip_temp, exist_ok=True)
             try:
@@ -2813,6 +2797,7 @@ class AYONDistribution:
                         uuid.uuid4().hex,
                         addon_version_item.checksum,
                         addon_version_item.checksum_algorithm,
+                        state=DistFileStates.done,
                     )
 
             download_dir = _get_dist_download_dir(uuid.uuid4().hex)
@@ -2866,7 +2851,9 @@ class AYONDistribution:
         new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
 
         download_dir = _get_dist_download_dir(uuid.uuid4().hex)
-        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
+        unzip_dir = os.path.join(
+            self._dist_dep_packages_unzip_temp, uuid.uuid4().hex
+        )
         self._dist_download_dirs.append(download_dir)
         self._dist_unzip_dirs.append(unzip_dir)
 
@@ -2894,6 +2881,7 @@ class AYONDistribution:
                 uuid.uuid4().hex,
                 package.checksum,
                 package.checksum_algorithm,
+                state=DistFileStates.done,
             )
 
         return DistributionItem(
