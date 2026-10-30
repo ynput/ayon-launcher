@@ -112,6 +112,12 @@ class OSDownloader(SourceDownloader):
         # Nothing to do - download does not copy anything
         pass
 
+    @classmethod
+    def unzip(cls, filepath: str, destination_dir: str):
+        # Source file is not a downloaded copy, it must not be removed
+        #   because other machines may need it too
+        extract_archive_file(filepath, destination_dir)
+
 
 class HTTPDownloader(SourceDownloader):
     """Downloader using http or https protocol."""

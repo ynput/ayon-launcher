@@ -140,7 +140,7 @@ Environment variables that are set during startup:
 - **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.
 - **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
 - **AYON_ROOT** - Root to AYON launcher content.
-- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. At own risk can be shared (NOT TESTED).
+- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. Can be shared by multiple machines, see [Shared storage](#shared-storage).
 - **AYON_LAUNCHER_LOCAL_DIR** - Directory where are stored user/machine specific files. This MUST NOT be shared.
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
@@ -166,6 +166,19 @@ Environment variables that are set during startup:
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
 
 Logging environment variables are described in [Logging](#logging).
+
+### Shared storage
+**AYON_LAUNCHER_STORAGE_DIR** can point to a folder on a network share used by multiple machines, e.g. by all render farm workers. Each addon and dependency package version is then downloaded and extracted only once, and all machines use the same files.
+
+- Each version is stored in its own folder (`addons/<name>_<version>`) that is never changed once it is distributed, so running processes are not affected by new versions.
+- When a version is missing, one process distributes it while holding a lock in `.dist_locks`, others wait. The lock is refreshed while the process works and is taken over when it was not refreshed for **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** seconds.
+- Content is extracted to `.unzip_temp` and renamed to the version folder when complete, so a version folder either does not exist or is complete.
+
+Requirements:
+- Use a separate folder per platform (Windows, Linux, macOS).
+- All machines that may distribute to the folder need write access to it and should use an AYON launcher version with this logic.
+- **AYON_LAUNCHER_LOCAL_DIR** must stay local for each machine.
+- Old versions are not removed automatically.
 
 ## Logging
 AYON launcher uses structured logging ([structlog](https://www.structlog.org)). Each record has a message and additional fields, e.g. `logger.info("Distribution of {bundle} finished", bundle=bundle_name)`. Message is a message template using [Python format string](https://docs.python.org/3/library/string.html#format-string-syntax) syntax, same as in [ayon-core](https://github.com/ynput/ayon-core#message-templates): fields are rendered into the message, tokens without a field are kept as they are, and the template is stored in `message_template` field of JSON records. Logging is configured by AYON launcher until control is passed to `ayon_core` (or to a script), which configures logging for its own needs with the same environment variables, see [ayon-core](https://github.com/ynput/ayon-core#logging).
