@@ -21,7 +21,7 @@ from typing import Optional, Union, Any
 import ayon_api
 
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
-from ayon_api.exceptions import UrlError
+from ayon_api.exceptions import UnauthorizedError, UrlError
 from ayon_api.utils import (
     validate_url,
     logout_from_server,
@@ -549,11 +549,11 @@ def connect_and_check_login(
         return False, True
 
     if username:
-        # Only name is needed, 'get_user' would also request attributes
-        response = con.get("users/me")
-        if response.status_code != 200:
+        try:
+            user = con.get_user(attrib=False)
+        except UnauthorizedError:
             return False, True
-        return False, response.data.get("name") != username
+        return False, user["name"] != username
     return False, False
 
 

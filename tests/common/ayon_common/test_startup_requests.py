@@ -27,25 +27,18 @@ PLATFORM_NAME = platform.system().lower()
 PACKAGE_FILENAME = "ayon_2601010000_test.zip"
 
 
-class FakeResponse:
-    def __init__(self, data, status_code=200):
-        self.data = data
-        self.status_code = status_code
-
-    def raise_for_status(self):
-        if self.status_code != 200:
-            raise RuntimeError(f"Status {self.status_code}")
-
-
 class FakeConnection:
     def __init__(self, valid_token=True, username="artist"):
         self.has_valid_token = valid_token
         self.username = username
         self.requested = []
 
-    def get(self, endpoint):
-        self.requested.append(endpoint)
-        return FakeResponse({"name": self.username})
+    def get(self, *args, **kwargs):
+        pytest.fail("Unexpected server request")
+
+    def get_user(self, username=None, attrib=True):
+        self.requested.append(("get_user", attrib))
+        return {"name": self.username}
 
 
 @pytest.fixture
@@ -76,8 +69,8 @@ def test_connect_to_unreachable_server(monkeypatch, server_url):
     [
         (True, None, (False, False), []),
         (False, None, (False, True), []),
-        (True, "artist", (False, False), ["users/me"]),
-        (True, "other", (False, True), ["users/me"]),
+        (True, "artist", (False, False), [("get_user", False)]),
+        (True, "other", (False, True), [("get_user", False)]),
     ],
 )
 def test_connect_validates_once(
@@ -97,6 +90,19 @@ def test_connect_validates_once(
     assert len(created) == 1
     assert created[0].requested == requested
 
+
+
+def test_connect_unauthorized_user_needs_login(monkeypatch, server_url):
+    con = FakeConnection()
+
+    def get_user(username=None, attrib=True):
+        raise credentials.UnauthorizedError("User is not authorized.")
+
+    con.get_user = get_user
+    monkeypatch.setattr(
+        credentials, "create_global_connection", lambda: con
+    )
+    assert credentials.connect_and_check_login("artist") == (False, True)
 
 def _bundle(name, **kwargs):
     data = {
@@ -223,13 +229,14 @@ def test_dev_bundle_requests_only_user_name(
 ):
     requested = []
 
-    def get(endpoint):
-        requested.append(endpoint)
-        return FakeResponse({"name": "artist"})
+    def get_user(username=None, attrib=True):
+        requested.append(attrib)
+        return {"name": "artist"}
 
-    monkeypatch.setattr(control.ayon_api, "get", get)
-    monkeypatch.setattr(control.ayon_api, "get_user", _fail_request)
+    monkeypatch.setattr(control.ayon_api, "get", _fail_request)
+    monkeypatch.setattr(control.ayon_api, "get_user", get_user)
 
     distribution = _create_distribution(tmp_path, use_dev=True)
     assert distribution.studio_bundle_to_use.name == "dev"
-    assert requested == ["users/me"]
+    # Attributes are not requested
+    assert requested == [False]

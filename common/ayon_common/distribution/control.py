@@ -1709,11 +1709,8 @@ class AYONDistribution:
     @property
     def active_user(self) -> str:
         if self._active_user is None:
-            # Only name is needed, 'ayon_api.get_user' would also request
-            #   attributes to fill their default values
-            response = ayon_api.get("users/me")
-            response.raise_for_status()
-            self._active_user = response.data["name"]
+            user = ayon_api.get_user(attrib=False)
+            self._active_user = user["name"]
         return self._active_user
 
     @property
