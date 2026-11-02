@@ -381,10 +381,7 @@ def _dist_expire_file_expired(process_dir: str) -> bool:
     except Exception:
         data = {}
     expiration_time = data.get("expiration_time")
-    if (
-        not isinstance(expiration_time, (int, float))
-        or isinstance(expiration_time, bool)
-    ):
+    if not isinstance(expiration_time, (int, float)):
         return False
     return expiration_time < time.time()
 
