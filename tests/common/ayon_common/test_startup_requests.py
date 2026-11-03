@@ -30,15 +30,13 @@ PACKAGE_FILENAME = "ayon_2601010000_test.zip"
 class FakeConnection:
     def __init__(self, valid_token=True, username="artist"):
         self.has_valid_token = valid_token
-        self.username = username
-        self.requested = []
+        self.access_token_username = username if valid_token else None
 
     def get(self, *args, **kwargs):
         pytest.fail("Unexpected server request")
 
-    def get_user(self, username=None, fill_attrib=True):
-        self.requested.append(("get_user", fill_attrib))
-        return {"name": self.username}
+    def get_user(self, *args, **kwargs):
+        pytest.fail("Unexpected server request")
 
 
 @pytest.fixture
@@ -65,16 +63,16 @@ def test_connect_to_unreachable_server(monkeypatch, server_url):
 
 
 @pytest.mark.parametrize(
-    "valid_token, username, expected, requested",
+    "valid_token, username, expected",
     [
-        (True, None, (False, False), []),
-        (False, None, (False, True), []),
-        (True, "artist", (False, False), [("get_user", False)]),
-        (True, "other", (False, True), [("get_user", False)]),
+        (True, None, (False, False)),
+        (False, None, (False, True)),
+        (True, "artist", (False, False)),
+        (True, "other", (False, True)),
     ],
 )
 def test_connect_validates_once(
-    monkeypatch, server_url, valid_token, username, expected, requested
+    monkeypatch, server_url, valid_token, username, expected
 ):
     created = []
 
@@ -88,21 +86,6 @@ def test_connect_validates_once(
     )
     assert credentials.connect_and_check_login(username) == expected
     assert len(created) == 1
-    assert created[0].requested == requested
-
-
-
-def test_connect_unauthorized_user_needs_login(monkeypatch, server_url):
-    con = FakeConnection()
-
-    def get_user(username=None, fill_attrib=True):
-        raise credentials.UnauthorizedError("User is not authorized.")
-
-    con.get_user = get_user
-    monkeypatch.setattr(
-        credentials, "create_global_connection", lambda: con
-    )
-    assert credentials.connect_and_check_login("artist") == (False, True)
 
 def _bundle(name, **kwargs):
     data = {
@@ -219,24 +202,22 @@ def test_production_does_not_request_user(
 ):
     monkeypatch.setattr(control.ayon_api, "get", _fail_request)
     monkeypatch.setattr(control.ayon_api, "get_user", _fail_request)
+    monkeypatch.setattr(
+        control.ayon_api, "get_server_api_connection", _fail_request
+    )
 
     distribution = _create_distribution(tmp_path)
     assert distribution.studio_bundle_to_use.name == "production"
 
 
-def test_dev_bundle_requests_only_user_name(
+def test_dev_bundle_uses_token_username(
     monkeypatch, tmp_path, distribution_env
 ):
-    requested = []
-
-    def get_user(username=None, fill_attrib=True):
-        requested.append(fill_attrib)
-        return {"name": "artist"}
-
     monkeypatch.setattr(control.ayon_api, "get", _fail_request)
-    monkeypatch.setattr(control.ayon_api, "get_user", get_user)
+    monkeypatch.setattr(control.ayon_api, "get_user", _fail_request)
+    monkeypatch.setattr(
+        control.ayon_api, "get_server_api_connection", FakeConnection
+    )
 
     distribution = _create_distribution(tmp_path, use_dev=True)
     assert distribution.studio_bundle_to_use.name == "dev"
-    # Attributes are not requested
-    assert requested == [False]

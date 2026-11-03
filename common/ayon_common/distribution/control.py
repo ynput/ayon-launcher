@@ -1707,10 +1707,10 @@ class AYONDistribution:
         self._project_bundle = NOT_SET
 
     @property
-    def active_user(self) -> str:
+    def active_user(self) -> Optional[str]:
         if self._active_user is None:
-            user = ayon_api.get_user(fill_attrib=False)
-            self._active_user = user["name"]
+            con = ayon_api.get_server_api_connection()
+            self._active_user = con.access_token_username
         return self._active_user
 
     @property

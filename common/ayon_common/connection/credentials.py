@@ -21,11 +21,7 @@ from typing import Optional, Union, Any
 import ayon_api
 
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
-from ayon_api.exceptions import UnauthorizedError, UrlError
-from ayon_api.utils import (
-    validate_url,
-    logout_from_server,
-)
+from ayon_api.utils import logout_from_server
 
 from ayon_common.utils import (
     get_launcher_local_dir,
@@ -522,9 +518,7 @@ def connect_and_check_login(
 ) -> tuple[bool, bool]:
     """Create global connection and check if server url or login are needed.
 
-    Replaces 'need_server_or_login' followed by 'create_global_connection'
-        on startup. These validated the same url and token twice, now only
-        the global connection validates them.
+    Url and token are validated only once by the global connection.
 
     Args:
         username (Optional[str]): Token must belong to user with this
@@ -549,72 +543,8 @@ def connect_and_check_login(
         return False, True
 
     if username:
-        try:
-            user = con.get_user(fill_attrib=False)
-        except UnauthorizedError:
-            return False, True
-        return False, user["name"] != username
+        return False, con.access_token_username != username
     return False, False
-
-
-def is_token_valid(
-    url: str, token: str, expected_username: Optional[str] = None
-) -> bool:
-    """Check if token is valid.
-
-    Note:
-        This function is available in 'ayon_api', but does not support to
-            validate service api key, only user's token. The support will be
-            added in future PRs of 'ayon_api'.
-        The function also did not support timeout which could cause
-            'ayon_api.is_token_valid' to hang.
-
-    Args:
-        url (str): Server url.
-        token (str): User's token.
-        expected_username (Optional[str]): Token must belong to user with
-            this username. Ignored if is 'None'.
-
-    Returns:
-        bool: True if token is valid.
-    """
-
-    api = ayon_api.ServerAPI(url, token)
-    if not api.has_valid_token:
-        return False
-    if expected_username:
-        return expected_username == api.get_user()["name"]
-    return True
-
-
-def need_server_or_login(username: Optional[str] = None) -> tuple[bool, bool]:
-    """Check if server url or login to the server are needed.
-
-    It is recommended to call 'load_environments' on startup before this check.
-    But in some cases this function could be called after startup.
-
-    Returns:
-        tuple[bool, bool]: Server or api key needed. Both are 'True' if
-            are available and valid.
-    """
-
-    server_url = os.environ.get(SERVER_URL_ENV_KEY)
-    if not server_url:
-        return True, True
-
-    try:
-        server_url = validate_url(server_url)
-    except UrlError:
-        return True, True
-
-    token = os.environ.get(SERVER_API_ENV_KEY)
-    if token:
-        return False, not is_token_valid(server_url, token, username)
-
-    token = load_token(server_url)
-    if token:
-        return False, not is_token_valid(server_url, token, username)
-    return False, True
 
 
 def confirm_server_login(url: str, token: str, username: Union[str, None]):
