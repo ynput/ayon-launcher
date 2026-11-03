@@ -7,7 +7,7 @@ import ctypes
 import tempfile
 import traceback
 import collections
-from contextlib import suppress, contextmanager
+from contextlib import suppress
 import datetime
 import logging
 import shutil
@@ -134,16 +134,24 @@ class UpdateState(Enum):
 # --- Distribution metadata file ---
 # The file is stored to destination directory to keep track of distribution
 #   of the item. It is also the lock: new launchers create it with 'O_EXCL'
-#   so only one process distributes the item, and the owner writes
-#   a heartbeat into it. Waiting processes take it over only when the
+#   so only one process distributes the item, and the owner updates it
+#   regularly (heartbeat). Waiting processes take it over only when the
 #   content did not change for a stale timeout.
 class DistFileStates(Enum):
     moving = "moving"
-    # Owner alternates between 'moving' and 'distributing' with each
-    #   heartbeat. Older launchers wait only while the state changes.
-    distributing = "distributing"
     done = "done"
     failed = "failed"
+
+
+def _get_moving_state(heartbeat: int) -> str:
+    """State of progress file while its owner is distributing.
+
+    Older launchers take over when 'state' did not change for 20 seconds
+    and may check it only between their own (long) downloads, so every
+    heartbeat writes a new value. Fixed width keeps the file size, so
+    a read during an in-place update is still valid JSON.
+    """
+    return f"{DistFileStates.moving.value} {heartbeat:08d}"
 
 
 def _read_progress_file(progress_dir: str):
@@ -163,15 +171,7 @@ def _read_progress_file(progress_dir: str):
 
 def _store_progress_file(progress_dir: str, progress_info: dict[str, Any]):
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
-    if not os.path.exists(progress_dir):
-        os.makedirs(progress_dir, exist_ok=True)
-        try:
-            os.chmod(progress_dir, 0o777)
-        except PermissionError:
-            print(
-                "Failed to set permissions for"
-                "progress directory: {progress_dir}"
-            )
+    _makedirs_shared(progress_dir)
 
     # Write to temp file and replace so other processes never read
     #   a partially written file
@@ -189,32 +189,30 @@ def _replace_file(src_path: str, dst_path: str):
     """Replace file with 'src_path' file.
 
     On Windows 'os.replace' fails while other process has the destination
-    open, which is usually only for a moment. If it keeps failing the
-    content is copied over the destination instead.
+    open, which is usually only for a moment.
     """
-    for _ in range(40):
+    attempts = 40
+    for attempt in range(attempts):
         try:
             os.replace(src_path, dst_path)
             return
         except PermissionError:
+            if attempt == attempts - 1:
+                with suppress(OSError):
+                    os.remove(src_path)
+                raise
             time.sleep(0.05)
-
-    try:
-        shutil.copyfile(src_path, dst_path)
-    finally:
-        with suppress(Exception):
-            os.remove(src_path)
 
 
 def _get_progress_info(
     progress_id: str,
     checksum: Optional[str],
     checksum_algorithm: Optional[str],
-    state: DistFileStates,
+    state: str,
 ) -> dict[str, Any]:
     return {
         # State of the progress
-        "state": state.value,
+        "state": state,
         # Unique identifier of the progress
         "progress_id": progress_id,
         # Just a metadata about the file
@@ -223,10 +221,8 @@ def _get_progress_info(
         "dist_started": (
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ),
-        # Liveness of the owner, ignored by older launchers
-        "heartbeat": 0,
+        # Only informative, for logs of waiting processes
         "hostname": socket.gethostname(),
-        "pid": os.getpid(),
     }
 
 
@@ -241,9 +237,37 @@ def _create_progress_file(
         state = DistFileStates.moving
 
     progress_info = _get_progress_info(
-        progress_id, checksum, checksum_algorithm, state
+        progress_id, checksum, checksum_algorithm, state.value
     )
     _store_progress_file(progress_dir, progress_info)
+
+
+def _makedirs_shared(path: str):
+    """Create directory in which other users can create files too.
+
+    Also missing parent directories are created that way.
+    """
+    if os.path.isdir(path):
+        return
+    parent = os.path.dirname(path)
+    if parent and parent != path:
+        _makedirs_shared(parent)
+    with suppress(FileExistsError):
+        os.mkdir(path)
+    with suppress(OSError):
+        os.chmod(path, 0o777)
+
+
+def _clean_dist_dir(dist_dirpath: str):
+    """Remove content of distribution directory except progress file."""
+    for subname in os.listdir(dist_dirpath):
+        if subname == DIST_PROGRESS_FILENAME:
+            continue
+        path = os.path.join(dist_dirpath, subname)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
 
 
 def _create_progress_file_exclusive(
@@ -258,11 +282,7 @@ def _create_progress_file_exclusive(
         bool: File was created by this call.
 
     """
-    if not os.path.exists(progress_dir):
-        os.makedirs(progress_dir, exist_ok=True)
-        with suppress(Exception):
-            os.chmod(progress_dir, 0o777)
-
+    _makedirs_shared(progress_dir)
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     try:
         fd = os.open(
@@ -280,24 +300,72 @@ def _create_progress_file_exclusive(
     return True
 
 
+def _update_own_progress_file(
+    progress_dir: str,
+    progress_id: str,
+    update_func: Callable[[dict[str, Any]], None],
+) -> bool:
+    """Update progress file in place if it is owned by 'progress_id'.
+
+    The file is not replaced: on Windows other processes can't open it
+    for a moment during replace, and older launchers treat that as
+    missing 'state' and take over. Content is padded to the current size,
+    so the file never has to be truncated.
+
+    Returns:
+        bool: File is owned by 'progress_id' and was updated.
+
+    """
+    progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
+    # On Windows the file can't be opened for a moment while other process
+    #   renames it
+    for _ in range(5):
+        try:
+            with open(progress_path, "r+b") as stream:
+                content = stream.read()
+                try:
+                    progress_info = json.loads(content)
+                except ValueError:
+                    return False
+                if progress_info.get("progress_id") != progress_id:
+                    return False
+                update_func(progress_info)
+                data = json.dumps(progress_info).encode()
+                stream.seek(0)
+                stream.write(data.ljust(len(content)))
+            return True
+        except FileNotFoundError:
+            return False
+        except PermissionError:
+            time.sleep(0.02)
+    return False
+
+
 def _remove_stale_progress_file(
     progress_dir: str, stale_info: dict[str, Any]
-):
+) -> bool:
     """Remove progress file if it still contains 'stale_info'.
 
     Rename is atomic, so when multiple processes find the same stale file
     only one of them removes it.
+
+    Returns:
+        bool: File with 'stale_info' is not there anymore.
+
     """
     if _read_progress_file(progress_dir) != stale_info:
-        return
+        return True
     progress_path = os.path.join(progress_dir, DIST_PROGRESS_FILENAME)
     stale_path = f"{progress_path}.{uuid.uuid4().hex}.stale"
     try:
         os.rename(progress_path, stale_path)
+    except FileNotFoundError:
+        return True
     except OSError:
-        return
+        return False
     with suppress(OSError):
         os.remove(stale_path)
+    return True
 
 
 def _get_env_seconds(env_name: str, default: float) -> float:
@@ -314,144 +382,6 @@ def _get_env_seconds(env_name: str, default: float) -> float:
         )
         return default
     return seconds
-
-
-def _is_process_running(pid: int) -> bool:
-    """Process with given PID is running on this machine.
-
-    Returns True when it can't be determined.
-    """
-    if IS_WINDOWS:
-        kernel32 = ctypes.windll.kernel32
-        # PROCESS_QUERY_LIMITED_INFORMATION
-        handle = kernel32.OpenProcess(0x1000, False, pid)
-        if not handle:
-            # Access denied (5) means the process exists
-            return ctypes.GetLastError() == 5
-        try:
-            exit_code = ctypes.c_ulong()
-            if not kernel32.GetExitCodeProcess(
-                handle, ctypes.byref(exit_code)
-            ):
-                return True
-            # STILL_ACTIVE
-            return exit_code.value == 259
-        finally:
-            kernel32.CloseHandle(handle)
-
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except OSError:
-        # e.g. PermissionError -> process exists but is owned by other user
-        return True
-    return True
-
-
-def _progress_owner_is_dead(progress_info: dict[str, Any]) -> bool:
-    """Owner of the progress file is a process on this machine that is gone.
-
-    Older launchers don't store 'hostname' and 'pid', so for them this
-    can't be determined.
-    """
-    pid = progress_info.get("pid")
-    if (
-        progress_info.get("hostname") != socket.gethostname()
-        or not isinstance(pid, int)
-        or pid <= 0
-        or pid == os.getpid()
-    ):
-        return False
-    return not _is_process_running(pid)
-
-
-def _read_text_file(path: str) -> Optional[str]:
-    try:
-        with open(path, "r") as stream:
-            return stream.read()
-    except OSError:
-        return None
-
-
-@contextmanager
-def _short_file_lock(
-    path: str,
-    log: logging.Logger,
-    wait_timeout: float = 60.0,
-    stale_timeout: float = 30.0,
-):
-    """Lock 'path' for a quick read-modify-write by multiple processes.
-
-    The lock is held only for a moment, so there is no heartbeat. A lock
-    file that did not change for 'stale_timeout' is considered abandoned.
-    When the lock can't be acquired the code runs without it.
-    """
-    lock_path = f"{path}.lock"
-    started = last_change = time.monotonic()
-    last_content = None
-    acquired = False
-    while True:
-        try:
-            os.makedirs(os.path.dirname(lock_path), exist_ok=True)
-            fd = os.open(
-                lock_path,
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY | _O_BINARY,
-                0o666,
-            )
-        except (FileExistsError, PermissionError):
-            # Windows raises 'PermissionError' while the lock file is
-            #   being removed by other process
-            pass
-        except OSError:
-            log.warning(
-                f"Failed to lock {path}. Continuing without lock.",
-                exc_info=True,
-            )
-            break
-        else:
-            with os.fdopen(fd, "w") as stream:
-                stream.write(uuid.uuid4().hex)
-            with suppress(Exception):
-                os.chmod(lock_path, 0o777)
-            acquired = True
-            break
-
-        now = time.monotonic()
-        content = _read_text_file(lock_path)
-        if content != last_content:
-            last_content = content
-            last_change = now
-        elif now - last_change >= stale_timeout:
-            # Rename is atomic, only one process removes the stale lock
-            stale_path = f"{lock_path}.{uuid.uuid4().hex}.stale"
-            with suppress(OSError):
-                os.rename(lock_path, stale_path)
-                os.remove(stale_path)
-            continue
-
-        if now - started >= wait_timeout:
-            log.warning(
-                f"Waited {now - started:.0f}s for lock of {path}."
-                " Continuing without lock."
-            )
-            break
-        time.sleep(0.05)
-
-    try:
-        yield
-    finally:
-        if acquired:
-            # On Windows the file can't be removed for a moment while
-            #   other process reads it
-            for _ in range(20):
-                try:
-                    os.remove(lock_path)
-                    break
-                except FileNotFoundError:
-                    break
-                except OSError:
-                    time.sleep(0.05)
 
 
 def change_permissions_recursive(
@@ -826,6 +756,7 @@ class BaseDistributionItem(ABC):
         self._heartbeat_stop: Optional[threading.Event] = None
         self._heartbeat_thread: Optional[threading.Thread] = None
         self._progress_file_lock = threading.Lock()
+        self._heartbeat_count = 0
 
         self._error_msg = None
         self._error_detail = None
@@ -1067,6 +998,9 @@ class BaseDistributionItem(ABC):
                 filepath, source_data, source_progress, downloader
             )
 
+        except DistributionProgressInterupted:
+            raise
+
         except Exception:
             message = "Failed to process source"
             source_progress.set_failed(message)
@@ -1087,35 +1021,38 @@ class BaseDistributionItem(ABC):
             return
 
         self._stop_heartbeat()
-        progress_info = _read_progress_file(self._progress_dir)
-        if progress_info.get("progress_id") != self._progress_id:
-            # Ignore if wanted to set 'failed' state
-            if state == DistFileStates.failed:
-                return
-            raise DistributionProgressInterupted(
-                "Different process took over progress file."
-            )
 
-        progress_info["state"] = state.value
-        if state == DistFileStates.done:
+        def _update(progress_info):
+            progress_info["state"] = state.value
+            if state != DistFileStates.done:
+                return
             # Update checksum if it was not set from server information
-            if not progress_info["checksum"] and self.checksum:
+            if not progress_info.get("checksum") and self.checksum:
                 progress_info["checksum"] = self.checksum
                 progress_info["checksum_algorithm"] = self.checksum_algorithm
             progress_info["dist_finished"] = (
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
 
-        _store_progress_file(self._progress_dir, progress_info)
+        if _update_own_progress_file(
+            self._progress_dir, self._progress_id, _update
+        ):
+            return
+
+        # Ignore if wanted to set 'failed' state
+        if state != DistFileStates.failed:
+            raise DistributionProgressInterupted(
+                "Different process took over progress file."
+            )
 
     def _claim_progress_file(self) -> Generator[Optional[bool], None, None]:
         """Wait until no other process distributes the same item.
 
         Other processes can be on other machines when storage is shared.
         The progress file is created with 'O_EXCL', so only one process
-        can own it. Its owner writes a heartbeat into it. The file is taken
-        over when the owner failed, or when its content did not change for
-        a stale timeout (older launchers don't write a heartbeat).
+        can own it. Its owner updates it regularly. The file is taken over
+        when the owner failed, or when its content did not change for
+        a stale timeout (older launchers don't update it).
 
         Returns:
             Generator[Optional[bool], None, None]: None while waiting.
@@ -1149,7 +1086,7 @@ class BaseDistributionItem(ABC):
                 self._progress_id,
                 self.checksum,
                 self.checksum_algorithm,
-                DistFileStates.moving,
+                _get_moving_state(self._heartbeat_count),
             )
             try:
                 created = _create_progress_file_exclusive(
@@ -1164,12 +1101,18 @@ class BaseDistributionItem(ABC):
                 yield False
                 return
 
-            if created:
+            current_info = {}
+            if not created:
+                current_info = _read_progress_file(self._progress_dir)
+
+            if (
+                created
+                or current_info.get("progress_id") == self._progress_id
+            ):
                 self._start_heartbeat()
                 yield False
                 return
 
-            current_info = _read_progress_file(self._progress_dir)
             state = current_info.get("state")
             if state == DistFileStates.done.value:
                 yield True
@@ -1182,17 +1125,16 @@ class BaseDistributionItem(ABC):
             reason = None
             if state == DistFileStates.failed.value:
                 reason = "Other process failed"
-            elif _progress_owner_is_dead(current_info):
-                reason = "Other process is not running anymore"
             elif (now - last_change) >= stale_timeout:
                 reason = (
                     f"Other process did not update progress file"
                     f" for {now - last_change:.0f}s"
                 )
 
-            if reason:
+            if reason and _remove_stale_progress_file(
+                self._progress_dir, current_info
+            ):
                 self.log.info(f"{self.item_label}: {reason}. Taking over.")
-                _remove_stale_progress_file(self._progress_dir, current_info)
                 last_info = None
                 continue
 
@@ -1218,6 +1160,7 @@ class BaseDistributionItem(ABC):
             yield None
 
     def _start_heartbeat(self):
+        self._stop_heartbeat()
         stop_event = threading.Event()
         thread = threading.Thread(
             target=self._heartbeat_loop,
@@ -1247,31 +1190,29 @@ class BaseDistributionItem(ABC):
             with self._progress_file_lock:
                 if stop_event.is_set():
                     return
-                progress_info = _read_progress_file(self._progress_dir)
-                if not progress_info:
-                    # Could not be read right now
-                    continue
-                if progress_info.get("progress_id") != self._progress_id:
-                    self.log.warning(
-                        f"{self.item_label}: Progress file was taken over"
-                        " by other process."
-                    )
-                    return
-                # Older launchers wait only while 'state' changes
-                state = DistFileStates.distributing
-                if progress_info.get("state") == state.value:
-                    state = DistFileStates.moving
-                progress_info["state"] = state.value
-                progress_info["heartbeat"] = (
-                    progress_info.get("heartbeat", 0) + 1
-                )
+                self._heartbeat_count += 1
+                state = _get_moving_state(self._heartbeat_count)
                 try:
-                    _store_progress_file(self._progress_dir, progress_info)
+                    owned = _update_own_progress_file(
+                        self._progress_dir,
+                        self._progress_id,
+                        lambda progress_info: progress_info.update(
+                            state=state
+                        ),
+                    )
                 except OSError:
                     self.log.debug(
                         f"{self.item_label}: Failed to write heartbeat.",
                         exc_info=True,
                     )
+                    continue
+
+            if not owned:
+                self.log.warning(
+                    f"{self.item_label}: Progress file was taken over"
+                    " by other process."
+                )
+                return
 
     def _distribute(self) -> Generator[bool, None, None]:
         if not self.sources:
@@ -1302,12 +1243,16 @@ class BaseDistributionItem(ABC):
                 return
 
         # Download
-        for source, source_progress in self.sources:
-            yield False
+        # - Starts right after claim, so other processes can claim
+        #   remaining items meanwhile
+        for idx, (source, source_progress) in enumerate(self.sources):
+            if idx:
+                yield False
             result = False
             for result in self._process_source(source, source_progress):
                 if result is not None:
                     break
+                yield False
 
             if result:
                 break
@@ -1319,7 +1264,7 @@ class BaseDistributionItem(ABC):
             self._used_source_progress = last_progress
             self.log.info(f"{self.item_label}: Distributed")
         else:
-            self._set_progress_state(DistFileStates.failed)
+            # Progress file is released in 'distribute' after cleanup
             self.log.error(f"{self.item_label}: Failed to distribute")
             self._error_msg = "Failed to receive or install source files"
         yield True
@@ -1347,8 +1292,9 @@ class BaseDistributionItem(ABC):
                     yield False
 
             except DistributionProgressInterupted:
-                # Other process took over the progress file, e.g. this
-                #   machine was suspended for longer than stale timeout.
+                # Other process took over the progress file, e.g. older
+                #   launcher, or this machine was suspended for longer than
+                #   stale timeout.
                 wait_result = False
                 for wait_result in self._claim_progress_file():
                     if wait_result is not None:
@@ -1358,8 +1304,6 @@ class BaseDistributionItem(ABC):
                 if wait_result:
                     self.state = UpdateState.UPDATED
                 else:
-                    # Release the progress file if it was claimed again
-                    self._set_progress_state(DistFileStates.failed)
                     self.state = UpdateState.UPDATE_FAILED
                     self._error_msg = (
                         "Other process took over distribution and failed."
@@ -1388,12 +1332,15 @@ class BaseDistributionItem(ABC):
                 self.state = UpdateState.UPDATE_FAILED
                 self._error_msg = "Distribution failed"
 
-            if self.state != UpdateState.UPDATED:
-                # Let other processes take over right away
-                with suppress(Exception):
-                    self._set_progress_state(DistFileStates.failed)
-            self._stop_heartbeat()
-            self._post_distribute()
+            try:
+                # Cleanup while this process still owns the progress file
+                self._post_distribute()
+            finally:
+                if self.state != UpdateState.UPDATED:
+                    # Let other processes take over right away
+                    with suppress(Exception):
+                        self._set_progress_state(DistFileStates.failed)
+                self._stop_heartbeat()
             yield True
 
 
@@ -1774,6 +1721,8 @@ class DistributionItem(BaseDistributionItem):
             os.rename(filepath, new_filepath)
             filepath = new_filepath
 
+        # Other users create their temp directories next to it
+        _makedirs_shared(os.path.dirname(self.unzip_temp_dir))
         # Expire file makes sure other processes don't remove the temp
         #   directory while it is used
         _create_dist_expire_file(
@@ -1805,6 +1754,19 @@ class DistributionItem(BaseDistributionItem):
         source_progress.set_unzip_finished()
 
         yield None
+
+        # Other process may have taken over the progress file meanwhile,
+        #   e.g. older launcher. Wait for it instead of changing the target.
+        if not self._owns_progress_file():
+            result = False
+            for result in self._claim_progress_file():
+                if result is not None:
+                    break
+                yield None
+            if result:
+                raise DistributionProgressInterupted(
+                    "Other process distributed the item."
+                )
 
         failed = False
         renamed_mapping = []
@@ -1928,17 +1890,28 @@ class DistributionItem(BaseDistributionItem):
 
     def _post_distribute(self):
         if (
-            self.state != UpdateState.UPDATED
-            and self.target_dirpath
-            and os.path.isdir(self.target_dirpath)
+            self.state == UpdateState.UPDATED
+            or not self.target_dirpath
+            or not os.path.isdir(self.target_dirpath)
             # Don't remove work of other process that took over
-            and self._owns_progress_file()
+            or not self._owns_progress_file()
         ):
-            self.log.debug(f"Cleaning {self.target_dirpath}")
-            # TODO use '_clean_dist_dir' when backwards compatibility with
-            #   previous versions of AYON launchers is not needed.
-            # _clean_dist_dir(self.target_dirpath)
-            shutil.rmtree(self.target_dirpath)
+            return
+
+        self.log.debug(f"Cleaning {self.target_dirpath}")
+        # Remove the progress file last, other processes can take over only
+        #   after that
+        _clean_dist_dir(self.target_dirpath)
+        self._stop_heartbeat()
+        if self._progress_dir:
+            with suppress(OSError):
+                os.remove(os.path.join(
+                    self._progress_dir, DIST_PROGRESS_FILENAME
+                ))
+        # Older launchers expect no directory. Fails if other process
+        #   already created new progress file in it.
+        with suppress(OSError):
+            os.rmdir(self.target_dirpath)
 
 
 class AYONDistribution:
@@ -2789,12 +2762,10 @@ class AYONDistribution:
 
         """
         dirpath = os.path.dirname(filepath)
-        if not os.path.exists(dirpath):
-            os.makedirs(dirpath, exist_ok=True)
-            try:
-                os.chmod(dirpath, 0o777)
-            except PermissionError:
-                print(f"Failed to change permissions for {dirpath}.")
+        os.makedirs(dirpath, exist_ok=True)
+        # Other users must be able to distribute into the directory
+        with suppress(OSError):
+            os.chmod(dirpath, 0o777)
 
         # Write to temp file and replace, so other processes (possibly on
         #   other machines) never read partially written file
@@ -2805,21 +2776,6 @@ class AYONDistribution:
             os.chmod(tmp_path, 0o777)
         _replace_file(tmp_path, filepath)
 
-    def _update_metadata_file(
-        self,
-        filepath: str,
-        update_func: Callable[[dict[str, Any]], None],
-    ):
-        """Read, update and store metadata file under a lock.
-
-        Multiple processes (machines) may update the same file at the same
-        time when storage is shared.
-        """
-        with _short_file_lock(filepath, self.log):
-            data = self.read_metadata_file(filepath, {})
-            update_func(data)
-            self.save_metadata_file(filepath, data)
-
     def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
         return self.read_metadata_file(filepath, {})
@@ -2827,12 +2783,10 @@ class AYONDistribution:
     def update_dependency_metadata(
         self, package_name: str, data: dict[str, Any]
     ):
-        def _update(dependency_metadata):
-            dependency_metadata[package_name] = data
-
-        self._update_metadata_file(
-            self.get_dependency_metadata_filepath(), _update
-        )
+        dependency_metadata = self.get_dependency_metadata()
+        dependency_metadata[package_name] = data
+        filepath = self.get_dependency_metadata_filepath()
+        self.save_metadata_file(filepath, dependency_metadata)
 
     def get_addons_metadata(self) -> dict[str, Any]:
         filepath = self.get_addons_metadata_filepath()
@@ -2841,17 +2795,15 @@ class AYONDistribution:
     def update_addons_metadata(self, addons_information: dict[str, Any]):
         if not addons_information:
             return
+        addons_metadata = self.get_addons_metadata()
+        for addon_name, version_value in addons_information.items():
+            if addon_name not in addons_metadata:
+                addons_metadata[addon_name] = {}
+            for addon_version, version_data in version_value.items():
+                addons_metadata[addon_name][addon_version] = version_data
 
-        def _update(addons_metadata):
-            for addon_name, version_value in addons_information.items():
-                if addon_name not in addons_metadata:
-                    addons_metadata[addon_name] = {}
-                for addon_version, version_data in version_value.items():
-                    addons_metadata[addon_name][addon_version] = version_data
-
-        self._update_metadata_file(
-            self.get_addons_metadata_filepath(), _update
-        )
+        filepath = self.get_addons_metadata_filepath()
+        self.save_metadata_file(filepath, addons_metadata)
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
@@ -3166,16 +3118,7 @@ class AYONDistribution:
             addon_versions = bundle.addon_versions
 
         unzip_temp = self._dist_addons_unzip_temp
-        if not os.path.exists(unzip_temp):
-            os.makedirs(unzip_temp, exist_ok=True)
-            try:
-                os.chmod(unzip_temp, 0o777)
-                change_permissions_recursive(unzip_temp)
-            except PermissionError:
-                self.log.warning(
-                    "Cannot change permissions for "
-                    "addons unzip temp directory."
-                )
+        _makedirs_shared(unzip_temp)
 
         for addon_name, addon_item in self.addon_items.items():
             # Dev mode can redirect addon directory elsewhere

@@ -172,7 +172,7 @@ Logging environment variables are described in [Logging](#logging).
 
 - Each version is stored in its own folder (`addons/<name>_<version>`) that is never changed once it is distributed, so running processes are not affected by new versions.
 - When a version is missing, one process distributes it, others wait. The process owns `dist_progress.json` in the version folder and refreshes it while it works. It is taken over when it was not refreshed for **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** seconds.
-- Older AYON launchers understand the same file and wait for newer ones. Between themselves, older launchers keep their old logic, which takes over after 20 seconds.
+- Older AYON launchers understand the same file and wait for newer ones. If an older launcher takes the file over anyway (e.g. both started at the same moment), the newer one waits for it instead of changing the folder. Between themselves, older launchers keep their old logic, which takes over after 20 seconds.
 
 Requirements:
 - Use a separate folder per platform (Windows, Linux, macOS).

@@ -8,6 +8,8 @@ import shutil
 import zipfile
 import threading
 
+import pytest
+
 ROOT_DIR = os.path.dirname(
     os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -163,34 +165,53 @@ def test_filesystem_source_is_not_removed(tmp_path):
     assert os.path.exists(source_zip)
 
 
-def test_metadata_updates_are_not_lost(tmp_path):
-    addons_dir = str(tmp_path / "addons")
-    distributions = [
-        AYONDistribution(
-            addon_dirpath=addons_dir,
-            dependency_dirpath=str(tmp_path / "deps"),
-            dist_factory=DownloadFactory(),
-            skip_installer_dist=True,
-        )
-        for _ in range(8)
-    ]
+def test_metadata_file_is_never_read_partially(tmp_path):
+    filepath = str(tmp_path / "addons" / "addons.json")
+    data = {f"addon_{idx}": {"1.0.0": {"pad": "x" * 200}} for idx in range(50)}
+    AYONDistribution.save_metadata_file(filepath, data)
+    stop = threading.Event()
+    bad_reads = []
 
-    def update(idx, distribution):
-        for version in range(10):
-            distribution.update_addons_metadata(
-                {f"addon_{idx}": {f"1.0.{version}": {"checksum": "x"}}}
-            )
+    def read_loop():
+        while not stop.is_set():
+            if AYONDistribution.read_metadata_file(filepath, None) != data:
+                bad_reads.append(1)
+            time.sleep(0.001)
 
-    threads = [
-        threading.Thread(target=update, args=(idx, distribution))
-        for idx, distribution in enumerate(distributions)
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=120)
+    readers = [threading.Thread(target=read_loop) for _ in range(4)]
+    for reader in readers:
+        reader.start()
+    try:
+        for _ in range(200):
+            AYONDistribution.save_metadata_file(filepath, data)
+    finally:
+        stop.set()
+        for reader in readers:
+            reader.join()
+    assert bad_reads == []
+    assert os.listdir(os.path.dirname(filepath)) == ["addons.json"]
 
-    metadata = distributions[0].get_addons_metadata()
-    assert sorted(metadata) == [f"addon_{idx}" for idx in range(8)]
-    for versions in metadata.values():
-        assert len(versions) == 10
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+def test_shared_dirs_are_writable_by_other_users(tmp_path):
+    old_umask = os.umask(0o022)
+    try:
+        filepath = str(tmp_path / "addons" / "addons.json")
+        AYONDistribution.save_metadata_file(filepath, {})
+
+        source_zip = _make_source_zip(tmp_path)
+        item = _make_dist_item(tmp_path, source_zip)
+        # Like dependency packages, the temp root does not exist yet
+        item.unzip_temp_dir = str(tmp_path / "deps" / ".unzip_temp" / "x")
+        _run(item)
+    finally:
+        os.umask(old_umask)
+
+    assert item.state == UpdateState.UPDATED
+    for path in (
+        tmp_path / "addons",
+        tmp_path / "deps",
+        tmp_path / "deps" / ".unzip_temp",
+        tmp_path / "addons" / ADDON_DIRNAME,
+    ):
+        assert os.stat(path).st_mode & 0o777 == 0o777, path
