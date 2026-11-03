@@ -7,7 +7,7 @@ import ctypes
 import tempfile
 import traceback
 import collections
-from contextlib import suppress
+from contextlib import suppress, contextmanager
 import datetime
 import logging
 import shutil
@@ -18,7 +18,7 @@ import subprocess
 import dataclasses
 from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Optional, Any, Generator
+from typing import Optional, Any, Generator, Callable
 from urllib.parse import urlencode
 
 import ayon_api
@@ -58,6 +58,15 @@ def _unknown_bool(self):
 
 NOT_SET = type("UNKNOWN", (), {"__bool__": _unknown_bool})()
 DIST_PROGRESS_FILENAME = "dist_progress.json"
+# Temp folder next to distributed items where they are extracted
+DIST_UNZIP_TEMP_DIRNAME = ".unzip_temp"
+# File in temp folders with time when other processes can remove them
+DIST_EXPIRE_FILENAME = "download_info.json"
+DIST_TEMP_DIR_LIFETIME = 60 * 60
+# Extraction to shared storage over slow network can take long
+DIST_UNZIP_TEMP_DIR_LIFETIME = 24 * 60 * 60
+# Temp folders without expire file (from older launchers or just created)
+DIST_UNMARKED_DIR_LIFETIME = 24 * 60 * 60
 # Seconds between heartbeats written to progress file by its owner
 DIST_HEARTBEAT_INTERVAL = 5.0
 # Seconds between checks of progress file owned by other process
@@ -357,34 +366,133 @@ def _progress_owner_is_dead(progress_info: dict[str, Any]) -> bool:
     return not _is_process_running(pid)
 
 
-def change_permissions_recursive(path: str, mode: int = 0o777) -> None:
+def _read_text_file(path: str) -> Optional[str]:
+    try:
+        with open(path, "r") as stream:
+            return stream.read()
+    except OSError:
+        return None
+
+
+@contextmanager
+def _short_file_lock(
+    path: str,
+    log: logging.Logger,
+    wait_timeout: float = 60.0,
+    stale_timeout: float = 30.0,
+):
+    """Lock 'path' for a quick read-modify-write by multiple processes.
+
+    The lock is held only for a moment, so there is no heartbeat. A lock
+    file that did not change for 'stale_timeout' is considered abandoned.
+    When the lock can't be acquired the code runs without it.
+    """
+    lock_path = f"{path}.lock"
+    started = last_change = time.monotonic()
+    last_content = None
+    acquired = False
+    while True:
+        try:
+            os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+            fd = os.open(
+                lock_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | _O_BINARY,
+                0o666,
+            )
+        except (FileExistsError, PermissionError):
+            # Windows raises 'PermissionError' while the lock file is
+            #   being removed by other process
+            pass
+        except OSError:
+            log.warning(
+                f"Failed to lock {path}. Continuing without lock.",
+                exc_info=True,
+            )
+            break
+        else:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(uuid.uuid4().hex)
+            with suppress(Exception):
+                os.chmod(lock_path, 0o777)
+            acquired = True
+            break
+
+        now = time.monotonic()
+        content = _read_text_file(lock_path)
+        if content != last_content:
+            last_content = content
+            last_change = now
+        elif now - last_change >= stale_timeout:
+            # Rename is atomic, only one process removes the stale lock
+            stale_path = f"{lock_path}.{uuid.uuid4().hex}.stale"
+            with suppress(OSError):
+                os.rename(lock_path, stale_path)
+                os.remove(stale_path)
+            continue
+
+        if now - started >= wait_timeout:
+            log.warning(
+                f"Waited {now - started:.0f}s for lock of {path}."
+                " Continuing without lock."
+            )
+            break
+        time.sleep(0.05)
+
+    try:
+        yield
+    finally:
+        if acquired:
+            # On Windows the file can't be removed for a moment while
+            #   other process reads it
+            for _ in range(20):
+                try:
+                    os.remove(lock_path)
+                    break
+                except FileNotFoundError:
+                    break
+                except OSError:
+                    time.sleep(0.05)
+
+
+def change_permissions_recursive(
+    path: str, mode: int = 0o777, ignore_errors: bool = False
+) -> None:
     """Change permission recursively.
 
-    This will raise PermissionError if chmod fails.
+    This will raise PermissionError if chmod fails, unless 'ignore_errors'
+    is set.
 
     Args:
         path (str): Path to the directory.
         mode (int): Permission mode.
+        ignore_errors (bool): Skip files and directories that can't be
+            changed, e.g. owned by other user.
 
     """
     if IS_WINDOWS or not os.path.exists(path):
         return
 
+    def _chmod(_path):
+        try:
+            os.chmod(_path, mode)
+        except OSError:
+            if not ignore_errors:
+                raise
+
     if os.path.isfile(path):
         # If the path is a file, change its permissions directly
-        os.chmod(path, mode)
+        _chmod(path)
         return
 
     # Traverse the directory tree starting from 'path' to top
     for root, dirnames, filenames in os.walk(path, topdown=False):
         # Change the permissions of each directory
         for dirname in dirnames:
-            dirpath = os.path.join(root, dirname)
-            os.chmod(dirpath, mode)
+            _chmod(os.path.join(root, dirname))
 
         for filename in filenames:
-            filepath = os.path.join(root, filename)
-            os.chmod(filepath, mode)
+            _chmod(os.path.join(root, filename))
+    _chmod(path)
 
 
 def _has_read_write(path: str) -> bool:
@@ -425,17 +533,20 @@ def _get_dist_download_dir(*args):
     return output
 
 
-def _create_dist_expire_file(process_dir: str):
+def _create_dist_expire_file(process_dir: str, lifetime: float):
     """Create distribution temp directory with metadata file.
 
     The metadata file contains information about expiration time of the
-        temp folder. Lifetime is 1 hour (more than should be needed).
+        temp folder. Other processes remove the folder only after it
+        expired.
 
     Args:
         process_dir (str): Path to distribution temp directory.
+        lifetime (float): Seconds after which the folder can be removed
+            by other processes.
 
     """
-    info_path = os.path.join(process_dir, "download_info.json")
+    info_path = os.path.join(process_dir, DIST_EXPIRE_FILENAME)
     if os.path.exists(info_path):
         return
 
@@ -448,7 +559,7 @@ def _create_dist_expire_file(process_dir: str):
 
     with open(info_path, "w") as stream:
         json.dump(
-            {"expiration_time": time.time() + (60 * 60)},
+            {"expiration_time": time.time() + lifetime},
             stream,
         )
 
@@ -457,11 +568,15 @@ def _create_dist_expire_file(process_dir: str):
     except PermissionError:
         print(f"Permission denied for {info_path}")
 
-    change_permissions_recursive(process_dir)
+    change_permissions_recursive(process_dir, ignore_errors=True)
 
 
 def _dist_expire_file_expired(process_dir: str) -> bool:
     """Check if distribution temp directory is expired.
+
+    Directory without the metadata file is expired only when it was not
+    modified for a long time. It may be a folder that other process just
+    created and did not create the file yet.
 
     Args:
         process_dir (str): Path to distribution temp directory.
@@ -470,9 +585,13 @@ def _dist_expire_file_expired(process_dir: str) -> bool:
         bool: Directory is expired and can be removed.
 
     """
-    info_path = os.path.join(process_dir, "download_info.json")
+    info_path = os.path.join(process_dir, DIST_EXPIRE_FILENAME)
     if not os.path.exists(info_path):
-        return True
+        try:
+            modified = os.path.getmtime(process_dir)
+        except OSError:
+            return False
+        return (time.time() - modified) > DIST_UNMARKED_DIR_LIFETIME
 
     try:
         with open(info_path, "r") as stream:
@@ -480,7 +599,7 @@ def _dist_expire_file_expired(process_dir: str) -> bool:
     except Exception:
         data = {}
     expiration_time = data.get("expiration_time")
-    if not isinstance(expiration_time, int):
+    if not isinstance(expiration_time, (int, float)):
         return False
     return expiration_time < time.time()
 
@@ -1655,7 +1774,11 @@ class DistributionItem(BaseDistributionItem):
             os.rename(filepath, new_filepath)
             filepath = new_filepath
 
-        # Create directory
+        # Expire file makes sure other processes don't remove the temp
+        #   directory while it is used
+        _create_dist_expire_file(
+            self.unzip_temp_dir, DIST_UNZIP_TEMP_DIR_LIFETIME
+        )
         os.makedirs(unzip_dirpath, exist_ok=True)
         try:
             os.chmod(unzip_dirpath, 0o777)
@@ -1896,10 +2019,10 @@ class AYONDistribution:
         self._dist_unzip_dirs = []
 
         self._dist_addons_unzip_temp = os.path.join(
-            self._addons_dirpath, ".unzip_temp"
+            self._addons_dirpath, DIST_UNZIP_TEMP_DIRNAME
         )
         self._dist_dep_packages_unzip_temp = os.path.join(
-            self._dependency_dirpath, ".unzip_temp"
+            self._dependency_dirpath, DIST_UNZIP_TEMP_DIRNAME
         )
 
         self._installers_info = installers_info
@@ -2640,12 +2763,19 @@ class AYONDistribution:
         if not os.path.exists(filepath):
             return default_value
 
-        try:
-            with open(filepath, "r") as stream:
-                data = json.load(stream)
-        except ValueError:
-            data = default_value
-        return data
+        # On Windows the file can't be opened for a moment while other
+        #   process replaces it
+        for _ in range(20):
+            try:
+                with open(filepath, "r") as stream:
+                    return json.load(stream)
+            except ValueError:
+                return default_value
+            except FileNotFoundError:
+                return default_value
+            except PermissionError:
+                time.sleep(0.05)
+        return default_value
 
     @staticmethod
     def save_metadata_file(filepath: str, data: dict[str, Any]):
@@ -2659,15 +2789,36 @@ class AYONDistribution:
 
         """
         dirpath = os.path.dirname(filepath)
-        os.makedirs(dirpath, exist_ok=True)
-        try:
-            os.chmod(dirpath, 0o777)
-        except PermissionError:
-            print(f"Failed to change permissions for {dirpath}.")
-        with open(filepath, "w") as stream:
-            json.dump(data, stream, indent=4)
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath, exist_ok=True)
+            try:
+                os.chmod(dirpath, 0o777)
+            except PermissionError:
+                print(f"Failed to change permissions for {dirpath}.")
 
-        change_permissions_recursive(dirpath)
+        # Write to temp file and replace, so other processes (possibly on
+        #   other machines) never read partially written file
+        tmp_path = f"{filepath}.{uuid.uuid4().hex}.tmp"
+        with open(tmp_path, "w") as stream:
+            json.dump(data, stream, indent=4)
+        with suppress(Exception):
+            os.chmod(tmp_path, 0o777)
+        _replace_file(tmp_path, filepath)
+
+    def _update_metadata_file(
+        self,
+        filepath: str,
+        update_func: Callable[[dict[str, Any]], None],
+    ):
+        """Read, update and store metadata file under a lock.
+
+        Multiple processes (machines) may update the same file at the same
+        time when storage is shared.
+        """
+        with _short_file_lock(filepath, self.log):
+            data = self.read_metadata_file(filepath, {})
+            update_func(data)
+            self.save_metadata_file(filepath, data)
 
     def get_dependency_metadata(self) -> dict[str, Any]:
         filepath = self.get_dependency_metadata_filepath()
@@ -2676,10 +2827,12 @@ class AYONDistribution:
     def update_dependency_metadata(
         self, package_name: str, data: dict[str, Any]
     ):
-        dependency_metadata = self.get_dependency_metadata()
-        dependency_metadata[package_name] = data
-        filepath = self.get_dependency_metadata_filepath()
-        self.save_metadata_file(filepath, dependency_metadata)
+        def _update(dependency_metadata):
+            dependency_metadata[package_name] = data
+
+        self._update_metadata_file(
+            self.get_dependency_metadata_filepath(), _update
+        )
 
     def get_addons_metadata(self) -> dict[str, Any]:
         filepath = self.get_addons_metadata_filepath()
@@ -2688,15 +2841,17 @@ class AYONDistribution:
     def update_addons_metadata(self, addons_information: dict[str, Any]):
         if not addons_information:
             return
-        addons_metadata = self.get_addons_metadata()
-        for addon_name, version_value in addons_information.items():
-            if addon_name not in addons_metadata:
-                addons_metadata[addon_name] = {}
-            for addon_version, version_data in version_value.items():
-                addons_metadata[addon_name][addon_version] = version_data
 
-        filepath = self.get_addons_metadata_filepath()
-        self.save_metadata_file(filepath, addons_metadata)
+        def _update(addons_metadata):
+            for addon_name, version_value in addons_information.items():
+                if addon_name not in addons_metadata:
+                    addons_metadata[addon_name] = {}
+                for addon_version, version_data in version_value.items():
+                    addons_metadata[addon_name][addon_version] = version_data
+
+        self._update_metadata_file(
+            self.get_addons_metadata_filepath(), _update
+        )
 
     def finish_distribution(self):
         """Store metadata about distributed items."""
@@ -2834,7 +2989,9 @@ class AYONDistribution:
         for dist_item in self.get_all_distribution_items():
             if not dist_item.is_distributed():
                 dist_items.append(dist_item)
-                _create_dist_expire_file(dist_item.download_dirpath)
+                _create_dist_expire_file(
+                    dist_item.download_dirpath, DIST_TEMP_DIR_LIFETIME
+                )
 
         running_items = collections.deque()
         for item in dist_items:
@@ -3008,7 +3165,7 @@ class AYONDistribution:
             dev_addons = bundle.addons_dev_info
             addon_versions = bundle.addon_versions
 
-        unzip_temp = os.path.join(self._addons_dirpath, ".unzip_temp")
+        unzip_temp = self._dist_addons_unzip_temp
         if not os.path.exists(unzip_temp):
             os.makedirs(unzip_temp, exist_ok=True)
             try:
@@ -3070,6 +3227,7 @@ class AYONDistribution:
                         uuid.uuid4().hex,
                         addon_version_item.checksum,
                         addon_version_item.checksum_algorithm,
+                        state=DistFileStates.done,
                     )
 
             download_dir = _get_dist_download_dir(uuid.uuid4().hex)
@@ -3123,7 +3281,9 @@ class AYONDistribution:
         new_package_dir = os.path.join(self._dependency_dirpath, new_basename)
 
         download_dir = _get_dist_download_dir(uuid.uuid4().hex)
-        unzip_dir = os.path.join(self._dependency_dirpath, uuid.uuid4().hex)
+        unzip_dir = os.path.join(
+            self._dist_dep_packages_unzip_temp, uuid.uuid4().hex
+        )
         self._dist_download_dirs.append(download_dir)
         self._dist_unzip_dirs.append(unzip_dir)
 
@@ -3151,6 +3311,7 @@ class AYONDistribution:
                 uuid.uuid4().hex,
                 package.checksum,
                 package.checksum_algorithm,
+                state=DistFileStates.done,
             )
 
         return DistributionItem(
