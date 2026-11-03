@@ -1837,8 +1837,7 @@ class AYONDistribution:
             studio_dev_bundle = None
             for bundle in self.bundle_items:
                 if (
-                    not bundle.is_project_bundle
-                    and bundle.is_dev
+                    bundle.is_dev
                     and bundle.active_dev_user == self.active_user
                 ):
                     studio_dev_bundle = bundle
