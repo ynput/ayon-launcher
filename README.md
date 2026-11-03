@@ -140,11 +140,13 @@ Environment variables that are set during startup:
 - **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.
 - **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
 - **AYON_ROOT** - Root to AYON launcher content.
-- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. At own risk can be shared (NOT TESTED).
+- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. Can be shared by multiple machines, see [Shared storage](#shared-storage).
 - **AYON_LAUNCHER_LOCAL_DIR** - Directory where are stored user/machine specific files. This MUST NOT be shared.
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_AUTO_UPDATE** - Modify auto-update behavior which might be useful for shared distribution location. Missing AYON launcher, addon or dependency package won't be updated if is set to 'skip', instead will try to continue. And won't allow user to launch if is set to 'block' with brief explanation in a dialog.
+- **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** - Seconds without a heartbeat in the `dist_progress.json` of another process after which its distribution is considered abandoned and taken over. Default `120`. Increase it if a shared storage file system caches file content for longer.
+- **AYON_LAUNCHER_DIST_LOCK_WAIT_TIMEOUT** - Maximum seconds to wait for another process that is distributing the same addon or dependency package. After that the item is distributed by this process too. Default `3600`.
 
 > [!NOTE]
 > Environment variables **AYON_LAUNCHER_STORAGE_DIR** and **AYON_LAUNCHER_LOCAL_DIR** are by default set to the same folder. Path is based on OS.
@@ -164,6 +166,19 @@ Environment variables that are set during startup:
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
 
 Logging environment variables are described in [Logging](#logging).
+
+### Shared storage
+**AYON_LAUNCHER_STORAGE_DIR** can point to a folder on a network share used by multiple machines, e.g. by all render farm workers. Each addon and dependency package version is then downloaded and extracted only once, and all machines use the same files.
+
+- Each version is stored in its own folder (`addons/<name>_<version>`) that is never changed once it is distributed, so running processes are not affected by new versions.
+- When a version is missing, one process distributes it, others wait. The process owns `dist_progress.json` in the version folder and refreshes it while it works. It is taken over when it was not refreshed for **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** seconds.
+- Older AYON launchers understand the same file and wait for newer ones. If an older launcher takes the file over anyway (e.g. both started at the same moment), the newer one waits for it instead of changing the folder. Between themselves, older launchers keep their old logic, which takes over after 20 seconds.
+
+Requirements:
+- Use a separate folder per platform (Windows, Linux, macOS).
+- All machines that may distribute to the folder need write access to it.
+- **AYON_LAUNCHER_LOCAL_DIR** must stay local for each machine.
+- Old versions are not removed automatically.
 
 ## Logging
 AYON launcher uses structured logging ([structlog](https://www.structlog.org)). Each record has a message and additional fields, e.g. `logger.info("Distribution of {bundle} finished", bundle=bundle_name)`. Message is a message template using [Python format string](https://docs.python.org/3/library/string.html#format-string-syntax) syntax, same as in [ayon-core](https://github.com/ynput/ayon-core#message-templates): fields are rendered into the message, tokens without a field are kept as they are, and the template is stored in `message_template` field of JSON records. Logging is configured by AYON launcher until control is passed to `ayon_core` (or to a script), which configures logging for its own needs with the same environment variables, see [ayon-core](https://github.com/ynput/ayon-core#logging).
