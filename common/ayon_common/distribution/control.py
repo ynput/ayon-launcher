@@ -313,9 +313,7 @@ def _get_dist_download_dir(*args):
     return output
 
 
-def _create_dist_expire_file(
-    process_dir: str, lifetime: float = DIST_TEMP_DIR_LIFETIME
-):
+def _create_dist_expire_file(process_dir: str, lifetime: float):
     """Create distribution temp directory with metadata file.
 
     The metadata file contains information about expiration time of the
@@ -325,7 +323,7 @@ def _create_dist_expire_file(
     Args:
         process_dir (str): Path to distribution temp directory.
         lifetime (float): Seconds after which the folder can be removed
-            by other processes. Default is 1 hour.
+            by other processes.
 
     """
     info_path = os.path.join(process_dir, DIST_EXPIRE_FILENAME)
@@ -2558,7 +2556,9 @@ class AYONDistribution:
         for dist_item in self.get_all_distribution_items():
             if not dist_item.is_distributed():
                 dist_items.append(dist_item)
-                _create_dist_expire_file(dist_item.download_dirpath)
+                _create_dist_expire_file(
+                    dist_item.download_dirpath, DIST_TEMP_DIR_LIFETIME
+                )
 
         running_items = collections.deque()
         for item in dist_items:
