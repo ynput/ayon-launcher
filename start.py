@@ -633,6 +633,9 @@ def _run_disk_mapping(core_version: Optional[str]) -> None:
     if not platform_disk_mapping:
         return
 
+    # Start all mapping subprocesses at once and validate them after
+    #   all of them finished
+    processes = []
     for item in platform_disk_mapping:
         src_path = item.get("source")
         dst_path = item.get("destination")
@@ -648,15 +651,28 @@ def _run_disk_mapping(core_version: Optional[str]) -> None:
 
         logger.info("Disk mapping arguments", args=args)
         try:
-            output = subprocess.Popen(args)
-            if output.returncode and output.returncode != 0:
-                exc_msg = f'Executing was not successful: "{args}"'
-
-                raise RuntimeError(exc_msg)
+            process = subprocess.Popen(args)
         except TypeError:
             logger.exception(
                 "Error in mapping drive", src_path=src_path, dst_path=dst_path)
             raise
+        processes.append((process, args, src_path, dst_path))
+
+    failed_args = []
+    for process, args, src_path, dst_path in processes:
+        returncode = process.wait()
+        if returncode != 0:
+            logger.error(
+                "Error in mapping drive",
+                src_path=src_path,
+                dst_path=dst_path,
+                returncode=returncode,
+            )
+            failed_args.append(args)
+
+    if failed_args:
+        failed_str = ", ".join(f'"{args}"' for args in failed_args)
+        raise RuntimeError(f"Executing was not successful: {failed_str}")
 
 
 def _start_distribution():
