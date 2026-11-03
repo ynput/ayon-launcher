@@ -145,7 +145,7 @@ Environment variables that are set during startup:
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_AUTO_UPDATE** - Modify auto-update behavior which might be useful for shared distribution location. Missing AYON launcher, addon or dependency package won't be updated if is set to 'skip', instead will try to continue. And won't allow user to launch if is set to 'block' with brief explanation in a dialog.
-- **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** - Seconds without a heartbeat after which a distribution lock of another process is considered abandoned and taken over. Default `120`. Increase it if a shared storage file system caches file content for longer.
+- **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** - Seconds without a heartbeat in the `dist_progress.json` of another process after which its distribution is considered abandoned and taken over. Default `120`. Increase it if a shared storage file system caches file content for longer.
 - **AYON_LAUNCHER_DIST_LOCK_WAIT_TIMEOUT** - Maximum seconds to wait for another process that is distributing the same addon or dependency package. After that the item is distributed by this process too. Default `3600`.
 
 > [!NOTE]
@@ -171,12 +171,12 @@ Logging environment variables are described in [Logging](#logging).
 **AYON_LAUNCHER_STORAGE_DIR** can point to a folder on a network share used by multiple machines, e.g. by all render farm workers. Each addon and dependency package version is then downloaded and extracted only once, and all machines use the same files.
 
 - Each version is stored in its own folder (`addons/<name>_<version>`) that is never changed once it is distributed, so running processes are not affected by new versions.
-- When a version is missing, one process distributes it while holding a lock in `.dist_locks`, others wait. The lock is refreshed while the process works and is taken over when it was not refreshed for **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** seconds.
-- Content is extracted to `.unzip_temp` and renamed to the version folder when complete, so a version folder either does not exist or is complete.
+- When a version is missing, one process distributes it, others wait. The process owns `dist_progress.json` in the version folder and refreshes it while it works. It is taken over when it was not refreshed for **AYON_LAUNCHER_DIST_LOCK_STALE_TIMEOUT** seconds.
+- Older AYON launchers understand the same file and wait for newer ones. Between themselves, older launchers keep their old logic, which takes over after 20 seconds.
 
 Requirements:
 - Use a separate folder per platform (Windows, Linux, macOS).
-- All machines that may distribute to the folder need write access to it and should use an AYON launcher version with this logic.
+- All machines that may distribute to the folder need write access to it.
 - **AYON_LAUNCHER_LOCAL_DIR** must stay local for each machine.
 - Old versions are not removed automatically.
 

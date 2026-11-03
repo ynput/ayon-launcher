@@ -20,7 +20,6 @@ from ayon_common.distribution import control  # noqa: E402
 from ayon_common.distribution.control import (  # noqa: E402
     AYONDistribution,
     DistributionItem,
-    DistFileStates,
     UpdateState,
 )
 from ayon_common.distribution.downloaders import (  # noqa: E402
@@ -104,119 +103,6 @@ def _run(item):
         if result:
             break
         time.sleep(0.01)
-
-
-def test_target_appears_complete(tmp_path):
-    """Other processes never see a partially filled target directory."""
-    source_zip = _make_source_zip(tmp_path)
-    item = _make_dist_item(tmp_path, source_zip)
-    _CopyDownloader.delay = 0.2
-    _CopyDownloader.fail = False
-    stop = threading.Event()
-    bad_states = []
-
-    def watch():
-        while not stop.is_set():
-            if os.path.exists(item.target_dirpath):
-                info = control._read_progress_file(item.target_dirpath)
-                big_path = os.path.join(
-                    item.target_dirpath, "my_addon", "big.bin"
-                )
-                if (
-                    info.get("state") != DistFileStates.done.value
-                    or not os.path.isfile(big_path)
-                ):
-                    bad_states.append(info)
-
-    watcher = threading.Thread(target=watch)
-    watcher.start()
-    try:
-        _run(item)
-    finally:
-        stop.set()
-        watcher.join()
-
-    assert item.state == UpdateState.UPDATED
-    assert bad_states == []
-    info = control._read_progress_file(item.target_dirpath)
-    assert info["state"] == DistFileStates.done.value
-    assert info["checksum"]
-
-
-def test_unfinished_target_is_replaced(tmp_path):
-    source_zip = _make_source_zip(tmp_path)
-    item = _make_dist_item(tmp_path, source_zip)
-    _CopyDownloader.delay = 0.0
-    _CopyDownloader.fail = False
-    # Leftover of distribution that was interrupted
-    os.makedirs(os.path.join(item.target_dirpath, "my_addon"))
-    with open(os.path.join(item.target_dirpath, "leftover.txt"), "w"):
-        pass
-    control._create_progress_file(
-        item.target_dirpath, uuid.uuid4().hex, None, None
-    )
-
-    _run(item)
-
-    assert item.state == UpdateState.UPDATED
-    assert not os.path.exists(
-        os.path.join(item.target_dirpath, "leftover.txt")
-    )
-    assert os.path.isfile(
-        os.path.join(item.target_dirpath, "my_addon", "__init__.py")
-    )
-
-
-def test_target_published_by_other_process_is_kept(tmp_path):
-    """Process that lost the race uses the other process' result."""
-    source_zip = _make_source_zip(tmp_path)
-    item = _make_dist_item(tmp_path, source_zip)
-    other_dir = str(tmp_path / "other")
-    os.makedirs(os.path.join(other_dir, "my_addon"))
-    with open(os.path.join(other_dir, "my_addon", "other.py"), "w"):
-        pass
-    control._create_progress_file(
-        other_dir, uuid.uuid4().hex, None, None, state=DistFileStates.done
-    )
-    os.makedirs(os.path.dirname(item.target_dirpath), exist_ok=True)
-
-    published = []
-
-    class _Downloader(_CopyDownloader):
-        @classmethod
-        def download(cls, *args, **kwargs):
-            output = super().download(*args, **kwargs)
-            # Other process publishes while this one downloads
-            os.rename(other_dir, item.target_dirpath)
-            published.append(True)
-            return output
-
-    item.factory.register_format(UrlType.FILESYSTEM, _Downloader)
-    _run(item)
-
-    assert published
-    assert item.state == UpdateState.UPDATED
-    assert os.path.isfile(
-        os.path.join(item.target_dirpath, "my_addon", "other.py")
-    )
-
-
-def test_failed_distribution_keeps_target(tmp_path):
-    source_zip = _make_source_zip(tmp_path)
-    item = _make_dist_item(tmp_path, source_zip)
-    _CopyDownloader.delay = 0.0
-    _CopyDownloader.fail = True
-    os.makedirs(item.target_dirpath)
-    marker = os.path.join(item.target_dirpath, "in_use.txt")
-    with open(marker, "w"):
-        pass
-    try:
-        _run(item)
-    finally:
-        _CopyDownloader.fail = False
-
-    assert item.state == UpdateState.UPDATE_FAILED
-    assert os.path.exists(marker)
 
 
 def test_cleanup_keeps_dirs_of_other_processes(tmp_path):
