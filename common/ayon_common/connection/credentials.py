@@ -550,7 +550,7 @@ def connect_and_check_login(
 
     if username:
         try:
-            user = con.get_user(attrib=False)
+            user = con.get_user(fill_attrib=False)
         except UnauthorizedError:
             return False, True
         return False, user["name"] != username

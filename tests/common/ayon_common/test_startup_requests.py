@@ -36,8 +36,8 @@ class FakeConnection:
     def get(self, *args, **kwargs):
         pytest.fail("Unexpected server request")
 
-    def get_user(self, username=None, attrib=True):
-        self.requested.append(("get_user", attrib))
+    def get_user(self, username=None, fill_attrib=True):
+        self.requested.append(("get_user", fill_attrib))
         return {"name": self.username}
 
 
@@ -95,7 +95,7 @@ def test_connect_validates_once(
 def test_connect_unauthorized_user_needs_login(monkeypatch, server_url):
     con = FakeConnection()
 
-    def get_user(username=None, attrib=True):
+    def get_user(username=None, fill_attrib=True):
         raise credentials.UnauthorizedError("User is not authorized.")
 
     con.get_user = get_user
@@ -229,8 +229,8 @@ def test_dev_bundle_requests_only_user_name(
 ):
     requested = []
 
-    def get_user(username=None, attrib=True):
-        requested.append(attrib)
+    def get_user(username=None, fill_attrib=True):
+        requested.append(fill_attrib)
         return {"name": "artist"}
 
     monkeypatch.setattr(control.ayon_api, "get", _fail_request)

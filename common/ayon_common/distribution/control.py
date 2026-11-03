@@ -1709,7 +1709,7 @@ class AYONDistribution:
     @property
     def active_user(self) -> str:
         if self._active_user is None:
-            user = ayon_api.get_user(attrib=False)
+            user = ayon_api.get_user(fill_attrib=False)
             self._active_user = user["name"]
         return self._active_user
 
