@@ -392,10 +392,10 @@ from ayon_common.connection.credentials import (
     add_server,
     ask_to_login_ui,
     confirm_server_login,
+    connect_and_check_login,
     create_global_connection,
     load_environments,
     load_token,
-    need_server_or_login,
     show_invalid_credentials_ui,
 )
 from ayon_common.distribution import (
@@ -451,6 +451,9 @@ def _connect_to_ayon_server(force=False, username=None):
         is terminated with.
     If user closed dialog, program is terminated with exit code 0.
 
+    Global connection in 'ayon_api' is created with valid credentials
+        when the function returns.
+
     Args:
         force (Optional[bool]): Force login to server.
         username (Optional[str]): Username that will be forced to use.
@@ -466,7 +469,7 @@ def _connect_to_ayon_server(force=False, username=None):
     load_environments()
     need_server = need_api_key = True
     if not force:
-        need_server, need_api_key = need_server_or_login(username)
+        need_server, need_api_key = connect_and_check_login(username)
 
     current_url = os.environ.get(SERVER_URL_ENV_KEY)
 
@@ -518,6 +521,7 @@ def _connect_to_ayon_server(force=False, username=None):
         )
     if url is not None and token is not None:
         confirm_server_login(url, token, username)
+        create_global_connection()
         return
 
     if url is not None:
@@ -775,8 +779,14 @@ def _start_distribution():
         project_bundle_name
     )
 
-    core_version = project_bundle.addon_versions.get("core")
-    _run_disk_mapping(core_version)
+    # Skip disk mapping when an installed launcher of other version takes
+    #   over the startup, it runs the disk mapping itself
+    if not (
+        distribution.need_installer_change
+        and not distribution.need_installer_distribution
+    ):
+        core_version = project_bundle.addon_versions.get("core")
+        _run_disk_mapping(core_version)
 
     auto_update = (os.getenv("AYON_AUTO_UPDATE") or "").lower()
     skip_auto_update = auto_update == "skip"
@@ -934,7 +944,6 @@ def boot():
 
     with log_span("launcher.connection"):
         _connect_to_ayon_server()
-        create_global_connection()
     with log_span("launcher.distribution"):
         _start_distribution()
     fill_pythonpath()
