@@ -1832,16 +1832,7 @@ class AYONDistribution:
 
         """
         if self._studio_dev_bundle is NOT_SET:
-            # Resolved only when needed, finding the bundle of active user
-            #   requires a server request
-            studio_dev_bundle = None
-            for bundle in self.bundle_items:
-                if (
-                    bundle.is_dev
-                    and bundle.active_dev_user == self.active_user
-                ):
-                    studio_dev_bundle = bundle
-            self._studio_dev_bundle = studio_dev_bundle
+            self._prepare_bundles()
         return self._studio_dev_bundle
 
     @property
@@ -2742,9 +2733,9 @@ class AYONDistribution:
         return output
 
     def _prepare_bundles(self):
-        # Dev bundle is resolved in 'studio_dev_bundle'
         studio_production_bundle = None
         studio_staging_bundle = None
+        studio_dev_bundle = None
         for bundle in self.bundle_items:
             if bundle.is_project_bundle:
                 continue
@@ -2753,9 +2744,12 @@ class AYONDistribution:
                 studio_production_bundle = bundle
             if bundle.is_staging:
                 studio_staging_bundle = bundle
+            if bundle.is_dev and bundle.active_dev_user == self.active_user:
+                studio_dev_bundle = bundle
 
         self._studio_production_bundle = studio_production_bundle
         self._studio_staging_bundle = studio_staging_bundle
+        self._studio_dev_bundle = studio_dev_bundle
 
     def _prepare_current_addon_dist_items(self) -> list[dict[str, Any]]:
         addons_metadata = self.get_addons_metadata()
@@ -2868,10 +2862,8 @@ class AYONDistribution:
     ) -> Optional[DependencyItem]:
         """Dependency package of bundle if it is already distributed.
 
-        Server information about dependency packages is needed only to
-            distribute a package. The bundle defines the package filename,
-            so when the package is already distributed the request for all
-            dependency packages on server can be skipped.
+        Fake 'DependencyItem' to avoid unnecessary server call if dependency
+            package is already distributed.
 
         Returns:
             Optional[DependencyItem]: Package item without sources, or
