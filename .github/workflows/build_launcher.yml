@@ -14,21 +14,18 @@ on:
         required: false
         default: false
         type: boolean
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag name'
-        required: true
-        type: string
-      enable_macos_signing:
-        description: 'Enable macOS signing and notarization'
+      platforms:
+        description: >-
+          Comma separated platforms to build (linux, windows, macos).
+          Empty or 'all' builds all platforms.
         required: false
-        default: false
-        type: boolean
+        default: ''
+        type: string
 
 jobs:
   build-linux:
     name: Build (${{ matrix.variant }})
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'linux') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -65,6 +62,7 @@ jobs:
 
   build-windows:
     name: Build (Windows)
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'windows') }}
     runs-on: windows-latest
 
     steps:
@@ -104,6 +102,7 @@ jobs:
 
   build-macos:
     name: Build (macOS)
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'macos') }}
     runs-on: macos-latest
 
     steps:

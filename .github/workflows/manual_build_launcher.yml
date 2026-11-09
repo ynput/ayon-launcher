@@ -1,0 +1,35 @@
+name: 🔨 Manual Build AYON launcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name of an existing release'
+        required: true
+        type: string
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - macos
+      enable_macos_signing:
+        description: 'Enable macOS signing and notarization'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build_launcher.yml
+    with:
+      tag_name: ${{ inputs.tag_name }}
+      platforms: ${{ inputs.platform }}
+      enable_macos_signing: ${{ inputs.enable_macos_signing }}
+    secrets: inherit
