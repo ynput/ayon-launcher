@@ -126,8 +126,11 @@ def _get_windows_sign_command() -> str:
 
     Certificate selection depends on the certificate provider, so it is
         passed in as-is with 'AYON_WINDOWS_SIGNTOOL_ARGS', for example
-        '/f C:\\cert.pfx /p <password>', '/sha1 <thumbprint>' or
+        '/f C:\\cert.pfx', '/sha1 <thumbprint>' or
         '/dlib <dlib path> /dmdf <metadata path>'.
+
+    Certificate password can be passed with 'AYON_WINDOWS_SIGN_PASSWORD',
+        it is escaped so it can contain any characters.
 
     Returns:
         str: Command line for signing.
@@ -140,14 +143,24 @@ def _get_windows_sign_command() -> str:
         raise ValueError(
             "AYON_WINDOWS_CODESIGN=1 but AYON_WINDOWS_SIGNTOOL_ARGS is not set"
         )
+    password = os.environ.get("AYON_WINDOWS_SIGN_PASSWORD")
+    if password:
+        password_arg = subprocess.list2cmdline([password])
+        # Inno Setup logs the sign command, mask the escaped password too
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print(f"::add-mask::{password_arg}", flush=True)
+        sign_args = f"{sign_args} /p {password_arg}"
+
     timestamp_url = (
         os.environ.get("AYON_WINDOWS_SIGN_TIMESTAMP_URL")
         or "http://timestamp.digicert.com"
     )
-    return (
-        f'"{_find_signtool()}" sign /fd sha256'
-        f" /tr {timestamp_url} /td sha256 {sign_args}"
-    )
+    return subprocess.list2cmdline([
+        _find_signtool(), "sign",
+        "/fd", "sha256",
+        "/tr", timestamp_url,
+        "/td", "sha256",
+    ]) + f" {sign_args}"
 
 
 def sign_windows_files(paths: list[Path]) -> None:
@@ -160,9 +173,10 @@ def sign_windows_files(paths: list[Path]) -> None:
         return
 
     _logger.info(f"Signing {', '.join(path.name for path in paths)}")
-    command = " ".join(
-        [_get_windows_sign_command(), *(f'"{path}"' for path in paths)]
-    )
+    command = " ".join([
+        _get_windows_sign_command(),
+        subprocess.list2cmdline([str(path) for path in paths]),
+    ])
     # Not using 'run_with_output' because its error contains the command,
     #   which may contain the certificate password
     result = subprocess.run(command)
@@ -362,11 +376,15 @@ def _build_shim_windows(
     env["BUILD_DST_DIR"] = str(shim_root.relative_to(shim_root))
     env["BUILD_VERSION"] = version
     env["BUILD_DST_FILENAME"] = installer_basename
-    subprocess.call(
+    # Error message must not contain the command, it may contain
+    #   the certificate password
+    return_code = subprocess.call(
         [iscc_executable, *_get_iscc_sign_args(), inno_setup_path],
         env=env,
         cwd=str(shim_root)
     )
+    if return_code != 0:
+        raise ValueError(f"Shim installer creation failed ({return_code})")
     if not src_installer_path.exists():
         raise ValueError("Installer was not created")
     shutil.move(src_installer_path, dst_shim_root)
@@ -983,9 +1001,13 @@ def _create_windows_installer(
     env["BUILD_DST_DIR"] = str(installer_root.relative_to(ayon_root))
     env["BUILD_VERSION"] = ayon_version
     env["BUILD_DST_FILENAME"] = installer_basename
-    subprocess.call(
+    # Error message must not contain the command, it may contain
+    #   the certificate password
+    return_code = subprocess.call(
         [iscc_executable, *_get_iscc_sign_args(), inno_setup_path], env=env
     )
+    if return_code != 0:
+        raise ValueError(f"Installer creation failed ({return_code})")
     output_file = installer_root / f"{installer_basename}.exe"
     if output_file.exists():
         return output_file

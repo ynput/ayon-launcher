@@ -136,9 +136,8 @@ jobs:
 
       - name: Build and Make Installer
         env:
-          AYON_WINDOWS_SIGNTOOL_ARGS: >-
-            /f "${{ runner.temp }}\ayon_cert.pfx"
-            /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}"
+          AYON_WINDOWS_SIGNTOOL_ARGS: /f "${{ runner.temp }}\ayon_cert.pfx"
+          AYON_WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           powershell -File ./tools/manage.ps1 build-make-installer
 
