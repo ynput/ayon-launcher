@@ -76,6 +76,8 @@ jobs:
   build-windows:
     name: Build (Windows)
     runs-on: windows-latest
+    env:
+      AYON_WINDOWS_CODESIGN: ${{ (inputs.enable_windows_signing == true || (github.event_name == 'release' && vars.WINDOWS_SIGNING_ENABLED == 'true')) && '1' || '0' }}
 
     steps:
       - name: Checkout repository
@@ -101,110 +103,32 @@ jobs:
           powershell -File ./tools/manage.ps1 install-runtime
 
       - name: Import Windows code signing certificate
-        if: ${{ github.event_name == 'release' || inputs.enable_windows_signing == true }}
+        if: ${{ env.AYON_WINDOWS_CODESIGN == '1' }}
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
         run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Error "Windows signing is enabled but WINDOWS_CERTIFICATE secret is not set"
+            exit 1
+          }
           $cert_bytes = [System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
-          [System.IO.File]::WriteAllBytes("$env:GITHUB_WORKSPACE\cert.pfx", $cert_bytes)
+          [System.IO.File]::WriteAllBytes("$env:RUNNER_TEMP\ayon_cert.pfx", $cert_bytes)
 
-      - name: Build shim
-        shell: pwsh
-        run: |
-          Push-Location shim
-          cargo build -p shim --features gui --release
-          cargo build -p shim --features ayon_console --release
-          Pop-Location
-
-      - name: Sign shim executables
-        if: ${{ github.event_name == 'release' || inputs.enable_windows_signing == true }}
-        shell: pwsh
+      - name: Build and Make Installer
         env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          AYON_WINDOWS_SIGNTOOL_ARGS: >-
+            /f "${{ runner.temp }}\ayon_cert.pfx"
+            /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}"
         run: |
-          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" `
-            -Filter "signtool.exe" -Recurse |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
-          & $signtool sign /f "$env:GITHUB_WORKSPACE\cert.pfx" `
-            /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
-            "shim\target\release\ayon.exe" `
-            "shim\target\release\ayon_console.exe"
-
-      - name: Build AYON
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "build")) { New-Item -ItemType Directory -Path "build" }
-          uv --no-color pip freeze > "build\requirements.txt"
-          uv run python "tools\_venv_deps.py"
-          & .venv\Scripts\python setup.py build
-
-      - name: Sign AYON executables
-        if: ${{ github.event_name == 'release' || inputs.enable_windows_signing == true }}
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" `
-            -Filter "signtool.exe" -Recurse |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
-          & $signtool sign /f "$env:GITHUB_WORKSPACE\cert.pfx" `
-            /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
-            "build\output\ayon.exe" `
-            "build\output\ayon_console.exe"
-
-      - name: Post-process build
-        shell: pwsh
-        run: |
-          uv run python "tools\build_post_process.py" "build"
-
-      - name: Sign shim installer
-        if: ${{ github.event_name == 'release' || inputs.enable_windows_signing == true }}
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" `
-            -Filter "signtool.exe" -Recurse |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
-          & $signtool sign /f "$env:GITHUB_WORKSPACE\cert.pfx" `
-            /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
-            "build\output\shim\shim.exe"
-
-      - name: Make AYON installer
-        shell: pwsh
-        run: |
-          uv run python "tools\build_post_process.py" "make-installer"
-
-      - name: Sign AYON installer
-        if: ${{ github.event_name == 'release' || inputs.enable_windows_signing == true }}
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" `
-            -Filter "signtool.exe" -Recurse |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
-          $installer = Get-ChildItem -Path "build\installer\*.exe" |
-            Select-Object -First 1 -ExpandProperty FullName
-          & $signtool sign /f "$env:GITHUB_WORKSPACE\cert.pfx" `
-            /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
-            $installer
+          powershell -File ./tools/manage.ps1 build-make-installer
 
       - name: Remove signing certificate
         if: always()
         shell: pwsh
         run: |
-          $certPath = "$env:GITHUB_WORKSPACE\cert.pfx"
-          if (Test-Path $certPath) { Remove-Item $certPath -Force }
+          $cert_path = "$env:RUNNER_TEMP\ayon_cert.pfx"
+          if (Test-Path $cert_path) { Remove-Item $cert_path -Force }
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1

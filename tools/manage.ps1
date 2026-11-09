@@ -397,6 +397,11 @@ function Invoke-AyonBuild($MakeInstaller = $false) {
 
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     & uv run python "$($repo_root)\tools\build_post_process.py" "build"
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Color -Text "!!! ", "Post build process failed" -Color Red, Yellow
+        Exit-WithCode $LASTEXITCODE
+    }
 
     if ($MakeInstaller) {
         New-AyonInstallerRaw
@@ -418,6 +423,11 @@ function Invoke-InstallerPostProcess() {
 function New-AyonInstallerRaw() {
     Set-Content -Path "$($repo_root)\build\build.log" -Value $out
     & uv run python "$($repo_root)\tools\build_post_process.py" "make-installer"
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Color -Text "!!! ", "Creation of installer failed" -Color Red, Yellow
+        Exit-WithCode $LASTEXITCODE
+    }
 }
 
 function New-AyonInstaller() {
