@@ -19,6 +19,13 @@ on:
         required: false
         default: false
         type: boolean
+      platforms:
+        description: >-
+          Comma separated platforms to build (linux, windows, macos).
+          Empty or 'all' builds all platforms.
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
     inputs:
       tag_name:
@@ -35,10 +42,21 @@ on:
         required: false
         default: false
         type: boolean
+      platforms:
+        description: 'Platforms to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - macos
 
 jobs:
   build-linux:
     name: Build (${{ matrix.variant }})
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'linux') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,6 +93,7 @@ jobs:
 
   build-windows:
     name: Build (Windows)
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'windows') }}
     runs-on: windows-latest
     env:
       AYON_WINDOWS_CODESIGN: ${{ (inputs.enable_windows_signing == true || (github.event_name == 'release' && vars.WINDOWS_SIGNING_ENABLED == 'true')) && '1' || '0' }}
@@ -140,6 +159,7 @@ jobs:
 
   build-macos:
     name: Build (macOS)
+    if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'macos') }}
     runs-on: macos-latest
 
     steps:

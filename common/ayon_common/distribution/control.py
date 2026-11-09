@@ -1707,10 +1707,10 @@ class AYONDistribution:
         self._project_bundle = NOT_SET
 
     @property
-    def active_user(self) -> str:
+    def active_user(self) -> Optional[str]:
         if self._active_user is None:
-            user = ayon_api.get_user()
-            self._active_user = user["name"]
+            con = ayon_api.get_server_api_connection()
+            self._active_user = con.access_token_username
         return self._active_user
 
     @property
@@ -2857,8 +2857,57 @@ class AYONDistribution:
             })
         return output
 
+    def _get_distributed_dependency_package(
+        self
+    ) -> Optional[DependencyItem]:
+        """Dependency package of bundle if it is already distributed.
+
+        Fake 'DependencyItem' to avoid unnecessary server call if dependency
+            package is already distributed.
+
+        Returns:
+            Optional[DependencyItem]: Package item without sources, or
+                'None' if the package is not distributed.
+
+        """
+        bundle = self.project_bundle_to_use
+        if bundle is None:
+            return None
+
+        platform_name = platform.system().lower()
+        filename = bundle.dependency_packages.get(platform_name)
+        if not filename:
+            return None
+
+        # Same lookup as in '_prepare_dependency_progress'
+        progress_info = _read_progress_file(
+            os.path.join(self._dependency_dirpath, filename)
+        )
+        if not progress_info:
+            progress_info = _read_progress_file(os.path.join(
+                self._dependency_dirpath, os.path.splitext(filename)[0]
+            ))
+
+        if progress_info.get("state") != DistFileStates.done.value:
+            return None
+
+        return DependencyItem(
+            filename=filename,
+            platform_name=platform_name,
+            checksum=progress_info.get("checksum"),
+            checksum_algorithm=progress_info.get("checksum_algorithm"),
+            sources=[],
+            unknown_sources=[],
+            source_addons={},
+            python_modules={},
+        )
+
     def _prepare_dependency_progress(self) -> Optional[DistributionItem]:
-        package = self.dependency_package_item
+        # Request information about all dependency packages from server
+        #   only if the bundle's package is not distributed yet
+        package = self._get_distributed_dependency_package()
+        if package is None:
+            package = self.dependency_package_item
         if package is None:
             return None
 
@@ -2969,6 +3018,7 @@ class AYONDistribution:
             "summary": "true",
             "bundle_name": studio_bundle_name,
             "project_bundle_name": self._project_bundle_name,
+            "variant": "staging" if self.use_staging else "production",
         }
         query = urlencode(key_values)
 
