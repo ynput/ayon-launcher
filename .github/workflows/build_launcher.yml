@@ -21,6 +21,27 @@ on:
         required: false
         default: ''
         type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name'
+        required: true
+        type: string
+      enable_macos_signing:
+        description: 'Enable macOS signing and notarization'
+        required: false
+        default: false
+        type: boolean
+      platforms:
+        description: 'Platforms to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - macos
 
 jobs:
   build-linux:
