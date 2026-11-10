@@ -326,7 +326,7 @@ def test_old_launcher_waits_for_new_launcher(tmp_path, poll_gap):
 
 
 def test_new_launcher_waits_for_old_launcher(tmp_path, monkeypatch):
-    monkeypatch.setenv(control.DIST_STALE_TIMEOUT_ENV, "10")
+    monkeypatch.setattr(control, "MOVE_WAIT_TRESHOLD_TIME", 10)
     target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
     _write_old_launcher_file(target_dir)
     item = _make_dist_item(tmp_path, target_dir)
@@ -344,7 +344,7 @@ def test_new_launcher_waits_for_old_launcher(tmp_path, monkeypatch):
 
 
 def test_stale_progress_file_is_taken_over(tmp_path, monkeypatch):
-    monkeypatch.setenv(control.DIST_STALE_TIMEOUT_ENV, "0.3")
+    monkeypatch.setattr(control, "MOVE_WAIT_TRESHOLD_TIME", 0.3)
     target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
     _write_old_launcher_file(target_dir)
     item = _make_dist_item(tmp_path, target_dir)
@@ -401,7 +401,7 @@ def test_failed_distribution_keeps_work_of_other_process(tmp_path):
 
 def test_displaced_owner_waits_instead_of_publishing(tmp_path, monkeypatch):
     """Older launcher overwrites the file, e.g. both started at once."""
-    monkeypatch.setenv(control.DIST_STALE_TIMEOUT_ENV, "10")
+    monkeypatch.setattr(control, "MOVE_WAIT_TRESHOLD_TIME", 10)
     target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
     init_path = os.path.join(target_dir, "my_addon", "__init__.py")
     _CountingDownloader.downloads = []

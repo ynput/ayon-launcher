@@ -115,7 +115,7 @@ def test_cleanup_keeps_dirs_of_other_processes(tmp_path):
         os.makedirs(path)
         if expiration is not None:
             with open(
-                os.path.join(path, control.DIST_EXPIRE_FILENAME), "w"
+                os.path.join(path, "download_info.json"), "w"
             ) as stream:
                 json.dump({"expiration_time": expiration}, stream)
         if age is not None:
@@ -201,8 +201,8 @@ def test_shared_dirs_are_writable_by_other_users(tmp_path):
 
         source_zip = _make_source_zip(tmp_path)
         item = _make_dist_item(tmp_path, source_zip)
-        # Like dependency packages, the temp root does not exist yet
-        item.unzip_temp_dir = str(tmp_path / "deps" / ".unzip_temp" / "x")
+        # Like dependency packages, the parent does not exist yet
+        item.unzip_temp_dir = str(tmp_path / "deps" / "x")
         _run(item)
     finally:
         os.umask(old_umask)
@@ -211,7 +211,6 @@ def test_shared_dirs_are_writable_by_other_users(tmp_path):
     for path in (
         tmp_path / "addons",
         tmp_path / "deps",
-        tmp_path / "deps" / ".unzip_temp",
         tmp_path / "addons" / ADDON_DIRNAME,
     ):
         assert os.stat(path).st_mode & 0o777 == 0o777, path
