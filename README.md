@@ -163,6 +163,10 @@ Environment variables that are set during startup:
 
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
 
+- **AYON_CA_FILE** - Path to CA certificate file (or directory) for connection to AYON server, e.g. when server certificate is signed by studio's own certificate authority. It is trusted in addition to default CA certificates, so the file does not have to be merged with 'certifi' bundle.
+
+- **AYON_CERT_FILE** - Path to client certificate file used for connection to AYON server.
+
 Logging environment variables are described in [Logging](#logging).
 
 ### Shared storage

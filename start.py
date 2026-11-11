@@ -296,7 +296,6 @@ os.environ["AYON_MENU_LABEL"] = "AYON"
 # Third-party modules can be imported only after 'dependencies' are
 #   added to 'sys.path', otherwise they are not found in frozen build.
 import certifi
-import requests
 import structlog
 
 # Create session id used for tracing logs across a process tree.
@@ -375,6 +374,7 @@ elif os.getenv("SSL_CERT_FILE") != certifi.where():
 
 import ayon_api
 from ayon_api import (
+    abort_web_action_event,
     get_base_url,
     get_event,
     set_default_settings_variant,
@@ -1077,15 +1077,10 @@ def process_uri():
         _connect_to_ayon_server(username=username)
     except SystemExit:
         try:
-            # There is a bug in ayon-python-api 1.0.10
-            # abort_web_action_event(
-            #     server_url,
-            #     uri_token,
-            #     "User skipped login in AYON launcher.",
-            # )
-            requests.post(
-                f"{server_url}/api/actions/abort/{uri_token}",
-                json={"message": "User skipped login in AYON launcher."},
+            abort_web_action_event(
+                server_url,
+                uri_token,
+                "User skipped login in AYON launcher.",
             )
         except Exception:
             logger.exception("Failed to abort web action event.")
