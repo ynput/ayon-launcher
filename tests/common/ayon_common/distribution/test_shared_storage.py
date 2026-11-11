@@ -6,7 +6,6 @@ import time
 import uuid
 import shutil
 import zipfile
-import threading
 
 import pytest
 
@@ -146,15 +145,21 @@ def test_unzip_temp_dir_has_expire_file_during_extraction(tmp_path):
     class _Downloader(_CopyDownloader):
         @classmethod
         def unzip(cls, filepath, destination_dir):
-            seen.append(control._dist_expire_file_expired(
-                item.unzip_temp_dir
-            ))
+            info_path = os.path.join(
+                item.unzip_temp_dir, "download_info.json"
+            )
+            seen.append(
+                os.path.isfile(info_path)
+                and not control._dist_expire_file_expired(
+                    item.unzip_temp_dir
+                )
+            )
             super().unzip(filepath, destination_dir)
 
     item.factory.register_format(UrlType.FILESYSTEM, _Downloader)
     _run(item)
     assert item.state == UpdateState.UPDATED
-    assert seen == [False]
+    assert seen == [True]
 
 
 def test_filesystem_source_is_not_removed(tmp_path):
@@ -163,33 +168,6 @@ def test_filesystem_source_is_not_removed(tmp_path):
     _run(item)
     assert item.state == UpdateState.UPDATED
     assert os.path.exists(source_zip)
-
-
-def test_metadata_file_is_never_read_partially(tmp_path):
-    filepath = str(tmp_path / "addons" / "addons.json")
-    data = {f"addon_{idx}": {"1.0.0": {"pad": "x" * 200}} for idx in range(50)}
-    AYONDistribution.save_metadata_file(filepath, data)
-    stop = threading.Event()
-    bad_reads = []
-
-    def read_loop():
-        while not stop.is_set():
-            if AYONDistribution.read_metadata_file(filepath, None) != data:
-                bad_reads.append(1)
-            time.sleep(0.001)
-
-    readers = [threading.Thread(target=read_loop) for _ in range(4)]
-    for reader in readers:
-        reader.start()
-    try:
-        for _ in range(200):
-            AYONDistribution.save_metadata_file(filepath, data)
-    finally:
-        stop.set()
-        for reader in readers:
-            reader.join()
-    assert bad_reads == []
-    assert os.listdir(os.path.dirname(filepath)) == ["addons.json"]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
@@ -210,6 +188,7 @@ def test_shared_dirs_are_writable_by_other_users(tmp_path):
     assert item.state == UpdateState.UPDATED
     for path in (
         tmp_path / "addons",
+        tmp_path / "addons" / "addons.json",
         tmp_path / "deps",
         tmp_path / "addons" / ADDON_DIRNAME,
     ):

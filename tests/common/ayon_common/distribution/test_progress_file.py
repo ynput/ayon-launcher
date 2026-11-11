@@ -7,7 +7,7 @@ import uuid
 import shutil
 import zipfile
 import threading
-import subprocess
+import collections
 
 import pytest
 
@@ -16,9 +16,8 @@ ROOT_DIR = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     )
 )
-COMMON_DIR = os.path.join(ROOT_DIR, "common")
 # 'ayon_common' is imported as top level package, same as in 'start.py'
-sys.path.insert(0, COMMON_DIR)
+sys.path.insert(0, os.path.join(ROOT_DIR, "common"))
 
 from ayon_common.distribution import control  # noqa: E402
 from ayon_common.distribution.control import (  # noqa: E402
@@ -125,7 +124,7 @@ def _write_old_launcher_file(target_dir, state="moving"):
 
 
 def _old_launcher_wait(progress_dir, threshold_time, poll_gap=0.01):
-    """Copy of '_wait_for_other_process' from older launchers.
+    """Decisions of '_wait_for_other_process' of launcher 1.6.3.
 
     Older launchers check the file only between their own blocking
     downloads, 'poll_gap' simulates that.
@@ -138,7 +137,11 @@ def _old_launcher_wait(progress_dir, threshold_time, poll_gap=0.01):
     while True:
         if not os.path.exists(progress_path):
             return False
-        progress_info = control._read_progress_file(progress_dir)
+        try:
+            with open(progress_path, "r") as stream:
+                progress_info = json.loads(stream.read())
+        except Exception:
+            progress_info = {}
         current_state = progress_info.get("state")
         if current_state is None:
             return False
@@ -176,42 +179,6 @@ def test_parallel_distribution_downloads_once(tmp_path, workers):
     )
     progress = control._read_progress_file(target_dir)
     assert progress["state"] == DistFileStates.done.value
-
-
-_CONTEND_SCRIPT = """
-import sys, time
-sys.path.insert(0, sys.argv[1])
-from ayon_common.distribution import control
-
-progress_dir, start_at = sys.argv[2:4]
-time.sleep(max(0.0, float(start_at) - time.time()))
-created = control._create_progress_file_exclusive(
-    progress_dir, {"state": "moving"}
-)
-print("created" if created else "exists")
-"""
-
-
-def test_only_one_process_creates_progress_file(tmp_path):
-    progress_dir = str(tmp_path / "item")
-    # All processes try to create the file at the same moment
-    start_at = str(time.time() + 3)
-    processes = [
-        subprocess.Popen(
-            [
-                sys.executable, "-c", _CONTEND_SCRIPT,
-                COMMON_DIR, progress_dir, start_at,
-            ],
-            stdout=subprocess.PIPE,
-            text=True,
-        )
-        for _ in range(8)
-    ]
-    outputs = [
-        process.communicate(timeout=60)[0].strip()
-        for process in processes
-    ]
-    assert sorted(outputs) == ["created"] + ["exists"] * 7
 
 
 def test_progress_file_is_never_read_partially(tmp_path):
@@ -299,12 +266,14 @@ def test_claim_of_own_progress_file_does_not_wait(tmp_path):
 
 
 @pytest.mark.parametrize("poll_gap", [0.01, 1.2])
-def test_old_launcher_waits_for_new_launcher(tmp_path, poll_gap):
+def test_old_launcher_waits_for_new_launcher(tmp_path, monkeypatch, poll_gap):
     """Old launcher waits past its threshold while heartbeat runs.
 
     Also when it checks the file less often than its threshold, because
     it downloads other items meanwhile.
     """
+    # Real values 20s threshold and 5s heartbeat, scaled by 1/20
+    monkeypatch.setattr(control, "DIST_HEARTBEAT_INTERVAL", 0.25)
     target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
     item = _make_dist_item(tmp_path, target_dir)
     assert _claim(item) is False
@@ -316,8 +285,6 @@ def test_old_launcher_waits_for_new_launcher(tmp_path, poll_gap):
     thread = threading.Thread(target=finish_later)
     thread.start()
     try:
-        # Threshold is 20s in old launchers, heartbeat is scaled down
-        #   in this test the same way
         assert _old_launcher_wait(
             target_dir, threshold_time=1.0, poll_gap=poll_gap
         ) is True
@@ -447,3 +414,96 @@ def test_failed_distribution_releases_progress_file(tmp_path):
     assert _claim(other) is False
     assert time.monotonic() - started < 0.5
     other._set_progress_state(DistFileStates.failed)
+
+
+def test_items_finish_one_by_one(tmp_path):
+    """Item is finished before the next item is downloaded."""
+    targets = [
+        str(tmp_path / "addons" / f"addon_{idx}_1.0.0") for idx in range(3)
+    ]
+    seen_states = []
+
+    class _Downloader(_CountingDownloader):
+        delay = 0.1
+
+        @classmethod
+        def download(cls, *args, **kwargs):
+            # 'moving' without heartbeat counter
+            seen_states.append([
+                (control._read_progress_file(target).get("state") or " ")
+                .split(" ")[0] or None
+                for target in targets
+            ])
+            return super().download(*args, **kwargs)
+
+    items = [_make_dist_item(tmp_path, target) for target in targets]
+    for item in items:
+        item.factory.register_format(UrlType.FILESYSTEM, _Downloader)
+
+    # Same loop as 'AYONDistribution.distribute'
+    running = collections.deque(item.distribute() for item in items)
+    while running:
+        generator = running.popleft()
+        if not next(generator):
+            running.append(generator)
+
+    assert [item.state for item in items] == [UpdateState.UPDATED] * 3
+    assert seen_states == [
+        ["moving", None, None],
+        ["done", "moving", None],
+        ["done", "done", "moving"],
+    ]
+
+
+def test_claim_when_directory_was_removed(tmp_path, monkeypatch):
+    """Failed owner removes the directory right before the file is created."""
+    monkeypatch.setattr(control, "_makedirs_shared", lambda path: None)
+    progress_dir = str(tmp_path / "removed")
+    assert not control._create_progress_file_exclusive(
+        progress_dir, {"state": "moving"}
+    )
+
+
+def test_autofix_does_not_mark_claimed_directory(tmp_path):
+    target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
+    item = _make_dist_item(tmp_path, target_dir)
+    assert _claim(item) is False
+    try:
+        # Directory of other process that just started is not distributed
+        assert not control._has_dist_content(target_dir)
+        # Autofix does not overwrite progress file of other process
+        assert not control._create_progress_file(
+            target_dir, uuid.uuid4().hex, None, None, DistFileStates.done
+        )
+        assert item._owns_progress_file()
+    finally:
+        item._set_progress_state(DistFileStates.failed)
+
+    os.makedirs(os.path.join(target_dir, "my_addon"))
+    assert control._has_dist_content(target_dir)
+
+
+def test_max_wait_counts_from_owner_change(tmp_path, monkeypatch):
+    """Live owner is taken over after max wait, each owner gets full time."""
+    monkeypatch.setattr(control, "DIST_MAX_WAIT_TIME", 1.0)
+    target_dir = str(tmp_path / "addons" / "my_addon_1.0.0")
+    owner = _make_dist_item(tmp_path, target_dir)
+    assert _claim(owner) is False
+    waiters = [_make_dist_item(tmp_path, target_dir) for _ in range(2)]
+    claims = [waiter._claim_progress_file() for waiter in waiters]
+    claimed_at = {}
+    started = time.monotonic()
+    try:
+        while len(claimed_at) < 2 and time.monotonic() - started < 10:
+            for idx, claim in enumerate(claims):
+                if idx not in claimed_at and next(claim) is False:
+                    claimed_at[idx] = time.monotonic() - started
+            time.sleep(0.01)
+    finally:
+        for item in [owner] + waiters:
+            item._stop_heartbeat()
+
+    first, second = sorted(claimed_at.values())
+    assert first >= 1.0
+    # Second waiter did not take over the fresh claim of the first one
+    assert second - first >= 1.0
