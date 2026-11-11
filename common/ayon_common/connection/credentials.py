@@ -10,6 +10,7 @@ AYON launcher version. The connection object lives in 'ayon_api'.
 
 import os
 import json
+import logging
 import platform
 import datetime
 import contextlib
@@ -20,17 +21,15 @@ from typing import Optional, Union, Any
 import ayon_api
 
 from ayon_api.constants import SERVER_URL_ENV_KEY, SERVER_API_ENV_KEY
-from ayon_api.exceptions import UrlError
-from ayon_api.utils import (
-    validate_url,
-    logout_from_server,
-)
+from ayon_api.utils import logout_from_server
 
 from ayon_common.utils import (
     get_launcher_local_dir,
     get_local_site_id,
     get_ayon_launch_args,
 )
+
+log = logging.getLogger(__name__)
 
 
 class ChangeUserResult:
@@ -497,78 +496,55 @@ def set_environments(url: str, token: str):
     ayon_api.set_environments(url, token)
 
 
-def create_global_connection():
+def create_global_connection() -> "ayon_api.GlobalServerAPI":
     """Create global connection with site id and AYON launcher version.
 
     Make sure this function is called once during process runtime.
 
     The global connection in 'ayon_api' have entered site id and
         AYON launcher version.
-    """
 
-    ayon_api.create_connection(
+    Returns:
+        ayon_api.GlobalServerAPI: Created global connection.
+
+    """
+    return ayon_api.create_connection(
         get_local_site_id(), os.environ.get("AYON_VERSION")
     )
 
 
-def is_token_valid(
-    url: str, token: str, expected_username: Optional[str] = None
-) -> bool:
-    """Check if token is valid.
+def connect_and_check_login(
+    username: Optional[str] = None,
+) -> tuple[bool, bool]:
+    """Create global connection and check if server url or login are needed.
 
-    Note:
-        This function is available in 'ayon_api', but does not support to
-            validate service api key, only user's token. The support will be
-            added in future PRs of 'ayon_api'.
-        The function also did not support timeout which could cause
-            'ayon_api.is_token_valid' to hang.
+    Url and token are validated only once by the global connection.
 
     Args:
-        url (str): Server url.
-        token (str): User's token.
-        expected_username (Optional[str]): Token must belong to user with
-            this username. Ignored if is 'None'.
+        username (Optional[str]): Token must belong to user with this
+            username. Ignored if is 'None'.
 
     Returns:
-        bool: True if token is valid.
+        tuple[bool, bool]: Server url or login are needed. Both are 'False'
+            if url and token are valid.
+
     """
-
-    api = ayon_api.ServerAPI(url, token)
-    if not api.has_valid_token:
-        return False
-    if expected_username:
-        return expected_username == api.get_user()["name"]
-    return True
-
-
-def need_server_or_login(username: Optional[str] = None) -> tuple[bool, bool]:
-    """Check if server url or login to the server are needed.
-
-    It is recommended to call 'load_environments' on startup before this check.
-    But in some cases this function could be called after startup.
-
-    Returns:
-        tuple[bool, bool]: Server or api key needed. Both are 'True' if
-            are available and valid.
-    """
-
-    server_url = os.environ.get(SERVER_URL_ENV_KEY)
-    if not server_url:
+    if not os.environ.get(SERVER_URL_ENV_KEY):
         return True, True
 
     try:
-        server_url = validate_url(server_url)
-    except UrlError:
+        con = create_global_connection()
+    except Exception as exc:
+        log.warning("Failed to connect to AYON server: %s", exc)
+        log.debug("Connection error details.", exc_info=True)
         return True, True
 
-    token = os.environ.get(SERVER_API_ENV_KEY)
-    if token:
-        return False, not is_token_valid(server_url, token, username)
+    if not con.has_valid_token:
+        return False, True
 
-    token = load_token(server_url)
-    if token:
-        return False, not is_token_valid(server_url, token, username)
-    return False, True
+    if username:
+        return False, con.access_token_username != username
+    return False, False
 
 
 def confirm_server_login(url: str, token: str, username: Union[str, None]):
