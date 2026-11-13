@@ -1,5 +1,5 @@
 # Build Pype docker image
-FROM debian:bullseye AS builder
+FROM debian:bookworm AS builder
 ARG BUILD_DATE
 ARG VERSION
 
