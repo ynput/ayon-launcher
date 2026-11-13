@@ -1,0 +1,88 @@
+# Recipe in rattler-build format.
+# See https://prefix-dev.github.io/rattler-build/latest/
+#
+# AYON Launcher conda package
+# Repackages the pre-built cx_Freeze launcher release into a conda package.
+
+context:
+  version: "1.6.1"
+
+package:
+  name: ayon-launcher
+  version: ${{ version }}
+
+source:
+  - if: linux
+    then:
+      url: https://github.com/ynput/ayon-launcher/releases/download/${{ version }}/AYON-${{ version }}-linux-rocky9.tar.gz
+      sha256: 6883b2fac32873304d511cd4c47e35c7d982e0b3635c24e8b1a24e63845a424a
+  - if: win
+    then:
+      path: ./build/AYON-${{ version }}-win.zip
+
+build:
+  number: 2
+  prefix_detection:
+    ignore_binary_files: true
+  dynamic_linking:
+    binary_relocation: false
+    missing_dso_allowlist:
+      - "**"
+  script:
+    - if: unix
+      then:
+        - mkdir -p $PREFIX/opt/ayon-launcher
+        - cp -r ayon app_launcher common dependencies lib share shim vendor version.py LICENSE $PREFIX/opt/ayon-launcher/
+        - mkdir -p $PREFIX/bin
+        - ln -sf ../opt/ayon-launcher/ayon $PREFIX/bin/ayon
+        - mkdir -p $PREFIX/etc/conda/activate.d
+        - |
+          cat > $PREFIX/etc/conda/activate.d/ayon-launcher.sh << 'ACTIVATE'
+          #!/bin/bash
+          export AYON_LAUNCHER_DIR="$CONDA_PREFIX/opt/ayon-launcher"
+          export AYON_HEADLESS_MODE=1
+          ACTIVATE
+        - chmod +x $PREFIX/etc/conda/activate.d/ayon-launcher.sh
+    - if: win
+      then:
+        - mkdir -p $PREFIX/opt/ayon-launcher
+        - cp -r ayon.exe ayon_console.exe common dependencies lib share shim vendor version.py LICENSE $PREFIX/opt/ayon-launcher/
+        - cp *.dll $PREFIX/opt/ayon-launcher/ || true
+        - mkdir -p $PREFIX/Scripts
+        - |
+          cat > $PREFIX/Scripts/ayon << 'WRAPPER'
+          #!/bin/bash
+          exec "$CONDA_PREFIX/opt/ayon-launcher/ayon_console.exe" "$@"
+          WRAPPER
+        - chmod +x $PREFIX/Scripts/ayon
+        - mkdir -p $PREFIX/etc/conda/activate.d
+        - |
+          cat > $PREFIX/etc/conda/activate.d/ayon-launcher.sh << 'ACTIVATE'
+          #!/bin/bash
+          export AYON_LAUNCHER_DIR="$CONDA_PREFIX/opt/ayon-launcher"
+          export AYON_HEADLESS_MODE=1
+          ACTIVATE
+        - chmod +x $PREFIX/etc/conda/activate.d/ayon-launcher.sh
+        - printf '@echo off\r\nset "AYON_LAUNCHER_DIR=%%CONDA_PREFIX%%\\opt\\ayon-launcher"\r\nset "AYON_HEADLESS_MODE=1"\r\n' > $PREFIX/etc/conda/activate.d/ayon-launcher.bat
+
+tests:
+  - if: unix
+    then:
+      script:
+        - test -x $PREFIX/bin/ayon
+        - test -f $PREFIX/opt/ayon-launcher/ayon
+        - test -d $PREFIX/opt/ayon-launcher/dependencies
+        - test -d $PREFIX/opt/ayon-launcher/lib
+  - if: win
+    then:
+      script:
+        - test -x $PREFIX/Scripts/ayon
+        - test -f $PREFIX/opt/ayon-launcher/ayon_console.exe
+        - test -d $PREFIX/opt/ayon-launcher/dependencies
+        - test -d $PREFIX/opt/ayon-launcher/lib
+        - test -f $PREFIX/etc/conda/activate.d/ayon-launcher.sh
+
+about:
+  summary: AYON Launcher
+  homepage: https://github.com/ynput/ayon-launcher
+  license: Apache-2.0
