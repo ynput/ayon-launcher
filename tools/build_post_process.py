@@ -79,6 +79,132 @@ def _apple_notarize_enabled() -> bool:
     return notarize and _apple_codesign_enabled()
 
 
+def _windows_codesign_enabled() -> bool:
+    """Return True when Windows code signing is enabled by environment."""
+    return os.environ.get("AYON_WINDOWS_CODESIGN", "0") == "1"
+
+
+def _find_signtool() -> str:
+    """Find 'signtool.exe' used to sign Windows executables.
+
+    The path can be enforced with 'AYON_WINDOWS_SIGNTOOL', otherwise
+        it is looked up in PATH and in the newest installed Windows SDK.
+
+    Returns:
+        str: Path to signtool.exe.
+
+    Raises:
+        ValueError: If signtool.exe is not found.
+    """
+    signtool = os.environ.get("AYON_WINDOWS_SIGNTOOL")
+    if signtool:
+        return signtool
+
+    signtool = shutil.which("signtool.exe")
+    if signtool:
+        return signtool
+
+    program_files_x86 = os.getenv("PROGRAMFILES(X86)")
+    if program_files_x86:
+        sdk_bin = Path(program_files_x86) / "Windows Kits" / "10" / "bin"
+        candidates = sorted(
+            sdk_bin.glob("*/x64/signtool.exe"),
+            key=lambda path: [
+                int(part) if part.isdigit() else 0
+                for part in path.parent.parent.name.split(".")
+            ],
+            reverse=True,
+        )
+        if candidates:
+            return str(candidates[0])
+
+    raise ValueError("Can't find signtool.exe")
+
+
+def _get_windows_sign_command() -> str:
+    """Return signtool command line without paths of signed files.
+
+    Certificate selection depends on the certificate provider, so it is
+        passed in as-is with 'AYON_WINDOWS_SIGNTOOL_ARGS', for example
+        '/f C:\\cert.pfx', '/sha1 <thumbprint>' or
+        '/dlib <dlib path> /dmdf <metadata path>'.
+
+    Certificate password can be passed with 'AYON_WINDOWS_SIGN_PASSWORD',
+        it is escaped so it can contain any characters.
+
+    Returns:
+        str: Command line for signing.
+
+    Raises:
+        ValueError: If 'AYON_WINDOWS_SIGNTOOL_ARGS' is not set.
+    """
+    sign_args = os.environ.get("AYON_WINDOWS_SIGNTOOL_ARGS", "").strip()
+    if not sign_args:
+        raise ValueError(
+            "AYON_WINDOWS_CODESIGN=1 but AYON_WINDOWS_SIGNTOOL_ARGS is not set"
+        )
+    password = os.environ.get("AYON_WINDOWS_SIGN_PASSWORD")
+    if password:
+        password_arg = subprocess.list2cmdline([password])
+        # Inno Setup logs the sign command, mask the escaped password too
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print(f"::add-mask::{password_arg}", flush=True)
+        sign_args = f"{sign_args} /p {password_arg}"
+
+    timestamp_url = (
+        os.environ.get("AYON_WINDOWS_SIGN_TIMESTAMP_URL")
+        or "http://timestamp.digicert.com"
+    )
+    return subprocess.list2cmdline([
+        _find_signtool(), "sign",
+        "/fd", "sha256",
+        "/tr", timestamp_url,
+        "/td", "sha256",
+    ]) + f" {sign_args}"
+
+
+def sign_windows_files(paths: list[Path]) -> None:
+    """Sign Windows executables if signing is enabled.
+
+    Args:
+        paths (list[Path]): Paths to files to sign.
+    """
+    if not _windows_codesign_enabled():
+        return
+
+    _logger.info(f"Signing {', '.join(path.name for path in paths)}")
+    command = " ".join([
+        _get_windows_sign_command(),
+        subprocess.list2cmdline([str(path) for path in paths]),
+    ])
+    # Not using 'run_with_output' because its error contains the command,
+    #   which may contain the certificate password
+    result = subprocess.run(command)
+    if result.returncode != 0:
+        raise RuntimeError("Signing of Windows executables failed")
+
+
+def _get_iscc_sign_args() -> list[str]:
+    """Return ISCC arguments that make Inno Setup sign its output.
+
+    Inno Setup signs both setup and uninstaller executables when
+        'SignToolName' is defined, see 'SignTool' in the .iss files.
+
+    Returns:
+        list[str]: Arguments for ISCC.exe.
+    """
+    if not _windows_codesign_enabled():
+        return []
+
+    # Inno Setup expands '$q' to a quote and '$f' to the signed file path
+    command = (
+        _get_windows_sign_command()
+        .replace("$", "$$")
+        .replace('"', "$q")
+    )
+    return [f"/Sayonsign={command} $f", "/DSignToolName=ayonsign"]
+
+
 def _make_dmg_error_handler(
     context: str,
 ) -> Callable[[str], None]:
@@ -233,6 +359,10 @@ def _build_shim_windows(
     shutil.copy(release_root / "ayon.exe", dist_root)
     shutil.copy(release_root / "ayon_console.exe", dist_root)
     shutil.copy(shim_root / "version", dist_root)
+    sign_windows_files([
+        dist_root / "ayon.exe",
+        dist_root / "ayon_console.exe",
+    ])
 
     env = os.environ.copy()
     installer_basename = "shim"
@@ -246,11 +376,15 @@ def _build_shim_windows(
     env["BUILD_DST_DIR"] = str(shim_root.relative_to(shim_root))
     env["BUILD_VERSION"] = version
     env["BUILD_DST_FILENAME"] = installer_basename
-    subprocess.call(
-        [iscc_executable, inno_setup_path],
+    # Error message must not contain the command, it may contain
+    #   the certificate password
+    return_code = subprocess.call(
+        [iscc_executable, *_get_iscc_sign_args(), inno_setup_path],
         env=env,
         cwd=str(shim_root)
     )
+    if return_code != 0:
+        raise ValueError(f"Shim installer creation failed ({return_code})")
     if not src_installer_path.exists():
         raise ValueError("Installer was not created")
     shutil.move(src_installer_path, dst_shim_root)
@@ -743,6 +877,11 @@ def post_build_process(ayon_root: Path, build_root: Path) -> None:
     _logger.info("Starting post build process")
     ayon_version = get_ayon_version(ayon_root)
     build_content_root = get_build_content_root(build_root, ayon_version)
+    if platform.system().lower() == "windows":
+        sign_windows_files([
+            build_content_root / "ayon.exe",
+            build_content_root / "ayon_console.exe",
+        ])
     copy_shim_to_build(ayon_root, build_content_root)
     add_version_file(build_content_root, ayon_version)
 
@@ -862,7 +1001,13 @@ def _create_windows_installer(
     env["BUILD_DST_DIR"] = str(installer_root.relative_to(ayon_root))
     env["BUILD_VERSION"] = ayon_version
     env["BUILD_DST_FILENAME"] = installer_basename
-    subprocess.call([iscc_executable, inno_setup_path], env=env)
+    # Error message must not contain the command, it may contain
+    #   the certificate password
+    return_code = subprocess.call(
+        [iscc_executable, *_get_iscc_sign_args(), inno_setup_path], env=env
+    )
+    if return_code != 0:
+        raise ValueError(f"Installer creation failed ({return_code})")
     output_file = installer_root / f"{installer_basename}.exe"
     if output_file.exists():
         return output_file

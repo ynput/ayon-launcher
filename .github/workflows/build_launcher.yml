@@ -14,6 +14,18 @@ on:
         required: false
         default: false
         type: boolean
+      enable_windows_signing:
+        description: 'Enable Windows code signing'
+        required: false
+        default: false
+        type: boolean
+      upload:
+        description: >-
+          Upload installers to the release. When disabled, installers are
+          stored as workflow run artifacts and 'tag_name' can be any git ref.
+        required: false
+        default: true
+        type: boolean
       platforms:
         description: >-
           Comma separated platforms to build (linux, windows, macos).
@@ -31,6 +43,18 @@ on:
         description: 'Enable macOS signing and notarization'
         required: false
         default: false
+        type: boolean
+      enable_windows_signing:
+        description: 'Enable Windows code signing'
+        required: false
+        default: false
+        type: boolean
+      upload:
+        description: >-
+          Upload installers to the release. When disabled, installers are
+          stored as workflow run artifacts and 'tag_name' can be any git ref.
+        required: false
+        default: true
         type: boolean
       platforms:
         description: 'Platforms to build'
@@ -73,7 +97,15 @@ jobs:
           chmod +x ./tools/make.sh
           ./tools/make.sh docker-build ${{ matrix.variant }}
 
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.variant }}
+          path: build_${{ matrix.variant }}/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build_${{ matrix.variant }}/installer/*
@@ -85,6 +117,8 @@ jobs:
     name: Build (Windows)
     if: ${{ !inputs.platforms || inputs.platforms == 'all' || contains(inputs.platforms, 'windows') }}
     runs-on: windows-latest
+    env:
+      AYON_WINDOWS_CODESIGN: ${{ (inputs.enable_windows_signing == true || (github.event_name == 'release' && vars.WINDOWS_SIGNING_ENABLED == 'true')) && '1' || '0' }}
 
     steps:
       - name: Checkout repository
@@ -109,11 +143,100 @@ jobs:
         run: |
           powershell -File ./tools/manage.ps1 install-runtime
 
+      # SSL.com eSigner Cloud Key Adapter (CKA) loads the cloud certificate
+      #   into the Windows certificate store, signtool then signs by thumbprint
+      - name: Set up SSL.com eSigner CKA
+        if: ${{ env.AYON_WINDOWS_CODESIGN == '1' }}
+        shell: pwsh
+        env:
+          ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
+          ESIGNER_PASSWORD: ${{ secrets.ESIGNER_PASSWORD }}
+          # Base64 encoded, not the Base32 'secret=' value from the QR code
+          ESIGNER_TOTP_SECRET: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          CKA_URL: https://github.com/SSLcom/eSignerCKA/releases/download/v1.1.2/SSL.COM.eSigner.CKA_1.1.2_build_202600624.exe
+          CKA_SHA256: 3f088403139505ddfb0ed3b56b72893f92c865f98b382753a1e1c695a5cece35
+        run: |
+          foreach ($name in "ESIGNER_USERNAME", "ESIGNER_PASSWORD", "ESIGNER_TOTP_SECRET") {
+            if (-not [Environment]::GetEnvironmentVariable($name)) {
+              Write-Error "Windows signing is enabled but $name secret is not set"
+              exit 1
+            }
+          }
+
+          $installer = "$env:RUNNER_TEMP\eSignerCKA_setup.exe"
+          Invoke-WebRequest -Uri $env:CKA_URL -OutFile $installer
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash
+          if ($hash -ne $env:CKA_SHA256) {
+            Write-Error "eSigner CKA installer hash mismatch: $hash"
+            exit 1
+          }
+
+          # All users install registers the eSignerKSP key storage provider
+          #   system wide, which CKA needs to provide the private key
+          $cka_dir = "$env:RUNNER_TEMP\eSignerCKA"
+          Start-Process -FilePath $installer -Wait -ArgumentList `
+            "/ALLUSERS", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/DIR=`"$cka_dir`""
+          $ksp_key = "HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Providers\eSignerKSP"
+          if (-not (Test-Path $ksp_key)) {
+            Write-Error "eSigner CKA did not register eSignerKSP key storage provider"
+            exit 1
+          }
+          $tool = "$cka_dir\eSignerCKATool.exe"
+
+          & $tool config -mode product `
+            -user $env:ESIGNER_USERNAME `
+            -pass $env:ESIGNER_PASSWORD `
+            -totp $env:ESIGNER_TOTP_SECRET `
+            -key "$env:RUNNER_TEMP\eSignerCKA_master.key" -r
+          & $tool unload
+          & $tool load
+
+          $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+            Sort-Object NotAfter -Descending |
+            Select-Object -First 1
+          if (-not $cert) {
+            Write-Error "No code signing certificate was loaded by eSigner CKA"
+            exit 1
+          }
+          if (-not $cert.HasPrivateKey) {
+            Write-Error "Certificate loaded by eSigner CKA has no private key"
+            exit 1
+          }
+          # SSL.com recommends x86 signtool, x64 one can't find CKA certificates
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x86\signtool.exe" |
+            Sort-Object { $_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) {
+            Write-Error "x86 signtool.exe was not found"
+            exit 1
+          }
+
+          Write-Host "Signing with '$($cert.Subject)' ($($cert.Thumbprint)) using $signtool"
+          "AYON_WINDOWS_SIGNTOOL=$signtool" >> $env:GITHUB_ENV
+          "AYON_WINDOWS_SIGNTOOL_ARGS=/debug /sha1 $($cert.Thumbprint)" >> $env:GITHUB_ENV
+          "AYON_WINDOWS_SIGN_TIMESTAMP_URL=http://ts.ssl.com" >> $env:GITHUB_ENV
+          "ESIGNER_CKA_TOOL=$tool" >> $env:GITHUB_ENV
+
       - name: Build and Make Installer
         run: |
           powershell -File ./tools/manage.ps1 build-make-installer
 
+      - name: Remove eSigner CKA configuration
+        if: ${{ always() && env.ESIGNER_CKA_TOOL != '' }}
+        shell: pwsh
+        run: |
+          & $env:ESIGNER_CKA_TOOL unload
+          Remove-Item "$env:RUNNER_TEMP\eSignerCKA_master.key" -Force -ErrorAction SilentlyContinue
+
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: build/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build/installer/*
@@ -180,7 +303,15 @@ jobs:
           AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-notarize-ci"
         run: ./tools/make.sh build-make-installer
 
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos
+          path: build/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build/installer/*
