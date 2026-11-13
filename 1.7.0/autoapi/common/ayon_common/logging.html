@@ -1,0 +1,1595 @@
+<!doctype html><html lang=en class=no-js> <head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><link rel=prev href=distribution/utils.html><link rel=next href=resources/index.html><link rel=icon href=../../../img/favicon.ico><meta name=generator content="mkdocs-1.6.1, mkdocs-material-9.8.1"><title>logging - ayon-launcher</title><link rel=stylesheet href=../../../assets/stylesheets/main.57a0d79d.min.css><link rel=stylesheet href=../../../assets/stylesheets/palette.fb2fffe2.min.css><script src=https://unpkg.com/iframe-worker/shim></script><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=stylesheet href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback"><style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style><link rel=stylesheet href=../../../assets/_mkdocstrings.css><link rel=stylesheet href=../../../css/custom.css><script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script></head> <body dir=ltr data-md-color-scheme=slate data-md-color-primary=indigo data-md-color-accent=indigo> <input class=md-toggle data-md-toggle=drawer type=checkbox id=__drawer autocomplete=off> <input class=md-toggle data-md-toggle=search type=checkbox id=__search autocomplete=off> <label class=md-overlay for=__drawer></label> <div data-md-component=skip> <a href=#common.ayon_common.logging class=md-skip> Skip to content </a> </div> <div data-md-component=announce> </div> <div data-md-color-scheme=default data-md-component=outdated hidden> </div> <header class="md-header md-header--shadow" data-md-component=header> <nav class="md-header__inner md-grid" aria-label=Header> <a href=../../../index.html title=ayon-launcher class="md-header__button md-logo" aria-label=ayon-launcher data-md-component=logo> <img src=../../../img/ay-symbol-blackw-full.png alt=logo> </a> <label class="md-header__button md-icon" for=__drawer> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg> </label> <div class=md-header__title data-md-component=header-title> <div class=md-header__ellipsis> <div class=md-header__topic> <span class=md-ellipsis> ayon-launcher </span> </div> <div class=md-header__topic data-md-component=header-topic> <span class=md-ellipsis> logging </span> </div> </div> </div> <form class=md-header__option data-md-component=palette> <input class=md-option data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme=slate data-md-color-primary=indigo data-md-color-accent=indigo aria-label="Switch to light mode" type=radio name=__palette id=__palette_0> <label class="md-header__button md-icon" title="Switch to light mode" for=__palette_1 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg> </label> <input class=md-option data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme=default data-md-color-primary=indigo data-md-color-accent=indigo aria-label="Switch to dark mode" type=radio name=__palette id=__palette_1> <label class="md-header__button md-icon" title="Switch to dark mode" for=__palette_0 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg> </label> </form> <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script> <label class="md-header__button md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> </label> <div class=md-search data-md-component=search role=dialog> <label class=md-search__overlay for=__search></label> <div class=md-search__inner role=search> <form class=md-search__form name=search> <input type=text class=md-search__input name=query aria-label=Search placeholder=Search autocapitalize=off autocorrect=off autocomplete=off spellcheck=false data-md-component=search-query required> <label class="md-search__icon md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg> </label> <nav class=md-search__options aria-label=Search> <button type=reset class="md-search__icon md-icon" title=Clear aria-label=Clear tabindex=-1> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> </button> </nav> </form> <div class=md-search__output> <div class=md-search__scrollwrap tabindex=0 data-md-scrollfix> <div class=md-search-result data-md-component=search-result> <div class=md-search-result__meta> Initializing search </div> <ol class=md-search-result__list role=presentation></ol> </div> </div> </div> </div> </div> <div class=md-header__source> <a href=https://github.com/ynput/ayon-launcher title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> GitHub </div> </a> </div> </nav> </header> <div class=md-container data-md-component=container> <main class=md-main data-md-component=main> <div class="md-main__inner md-grid"> <div class="md-sidebar md-sidebar--primary" data-md-component=sidebar data-md-type=navigation> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--primary" aria-label=Navigation data-md-level=0> <label class=md-nav__title for=__drawer> <a href=../../../index.html title=ayon-launcher class="md-nav__button md-logo" aria-label=ayon-launcher data-md-component=logo> <img src=../../../img/ay-symbol-blackw-full.png alt=logo> </a> ayon-launcher </label> <div class=md-nav__source> <a href=https://github.com/ynput/ayon-launcher title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> GitHub </div> </a> </div> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../../../index.html class=md-nav__link> <span class=md-ellipsis> Home </span> </a> </li> <li class=md-nav__item> <a href=../../../license.html class=md-nav__link> <span class=md-ellipsis> License </span> </a> </li> <li class="md-nav__item md-nav__item--section md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_3> <label class=md-nav__link for=__nav_3 id=__nav_3_label tabindex> <span class=md-ellipsis> Build Guides </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_3_label aria-expanded=false> <label class=md-nav__title for=__nav_3> <span class="md-nav__icon md-icon"></span> Build Guides </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../../../build_guides/windows.html class=md-nav__link> <span class=md-ellipsis> Windows </span> </a> </li> <li class=md-nav__item> <a href=../../../build_guides/linux.html class=md-nav__link> <span class=md-ellipsis> Linux </span> </a> </li> <li class=md-nav__item> <a href=../../../build_guides/macos.html class=md-nav__link> <span class=md-ellipsis> Mac OS </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_4 checked> <label class=md-nav__link for=__nav_4 id=__nav_4_label tabindex> <span class=md-ellipsis> Reference </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_4_label aria-expanded=true> <label class=md-nav__title for=__nav_4> <span class="md-nav__icon md-icon"></span> Reference </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../../app_launcher.html class=md-nav__link> <span class=md-ellipsis> app_launcher </span> </a> </li> <li class="md-nav__item md-nav__item--active md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_4_2 checked> <label class=md-nav__link for=__nav_4_2 id=__nav_4_2_label tabindex=0> <span class=md-ellipsis> common </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=2 aria-labelledby=__nav_4_2_label aria-expanded=true> <label class=md-nav__title for=__nav_4_2> <span class="md-nav__icon md-icon"></span> common </label> <ul class=md-nav__list data-md-scrollfix> <li class="md-nav__item md-nav__item--active md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_4_2_1 checked> <label class=md-nav__link for=__nav_4_2_1 id=__nav_4_2_1_label tabindex=0> <span class=md-ellipsis> ayon_common </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=3 aria-labelledby=__nav_4_2_1_label aria-expanded=true> <label class=md-nav__title for=__nav_4_2_1> <span class="md-nav__icon md-icon"></span> ayon_common </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=_windows_register_scheme.html class=md-nav__link> <span class=md-ellipsis> _windows_register_scheme </span> </a> </li> <li class="md-nav__item md-nav__item--pruned md-nav__item--nested"> <a href=connection/credentials.html class=md-nav__link> <span class=md-ellipsis> connection </span> <span class="md-nav__icon md-icon"></span> </a> </li> <li class="md-nav__item md-nav__item--pruned md-nav__item--nested"> <a href=distribution/control.html class=md-nav__link> <span class=md-ellipsis> distribution </span> <span class="md-nav__icon md-icon"></span> </a> </li> <li class="md-nav__item md-nav__item--active"> <input class="md-nav__toggle md-toggle" type=checkbox id=__toc> <label class="md-nav__link md-nav__link--active" for=__toc> <span class=md-ellipsis> logging </span> <span class="md-nav__icon md-icon"></span> </label> <a href=logging.html class="md-nav__link md-nav__link--active"> <span class=md-ellipsis> logging </span> </a> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#common.ayon_common.logging class=md-nav__link> <span class=md-ellipsis> logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender class=md-nav__link> <span class=md-ellipsis> VectorHTTPSender </span> </a> <nav class=md-nav aria-label=VectorHTTPSender> <ul class=md-nav__list> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender.request_stop class=md-nav__link> <span class=md-ellipsis> request_stop </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender.stop class=md-nav__link> <span class=md-ellipsis> stop </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span class=md-nav__link> <span class=md-ellipsis> log_span </span> </a> <nav class=md-nav aria-label=log_span> <ul class=md-nav__list> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span.finish class=md-nav__link> <span class=md-ellipsis> finish </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span.set class=md-nav__link> <span class=md-ellipsis> set </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.configure_logging class=md-nav__link> <span class=md-ellipsis> configure_logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_console_style_from_env class=md-nav__link> <span class=md-ellipsis> get_console_style_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_console_time_format_from_env class=md-nav__link> <span class=md-ellipsis> get_console_time_format_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_log_level_from_env class=md-nav__link> <span class=md-ellipsis> get_log_level_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.release_logging class=md-nav__link> <span class=md-ellipsis> release_logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.render_message_template class=md-nav__link> <span class=md-ellipsis> render_message_template </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=resources/index.html class=md-nav__link> <span class=md-ellipsis> resources </span> </a> </li> <li class="md-nav__item md-nav__item--pruned md-nav__item--nested"> <a href=startup/ui/startup_error.html class=md-nav__link> <span class=md-ellipsis> startup </span> <span class="md-nav__icon md-icon"></span> </a> </li> <li class=md-nav__item> <a href=ui_utils.html class=md-nav__link> <span class=md-ellipsis> ui_utils </span> </a> </li> <li class=md-nav__item> <a href=utils.html class=md-nav__link> <span class=md-ellipsis> utils </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=../../setup.html class=md-nav__link> <span class=md-ellipsis> setup </span> </a> </li> <li class=md-nav__item> <a href=../../start.html class=md-nav__link> <span class=md-ellipsis> start </span> </a> </li> <li class=md-nav__item> <a href=../../version.html class=md-nav__link> <span class=md-ellipsis> version </span> </a> </li> </ul> </nav> </li> </ul> </nav> </div> </div> </div> <div class="md-sidebar md-sidebar--secondary" data-md-component=sidebar data-md-type=toc> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#common.ayon_common.logging class=md-nav__link> <span class=md-ellipsis> logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender class=md-nav__link> <span class=md-ellipsis> VectorHTTPSender </span> </a> <nav class=md-nav aria-label=VectorHTTPSender> <ul class=md-nav__list> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender.request_stop class=md-nav__link> <span class=md-ellipsis> request_stop </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.VectorHTTPSender.stop class=md-nav__link> <span class=md-ellipsis> stop </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span class=md-nav__link> <span class=md-ellipsis> log_span </span> </a> <nav class=md-nav aria-label=log_span> <ul class=md-nav__list> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span.finish class=md-nav__link> <span class=md-ellipsis> finish </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.log_span.set class=md-nav__link> <span class=md-ellipsis> set </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.configure_logging class=md-nav__link> <span class=md-ellipsis> configure_logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_console_style_from_env class=md-nav__link> <span class=md-ellipsis> get_console_style_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_console_time_format_from_env class=md-nav__link> <span class=md-ellipsis> get_console_time_format_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.get_log_level_from_env class=md-nav__link> <span class=md-ellipsis> get_log_level_from_env </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.release_logging class=md-nav__link> <span class=md-ellipsis> release_logging </span> </a> </li> <li class=md-nav__item> <a href=#common.ayon_common.logging.render_message_template class=md-nav__link> <span class=md-ellipsis> render_message_template </span> </a> </li> </ul> </nav> </div> </div> </div> <div class=md-content data-md-component=content> <nav class=md-path aria-label=Navigation> <ol class=md-path__list> <li class=md-path__item> <a href=../../../index.html class=md-path__link> <span class=md-ellipsis> Home </span> </a> </li> <li class=md-path__item> <a href=../../app_launcher.html class=md-path__link> <span class=md-ellipsis> Reference </span> </a> </li> <li class=md-path__item> <a href=_windows_register_scheme.html class=md-path__link> <span class=md-ellipsis> common </span> </a> </li> <li class=md-path__item> <a href=_windows_register_scheme.html class=md-path__link> <span class=md-ellipsis> ayon_common </span> </a> </li> </ol> </nav> <article class="md-content__inner md-typeset"> <h1>logging</h1> <div class="doc doc-object doc-module"> <a id=common.ayon_common.logging></a> <div class="doc doc-contents first"> <p>Logging setup for AYON common package.</p> <p>Three opt-in observability levels are supported, additive to each other: 1. Console (default) - human readable output to stderr. Always on. 2. NDJSON file - one JSON object per line, written to a local log file with retention. Enabled with 'AYON_LOG_TO_FILE=1'. 3. Vector - forward JSON logs to a Vector HTTP source. Enabled by setting 'AYON_VECTOR_LOG_URL'.</p> <p>Console timestamps are in local time, formatted by 'AYON_LOG_CONSOLE_TIME_FORMAT' ('strftime' format, default '%Y/%m/%d %H:%M:%S'). JSON output always uses ISO 8601 in UTC.</p> <p>Console layout is set by 'AYON_LOG_CONSOLE_STYLE': - 'ayon' (default) - log level without padding, e.g. '[info]', only the message is shown, logger name only with DEBUG log level. - 'structlog' - default structlog layout with padded log level, e.g. '[info ]', logger name and additional fields of records as 'key=value'.</p> <p>Console message of spans contains their duration, e.g. 'launcher.bootstrap (duration 3.65s)', see 'log_span'.</p> <p>Messages are message templates, e.g. 'log.info("Loaded {product}", product=name)', see 'render_message_template'.</p> <div class="doc doc-children"> <div class="doc doc-object doc-class"> <h2 id=common.ayon_common.logging.VectorHTTPSender class="doc doc-heading"> <code>VectorHTTPSender</code> </h2> <div class="doc doc-contents "> <p>Send rendered log records from a queue to a Vector HTTP source.</p> <p>This is here so we can use Vector for log aggregation earlier before ayon-core and ayon-vector are started.</p> <p>A daemon thread collects up to 'batch_size' records, or what arrived within 'flush_interval' seconds, and sends them as one JSON array per request. Vector's 'json' decoding creates one event per array item.</p> <p>A circuit breaker stops sending for 'cooldown' seconds after 'failure_threshold' consecutive failed requests. Records are dropped meanwhile so a dead endpoint cannot slow down the process.</p> <p>Failed requests are not repeated, except for a temporary error response of the endpoint. The next batch is the next attempt.</p> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>687</span>
+<span class=normal>688</span>
+<span class=normal>689</span>
+<span class=normal>690</span>
+<span class=normal>691</span>
+<span class=normal>692</span>
+<span class=normal>693</span>
+<span class=normal>694</span>
+<span class=normal>695</span>
+<span class=normal>696</span>
+<span class=normal>697</span>
+<span class=normal>698</span>
+<span class=normal>699</span>
+<span class=normal>700</span>
+<span class=normal>701</span>
+<span class=normal>702</span>
+<span class=normal>703</span>
+<span class=normal>704</span>
+<span class=normal>705</span>
+<span class=normal>706</span>
+<span class=normal>707</span>
+<span class=normal>708</span>
+<span class=normal>709</span>
+<span class=normal>710</span>
+<span class=normal>711</span>
+<span class=normal>712</span>
+<span class=normal>713</span>
+<span class=normal>714</span>
+<span class=normal>715</span>
+<span class=normal>716</span>
+<span class=normal>717</span>
+<span class=normal>718</span>
+<span class=normal>719</span>
+<span class=normal>720</span>
+<span class=normal>721</span>
+<span class=normal>722</span>
+<span class=normal>723</span>
+<span class=normal>724</span>
+<span class=normal>725</span>
+<span class=normal>726</span>
+<span class=normal>727</span>
+<span class=normal>728</span>
+<span class=normal>729</span>
+<span class=normal>730</span>
+<span class=normal>731</span>
+<span class=normal>732</span>
+<span class=normal>733</span>
+<span class=normal>734</span>
+<span class=normal>735</span>
+<span class=normal>736</span>
+<span class=normal>737</span>
+<span class=normal>738</span>
+<span class=normal>739</span>
+<span class=normal>740</span>
+<span class=normal>741</span>
+<span class=normal>742</span>
+<span class=normal>743</span>
+<span class=normal>744</span>
+<span class=normal>745</span>
+<span class=normal>746</span>
+<span class=normal>747</span>
+<span class=normal>748</span>
+<span class=normal>749</span>
+<span class=normal>750</span>
+<span class=normal>751</span>
+<span class=normal>752</span>
+<span class=normal>753</span>
+<span class=normal>754</span>
+<span class=normal>755</span>
+<span class=normal>756</span>
+<span class=normal>757</span>
+<span class=normal>758</span>
+<span class=normal>759</span>
+<span class=normal>760</span>
+<span class=normal>761</span>
+<span class=normal>762</span>
+<span class=normal>763</span>
+<span class=normal>764</span>
+<span class=normal>765</span>
+<span class=normal>766</span>
+<span class=normal>767</span>
+<span class=normal>768</span>
+<span class=normal>769</span>
+<span class=normal>770</span>
+<span class=normal>771</span>
+<span class=normal>772</span>
+<span class=normal>773</span>
+<span class=normal>774</span>
+<span class=normal>775</span>
+<span class=normal>776</span>
+<span class=normal>777</span>
+<span class=normal>778</span>
+<span class=normal>779</span>
+<span class=normal>780</span>
+<span class=normal>781</span>
+<span class=normal>782</span>
+<span class=normal>783</span>
+<span class=normal>784</span>
+<span class=normal>785</span>
+<span class=normal>786</span>
+<span class=normal>787</span>
+<span class=normal>788</span>
+<span class=normal>789</span>
+<span class=normal>790</span>
+<span class=normal>791</span>
+<span class=normal>792</span>
+<span class=normal>793</span>
+<span class=normal>794</span>
+<span class=normal>795</span>
+<span class=normal>796</span>
+<span class=normal>797</span>
+<span class=normal>798</span>
+<span class=normal>799</span>
+<span class=normal>800</span>
+<span class=normal>801</span>
+<span class=normal>802</span>
+<span class=normal>803</span>
+<span class=normal>804</span>
+<span class=normal>805</span>
+<span class=normal>806</span>
+<span class=normal>807</span>
+<span class=normal>808</span>
+<span class=normal>809</span>
+<span class=normal>810</span>
+<span class=normal>811</span>
+<span class=normal>812</span>
+<span class=normal>813</span>
+<span class=normal>814</span>
+<span class=normal>815</span>
+<span class=normal>816</span>
+<span class=normal>817</span>
+<span class=normal>818</span>
+<span class=normal>819</span>
+<span class=normal>820</span>
+<span class=normal>821</span>
+<span class=normal>822</span>
+<span class=normal>823</span>
+<span class=normal>824</span>
+<span class=normal>825</span>
+<span class=normal>826</span>
+<span class=normal>827</span>
+<span class=normal>828</span>
+<span class=normal>829</span>
+<span class=normal>830</span>
+<span class=normal>831</span>
+<span class=normal>832</span>
+<span class=normal>833</span>
+<span class=normal>834</span>
+<span class=normal>835</span>
+<span class=normal>836</span>
+<span class=normal>837</span>
+<span class=normal>838</span>
+<span class=normal>839</span>
+<span class=normal>840</span>
+<span class=normal>841</span>
+<span class=normal>842</span>
+<span class=normal>843</span>
+<span class=normal>844</span>
+<span class=normal>845</span>
+<span class=normal>846</span>
+<span class=normal>847</span>
+<span class=normal>848</span>
+<span class=normal>849</span>
+<span class=normal>850</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>class</span><span class=w> </span><span class=nc>VectorHTTPSender</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Send rendered log records from a queue to a Vector HTTP source.</span>
+
+<span class=sd>    This is here so we can use Vector for log aggregation</span>
+<span class=sd>    earlier before ayon-core and ayon-vector are started.</span>
+
+<span class=sd>    A daemon thread collects up to 'batch_size' records, or what arrived</span>
+<span class=sd>    within 'flush_interval' seconds, and sends them as one JSON array per</span>
+<span class=sd>    request. Vector's 'json' decoding creates one event per array item.</span>
+
+<span class=sd>    A circuit breaker stops sending for 'cooldown' seconds after</span>
+<span class=sd>    'failure_threshold' consecutive failed requests. Records are dropped</span>
+<span class=sd>    meanwhile so a dead endpoint cannot slow down the process.</span>
+
+<span class=sd>    Failed requests are not repeated, except for a temporary error</span>
+<span class=sd>    response of the endpoint. The next batch is the next attempt.</span>
+<span class=sd>    """</span>
+
+    <span class=n>_stop_sentinel</span> <span class=o>=</span> <span class=nb>object</span><span class=p>()</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span>
+        <span class=bp>self</span><span class=p>,</span>
+        <span class=n>url</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+        <span class=n>log_queue</span><span class=p>:</span> <span class=n>queue</span><span class=o>.</span><span class=n>Queue</span><span class=p>[</span><span class=nb>str</span> <span class=o>|</span> <span class=kc>None</span><span class=p>],</span>
+        <span class=n>batch_size</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>VECTOR_BATCH_SIZE</span><span class=p>,</span>
+        <span class=n>flush_interval</span><span class=p>:</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>VECTOR_FLUSH_INTERVAL</span><span class=p>,</span>
+        <span class=n>failure_threshold</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>VECTOR_FAILURE_THRESHOLD</span><span class=p>,</span>
+        <span class=n>cooldown</span><span class=p>:</span> <span class=nb>float</span> <span class=o>=</span> <span class=n>VECTOR_CIRCUIT_COOLDOWN</span><span class=p>,</span>
+    <span class=p>):</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_url</span> <span class=o>=</span> <span class=n>url</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span> <span class=o>=</span> <span class=n>log_queue</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_batch_size</span> <span class=o>=</span> <span class=n>batch_size</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_flush_interval</span> <span class=o>=</span> <span class=n>flush_interval</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_failure_threshold</span> <span class=o>=</span> <span class=n>failure_threshold</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_cooldown</span> <span class=o>=</span> <span class=n>cooldown</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_consecutive_failures</span> <span class=o>=</span> <span class=mi>0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_circuit_open_until</span> <span class=o>=</span> <span class=mf>0.0</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=p>:</span> <span class=n>threading</span><span class=o>.</span><span class=n>Thread</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=c1># 'stop' was called, see '_send'</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_stopping</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_gave_up</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=c1># Reuse a single session so repeated POSTs reuse pooled</span>
+        <span class=c1># connections instead of opening a new one per request.</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_session</span> <span class=o>=</span> <span class=n>requests</span><span class=o>.</span><span class=n>Session</span><span class=p>()</span>
+        <span class=c1># Only temporary error responses are retried. Connection and read</span>
+        <span class=c1>#   errors are not: an unreachable endpoint rarely recovers within</span>
+        <span class=c1>#   the backoff, each attempt waits for the timeout again, and</span>
+        <span class=c1>#   a batch whose response was not read would be sent twice.</span>
+        <span class=n>retry</span> <span class=o>=</span> <span class=n>urllib3</span><span class=o>.</span><span class=n>util</span><span class=o>.</span><span class=n>Retry</span><span class=p>(</span>
+            <span class=n>total</span><span class=o>=</span><span class=mi>2</span><span class=p>,</span>
+            <span class=n>connect</span><span class=o>=</span><span class=mi>0</span><span class=p>,</span>
+            <span class=n>read</span><span class=o>=</span><span class=mi>0</span><span class=p>,</span>
+            <span class=n>backoff_factor</span><span class=o>=</span><span class=mf>0.3</span><span class=p>,</span>
+            <span class=n>status_forcelist</span><span class=o>=</span><span class=p>(</span><span class=mi>502</span><span class=p>,</span> <span class=mi>503</span><span class=p>,</span> <span class=mi>504</span><span class=p>),</span>
+            <span class=n>allowed_methods</span><span class=o>=</span><span class=p>(</span><span class=s2>"POST"</span><span class=p>,),</span>
+        <span class=p>)</span>
+        <span class=n>adapter</span> <span class=o>=</span> <span class=n>requests</span><span class=o>.</span><span class=n>adapters</span><span class=o>.</span><span class=n>HTTPAdapter</span><span class=p>(</span>
+            <span class=n>pool_connections</span><span class=o>=</span><span class=mi>1</span><span class=p>,</span> <span class=n>pool_maxsize</span><span class=o>=</span><span class=mi>1</span><span class=p>,</span> <span class=n>max_retries</span><span class=o>=</span><span class=n>retry</span>
+        <span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_session</span><span class=o>.</span><span class=n>mount</span><span class=p>(</span><span class=s2>"http://"</span><span class=p>,</span> <span class=n>adapter</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_session</span><span class=o>.</span><span class=n>mount</span><span class=p>(</span><span class=s2>"https://"</span><span class=p>,</span> <span class=n>adapter</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>start</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_stopping</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_gave_up</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=o>=</span> <span class=n>threading</span><span class=o>.</span><span class=n>Thread</span><span class=p>(</span>
+            <span class=n>target</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>_run</span><span class=p>,</span> <span class=n>name</span><span class=o>=</span><span class=s2>"AYONVectorSender"</span><span class=p>,</span> <span class=n>daemon</span><span class=o>=</span><span class=kc>True</span>
+        <span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=o>.</span><span class=n>start</span><span class=p>()</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>stop</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>timeout</span><span class=p>:</span> <span class=nb>float</span> <span class=o>=</span> <span class=mf>5.0</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Send records remaining in the queue and stop the thread.</span>
+
+<span class=sd>        Called on exit of the process. Remaining records are dropped</span>
+<span class=sd>        after the first failed request, an unreachable endpoint must</span>
+<span class=sd>        not delay the exit by an attempt for each remaining batch.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>return</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_stopping</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=c1># Thread may already be finished, see 'request_stop'</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=o>.</span><span class=n>is_alive</span><span class=p>():</span>
+            <span class=k>try</span><span class=p>:</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>put</span><span class=p>(</span><span class=kc>None</span><span class=p>,</span> <span class=n>timeout</span><span class=o>=</span><span class=n>timeout</span><span class=p>)</span>
+            <span class=k>except</span> <span class=n>queue</span><span class=o>.</span><span class=n>Full</span><span class=p>:</span>
+                <span class=k>pass</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>timeout</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_session</span><span class=o>.</span><span class=n>close</span><span class=p>()</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>request_stop</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Stop the thread once records in the queue are sent.</span>
+
+<span class=sd>        Does not wait for the thread. 'stop' registered at exit still</span>
+<span class=sd>        waits for records which were not sent yet.</span>
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>return</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>put_nowait</span><span class=p>(</span><span class=kc>None</span><span class=p>)</span>
+        <span class=k>except</span> <span class=n>queue</span><span class=o>.</span><span class=n>Full</span><span class=p>:</span>
+            <span class=c1># Thread runs until exit, 'stop' handles it</span>
+            <span class=k>pass</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_run</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>stop</span> <span class=o>=</span> <span class=kc>False</span>
+        <span class=k>while</span> <span class=ow>not</span> <span class=n>stop</span><span class=p>:</span>
+            <span class=n>item</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>get</span><span class=p>()</span>
+            <span class=k>if</span> <span class=n>item</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                <span class=k>break</span>
+            <span class=n>batch</span> <span class=o>=</span> <span class=p>[</span><span class=n>item</span><span class=p>]</span>
+            <span class=n>deadline</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>monotonic</span><span class=p>()</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>_flush_interval</span>
+            <span class=k>while</span> <span class=nb>len</span><span class=p>(</span><span class=n>batch</span><span class=p>)</span> <span class=o>&lt;</span> <span class=bp>self</span><span class=o>.</span><span class=n>_batch_size</span><span class=p>:</span>
+                <span class=n>remaining</span> <span class=o>=</span> <span class=n>deadline</span> <span class=o>-</span> <span class=n>time</span><span class=o>.</span><span class=n>monotonic</span><span class=p>()</span>
+                <span class=k>if</span> <span class=n>remaining</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>:</span>
+                    <span class=k>break</span>
+                <span class=k>try</span><span class=p>:</span>
+                    <span class=n>item</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>timeout</span><span class=o>=</span><span class=n>remaining</span><span class=p>)</span>
+                <span class=k>except</span> <span class=n>queue</span><span class=o>.</span><span class=n>Empty</span><span class=p>:</span>
+                    <span class=k>break</span>
+                <span class=k>if</span> <span class=n>item</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+                    <span class=n>stop</span> <span class=o>=</span> <span class=kc>True</span>
+                    <span class=k>break</span>
+                <span class=n>batch</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>item</span><span class=p>)</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_send</span><span class=p>(</span><span class=n>batch</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_send</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>batch</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>now</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>monotonic</span><span class=p>()</span>
+        <span class=k>if</span> <span class=n>now</span> <span class=o>&lt;</span> <span class=bp>self</span><span class=o>.</span><span class=n>_circuit_open_until</span><span class=p>:</span>
+            <span class=c1># Circuit is open - skip the HTTP attempt entirely so a dead</span>
+            <span class=c1># Vector endpoint cannot slow down the sender thread.</span>
+            <span class=k>return</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_gave_up</span><span class=p>:</span>
+            <span class=k>return</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>response</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_session</span><span class=o>.</span><span class=n>post</span><span class=p>(</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>_url</span><span class=p>,</span>
+                <span class=n>data</span><span class=o>=</span><span class=s2>"[</span><span class=si>{}</span><span class=s2>]"</span><span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=s2>","</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>batch</span><span class=p>))</span><span class=o>.</span><span class=n>encode</span><span class=p>(</span><span class=s2>"utf-8"</span><span class=p>),</span>
+                <span class=n>headers</span><span class=o>=</span><span class=p>{</span><span class=s2>"Content-Type"</span><span class=p>:</span> <span class=s2>"application/json"</span><span class=p>},</span>
+                <span class=c1># (connect timeout, read timeout) - a slow-but-alive</span>
+                <span class=c1># endpoint should not stall as long as a dead one.</span>
+                <span class=n>timeout</span><span class=o>=</span><span class=p>(</span><span class=mf>0.3</span><span class=p>,</span> <span class=mf>2.0</span><span class=p>),</span>
+            <span class=p>)</span>
+            <span class=n>response</span><span class=o>.</span><span class=n>raise_for_status</span><span class=p>()</span>
+        <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_stopping</span><span class=p>:</span>
+                <span class=c1># Process is exiting, see 'stop'</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>_gave_up</span> <span class=o>=</span> <span class=kc>True</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_consecutive_failures</span> <span class=o>+=</span> <span class=mi>1</span>
+            <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_consecutive_failures</span> <span class=o>&gt;=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_failure_threshold</span><span class=p>:</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>_circuit_open_until</span> <span class=o>=</span> <span class=n>now</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>_cooldown</span>
+                <span class=bp>self</span><span class=o>.</span><span class=n>_consecutive_failures</span> <span class=o>=</span> <span class=mi>0</span>
+                <span class=n>_vector_warn_logger</span><span class=o>.</span><span class=n>warning</span><span class=p>(</span>
+                    <span class=s2>"Vector endpoint unreachable, pausing log delivery"</span>
+                    <span class=s2>" for </span><span class=si>%s</span><span class=s2> seconds."</span><span class=p>,</span>
+                    <span class=bp>self</span><span class=o>.</span><span class=n>_cooldown</span><span class=p>,</span>
+                <span class=p>)</span>
+            <span class=k>else</span><span class=p>:</span>
+                <span class=c1># Rate-limit warnings in case of Vector outage.</span>
+                <span class=n>_vector_warn_logger</span><span class=o>.</span><span class=n>warning</span><span class=p>(</span>
+                    <span class=s2>"Failed to send </span><span class=si>%s</span><span class=s2> log records to Vector."</span><span class=p>,</span> <span class=nb>len</span><span class=p>(</span><span class=n>batch</span><span class=p>)</span>
+                <span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_consecutive_failures</span> <span class=o>=</span> <span class=mi>0</span>
+</code></pre></div></td></tr></table></div> </details> <div class="doc doc-children"> <div class="doc doc-object doc-function"> <h3 id=common.ayon_common.logging.VectorHTTPSender.request_stop class="doc doc-heading"> <code class="highlight language-python"><span class=n>request_stop</span><span class=p>()</span></code> </h3> <div class="doc doc-contents "> <p>Stop the thread once records in the queue are sent.</p> <p>Does not wait for the thread. 'stop' registered at exit still waits for records which were not sent yet.</p> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>777</span>
+<span class=normal>778</span>
+<span class=normal>779</span>
+<span class=normal>780</span>
+<span class=normal>781</span>
+<span class=normal>782</span>
+<span class=normal>783</span>
+<span class=normal>784</span>
+<span class=normal>785</span>
+<span class=normal>786</span>
+<span class=normal>787</span>
+<span class=normal>788</span>
+<span class=normal>789</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>request_stop</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Stop the thread once records in the queue are sent.</span>
+
+<span class=sd>    Does not wait for the thread. 'stop' registered at exit still</span>
+<span class=sd>    waits for records which were not sent yet.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>put_nowait</span><span class=p>(</span><span class=kc>None</span><span class=p>)</span>
+    <span class=k>except</span> <span class=n>queue</span><span class=o>.</span><span class=n>Full</span><span class=p>:</span>
+        <span class=c1># Thread runs until exit, 'stop' handles it</span>
+        <span class=k>pass</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=common.ayon_common.logging.VectorHTTPSender.stop class="doc doc-heading"> <code class="highlight language-python"><span class=n>stop</span><span class=p>(</span><span class=n>timeout</span><span class=o>=</span><span class=mf>5.0</span><span class=p>)</span></code> </h3> <div class="doc doc-contents "> <p>Send records remaining in the queue and stop the thread.</p> <p>Called on exit of the process. Remaining records are dropped after the first failed request, an unreachable endpoint must not delay the exit by an attempt for each remaining batch.</p> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>757</span>
+<span class=normal>758</span>
+<span class=normal>759</span>
+<span class=normal>760</span>
+<span class=normal>761</span>
+<span class=normal>762</span>
+<span class=normal>763</span>
+<span class=normal>764</span>
+<span class=normal>765</span>
+<span class=normal>766</span>
+<span class=normal>767</span>
+<span class=normal>768</span>
+<span class=normal>769</span>
+<span class=normal>770</span>
+<span class=normal>771</span>
+<span class=normal>772</span>
+<span class=normal>773</span>
+<span class=normal>774</span>
+<span class=normal>775</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>stop</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>timeout</span><span class=p>:</span> <span class=nb>float</span> <span class=o>=</span> <span class=mf>5.0</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Send records remaining in the queue and stop the thread.</span>
+
+<span class=sd>    Called on exit of the process. Remaining records are dropped</span>
+<span class=sd>    after the first failed request, an unreachable endpoint must</span>
+<span class=sd>    not delay the exit by an attempt for each remaining batch.</span>
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span>
+    <span class=bp>self</span><span class=o>.</span><span class=n>_stopping</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=c1># Thread may already be finished, see 'request_stop'</span>
+    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=o>.</span><span class=n>is_alive</span><span class=p>():</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_queue</span><span class=o>.</span><span class=n>put</span><span class=p>(</span><span class=kc>None</span><span class=p>,</span> <span class=n>timeout</span><span class=o>=</span><span class=n>timeout</span><span class=p>)</span>
+        <span class=k>except</span> <span class=n>queue</span><span class=o>.</span><span class=n>Full</span><span class=p>:</span>
+            <span class=k>pass</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>timeout</span><span class=p>)</span>
+    <span class=bp>self</span><span class=o>.</span><span class=n>_thread</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=bp>self</span><span class=o>.</span><span class=n>_session</span><span class=o>.</span><span class=n>close</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> </div> </div> </div> <div class="doc doc-object doc-class"> <h2 id=common.ayon_common.logging.log_span class="doc doc-heading"> <code>log_span</code> </h2> <div class="doc doc-contents "> <p>Measure a block of code and log it as one structured span record.</p> <p>Launcher counterpart of 'ayon_core.lib.log_span' producing the same fields, so spans of the launcher are queried as those of 'ayon_core'. 'ayon_core' is not available during launcher startup, and it can't use this class because older launchers don't have it.</p> <p>Record is logged when the span ends, with the span name as the event and fields 'duration_ms', 'status' ('ok' or 'error'), 'trace_id', 'span_id', 'parent_span_id' and passed attributes. 'SystemExit' with a non-zero code is an error, the code is stored as 'exit_code'. Console message also contains the duration, e.g. 'launcher.bootstrap (duration 3.65s)'.</p> <p>While the span is open, 'trace_id' and 'span_id' are bound to structlog context variables, so all records logged meanwhile carry them. Nested spans share 'trace_id' of the outermost span.</p> <p>Span can end before its block with 'finish', e.g. before logging is released. Spans nested in it which are still open are finished first, as successful. Ending a span again has no effect, so their blocks may end later.</p> <p><span class=doc-section-title>Parameters:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> <th>Default</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td> <code>name</code> </td> <td> <code><span title=str>str</span></code> </td> <td> <div class=doc-md-description> <p>Span name used as the log event. Should be stable and low-cardinality (e.g. 'launcher.distribute').</p> </div> </td> <td> <em>required</em> </td> </tr> <tr class=doc-section-item> <td> <code>level</code> </td> <td> <code><span title=int>int</span></code> </td> <td> <div class=doc-md-description> <p>Log level of the span record.</p> </div> </td> <td> <code><span title=logging.INFO>INFO</span></code> </td> </tr> <tr class=doc-section-item> <td> <code>start</code> </td> <td> <code>Optional[<span title=float>float</span>]</code> </td> <td> <div class=doc-md-description> <p>'time.perf_counter()' value when the span started. Time of entering the span is used by default.</p> </div> </td> <td> <code>None</code> </td> </tr> <tr class=doc-section-item> <td> <code>**attributes</code> </td> <td> <code><span title=typing.Any>Any</span></code> </td> <td> <div class=doc-md-description> <p>Additional fields of the span record.</p> </div> </td> <td> <code>{}</code> </td> </tr> </tbody> </table> <details class=example open> <summary>Example</summary> <p>with log_span("launcher.distribute") as span: distribution.distribute() span.set(need_installer_change=True)</p> </details> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>193</span>
+<span class=normal>194</span>
+<span class=normal>195</span>
+<span class=normal>196</span>
+<span class=normal>197</span>
+<span class=normal>198</span>
+<span class=normal>199</span>
+<span class=normal>200</span>
+<span class=normal>201</span>
+<span class=normal>202</span>
+<span class=normal>203</span>
+<span class=normal>204</span>
+<span class=normal>205</span>
+<span class=normal>206</span>
+<span class=normal>207</span>
+<span class=normal>208</span>
+<span class=normal>209</span>
+<span class=normal>210</span>
+<span class=normal>211</span>
+<span class=normal>212</span>
+<span class=normal>213</span>
+<span class=normal>214</span>
+<span class=normal>215</span>
+<span class=normal>216</span>
+<span class=normal>217</span>
+<span class=normal>218</span>
+<span class=normal>219</span>
+<span class=normal>220</span>
+<span class=normal>221</span>
+<span class=normal>222</span>
+<span class=normal>223</span>
+<span class=normal>224</span>
+<span class=normal>225</span>
+<span class=normal>226</span>
+<span class=normal>227</span>
+<span class=normal>228</span>
+<span class=normal>229</span>
+<span class=normal>230</span>
+<span class=normal>231</span>
+<span class=normal>232</span>
+<span class=normal>233</span>
+<span class=normal>234</span>
+<span class=normal>235</span>
+<span class=normal>236</span>
+<span class=normal>237</span>
+<span class=normal>238</span>
+<span class=normal>239</span>
+<span class=normal>240</span>
+<span class=normal>241</span>
+<span class=normal>242</span>
+<span class=normal>243</span>
+<span class=normal>244</span>
+<span class=normal>245</span>
+<span class=normal>246</span>
+<span class=normal>247</span>
+<span class=normal>248</span>
+<span class=normal>249</span>
+<span class=normal>250</span>
+<span class=normal>251</span>
+<span class=normal>252</span>
+<span class=normal>253</span>
+<span class=normal>254</span>
+<span class=normal>255</span>
+<span class=normal>256</span>
+<span class=normal>257</span>
+<span class=normal>258</span>
+<span class=normal>259</span>
+<span class=normal>260</span>
+<span class=normal>261</span>
+<span class=normal>262</span>
+<span class=normal>263</span>
+<span class=normal>264</span>
+<span class=normal>265</span>
+<span class=normal>266</span>
+<span class=normal>267</span>
+<span class=normal>268</span>
+<span class=normal>269</span>
+<span class=normal>270</span>
+<span class=normal>271</span>
+<span class=normal>272</span>
+<span class=normal>273</span>
+<span class=normal>274</span>
+<span class=normal>275</span>
+<span class=normal>276</span>
+<span class=normal>277</span>
+<span class=normal>278</span>
+<span class=normal>279</span>
+<span class=normal>280</span>
+<span class=normal>281</span>
+<span class=normal>282</span>
+<span class=normal>283</span>
+<span class=normal>284</span>
+<span class=normal>285</span>
+<span class=normal>286</span>
+<span class=normal>287</span>
+<span class=normal>288</span>
+<span class=normal>289</span>
+<span class=normal>290</span>
+<span class=normal>291</span>
+<span class=normal>292</span>
+<span class=normal>293</span>
+<span class=normal>294</span>
+<span class=normal>295</span>
+<span class=normal>296</span>
+<span class=normal>297</span>
+<span class=normal>298</span>
+<span class=normal>299</span>
+<span class=normal>300</span>
+<span class=normal>301</span>
+<span class=normal>302</span>
+<span class=normal>303</span>
+<span class=normal>304</span>
+<span class=normal>305</span>
+<span class=normal>306</span>
+<span class=normal>307</span>
+<span class=normal>308</span>
+<span class=normal>309</span>
+<span class=normal>310</span>
+<span class=normal>311</span>
+<span class=normal>312</span>
+<span class=normal>313</span>
+<span class=normal>314</span>
+<span class=normal>315</span>
+<span class=normal>316</span>
+<span class=normal>317</span>
+<span class=normal>318</span>
+<span class=normal>319</span>
+<span class=normal>320</span>
+<span class=normal>321</span>
+<span class=normal>322</span>
+<span class=normal>323</span>
+<span class=normal>324</span>
+<span class=normal>325</span>
+<span class=normal>326</span>
+<span class=normal>327</span>
+<span class=normal>328</span>
+<span class=normal>329</span>
+<span class=normal>330</span>
+<span class=normal>331</span>
+<span class=normal>332</span>
+<span class=normal>333</span>
+<span class=normal>334</span>
+<span class=normal>335</span>
+<span class=normal>336</span>
+<span class=normal>337</span>
+<span class=normal>338</span>
+<span class=normal>339</span>
+<span class=normal>340</span>
+<span class=normal>341</span>
+<span class=normal>342</span>
+<span class=normal>343</span>
+<span class=normal>344</span>
+<span class=normal>345</span>
+<span class=normal>346</span>
+<span class=normal>347</span>
+<span class=normal>348</span>
+<span class=normal>349</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>class</span><span class=w> </span><span class=nc>log_span</span><span class=p>:</span>  <span class=c1># noqa: N801</span>
+<span class=w>    </span><span class=sd>"""Measure a block of code and log it as one structured span record.</span>
+
+<span class=sd>    Launcher counterpart of 'ayon_core.lib.log_span' producing the same</span>
+<span class=sd>    fields, so spans of the launcher are queried as those of 'ayon_core'.</span>
+<span class=sd>    'ayon_core' is not available during launcher startup, and it can't</span>
+<span class=sd>    use this class because older launchers don't have it.</span>
+
+<span class=sd>    Record is logged when the span ends, with the span name as the event</span>
+<span class=sd>    and fields 'duration_ms', 'status' ('ok' or 'error'), 'trace_id',</span>
+<span class=sd>    'span_id', 'parent_span_id' and passed attributes. 'SystemExit' with</span>
+<span class=sd>    a non-zero code is an error, the code is stored as 'exit_code'.</span>
+<span class=sd>    Console message also contains the duration, e.g.</span>
+<span class=sd>    'launcher.bootstrap (duration 3.65s)'.</span>
+
+<span class=sd>    While the span is open, 'trace_id' and 'span_id' are bound to</span>
+<span class=sd>    structlog context variables, so all records logged meanwhile carry</span>
+<span class=sd>    them. Nested spans share 'trace_id' of the outermost span.</span>
+
+<span class=sd>    Span can end before its block with 'finish', e.g. before logging is</span>
+<span class=sd>    released. Spans nested in it which are still open are finished first,</span>
+<span class=sd>    as successful. Ending a span again has no effect, so their blocks may</span>
+<span class=sd>    end later.</span>
+
+<span class=sd>    Args:</span>
+<span class=sd>        name (str): Span name used as the log event. Should be stable and</span>
+<span class=sd>            low-cardinality (e.g. 'launcher.distribute').</span>
+<span class=sd>        level (int): Log level of the span record.</span>
+<span class=sd>        start (Optional[float]): 'time.perf_counter()' value when the span</span>
+<span class=sd>            started. Time of entering the span is used by default.</span>
+<span class=sd>        **attributes (Any): Additional fields of the span record.</span>
+
+<span class=sd>    Example:</span>
+<span class=sd>        with log_span("launcher.distribute") as span:</span>
+<span class=sd>            distribution.distribute()</span>
+<span class=sd>            span.set(need_installer_change=True)</span>
+
+<span class=sd>    """</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__init__</span><span class=p>(</span>
+        <span class=bp>self</span><span class=p>,</span>
+        <span class=n>name</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span>
+        <span class=o>*</span><span class=p>,</span>
+        <span class=n>level</span><span class=p>:</span> <span class=nb>int</span> <span class=o>=</span> <span class=n>logging</span><span class=o>.</span><span class=n>INFO</span><span class=p>,</span>
+        <span class=n>start</span><span class=p>:</span> <span class=nb>float</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=o>**</span><span class=n>attributes</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span>
+    <span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_name</span> <span class=o>=</span> <span class=n>name</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_level</span> <span class=o>=</span> <span class=n>level</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_start</span> <span class=o>=</span> <span class=n>start</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_attributes</span> <span class=o>=</span> <span class=n>attributes</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span> <span class=o>=</span> <span class=s2>""</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span> <span class=o>=</span> <span class=s2>""</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span><span class=p>:</span> <span class=n>log_span</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span><span class=p>:</span> <span class=n>contextvars</span><span class=o>.</span><span class=n>Token</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_contextvars_tokens</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>contextvars</span><span class=o>.</span><span class=n>Token</span><span class=p>]</span> <span class=o>=</span> <span class=p>{}</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_finished</span> <span class=o>=</span> <span class=kc>False</span>
+
+    <span class=nd>@property</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>trace_id</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span>
+
+    <span class=nd>@property</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>span_id</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
+        <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>set</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=o>**</span><span class=n>attributes</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""Add attributes known only after the span started.</span>
+
+<span class=sd>        Args:</span>
+<span class=sd>            **attributes (Any): Additional fields of the span record.</span>
+
+<span class=sd>        """</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_attributes</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>attributes</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__enter__</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=s2>"log_span"</span><span class=p>:</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span> <span class=o>=</span> <span class=n>_current_span</span><span class=o>.</span><span class=n>get</span><span class=p>()</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span> <span class=o>=</span> <span class=n>secrets</span><span class=o>.</span><span class=n>token_hex</span><span class=p>(</span><span class=mi>16</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span><span class=o>.</span><span class=n>trace_id</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span> <span class=o>=</span> <span class=n>secrets</span><span class=o>.</span><span class=n>token_hex</span><span class=p>(</span><span class=mi>8</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span> <span class=o>=</span> <span class=n>_current_span</span><span class=o>.</span><span class=n>set</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_contextvars_tokens</span> <span class=o>=</span> <span class=n>structlog</span><span class=o>.</span><span class=n>contextvars</span><span class=o>.</span><span class=n>bind_contextvars</span><span class=p>(</span>
+            <span class=n>trace_id</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span><span class=p>,</span>
+            <span class=n>span_id</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span><span class=p>,</span>
+        <span class=p>)</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_start</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_start</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>perf_counter</span><span class=p>()</span>
+        <span class=k>return</span> <span class=bp>self</span>
+
+    <span class=k>def</span><span class=w> </span><span class=fm>__exit__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>exc_type</span><span class=p>,</span> <span class=n>exc_value</span><span class=p>,</span> <span class=n>exc_tb</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>finish</span><span class=p>(</span><span class=n>exc_type</span><span class=p>,</span> <span class=n>exc_value</span><span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>finish</span><span class=p>(</span>
+        <span class=bp>self</span><span class=p>,</span>
+        <span class=n>exc_type</span><span class=p>:</span> <span class=nb>type</span><span class=p>[</span><span class=ne>BaseException</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+        <span class=n>exc_value</span><span class=p>:</span> <span class=ne>BaseException</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+    <span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>        </span><span class=sd>"""End the span and log its record.</span>
+
+<span class=sd>        Args:</span>
+<span class=sd>            exc_type (Optional[type[BaseException]]): Type of exception</span>
+<span class=sd>                which ended the span.</span>
+<span class=sd>            exc_value (Optional[BaseException]): Exception which ended</span>
+<span class=sd>                the span.</span>
+
+<span class=sd>        """</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_finished</span> <span class=ow>or</span> <span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>return</span>
+
+        <span class=c1># Finish nested spans still open, innermost first, so context</span>
+        <span class=c1>#   variables are restored in order</span>
+        <span class=n>nested</span> <span class=o>=</span> <span class=p>[]</span>
+        <span class=n>span</span> <span class=o>=</span> <span class=n>_current_span</span><span class=o>.</span><span class=n>get</span><span class=p>()</span>
+        <span class=k>while</span> <span class=n>span</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span> <span class=ow>and</span> <span class=n>span</span> <span class=ow>is</span> <span class=ow>not</span> <span class=bp>self</span><span class=p>:</span>
+            <span class=n>nested</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>span</span><span class=p>)</span>
+            <span class=n>span</span> <span class=o>=</span> <span class=n>span</span><span class=o>.</span><span class=n>_parent</span>
+        <span class=k>if</span> <span class=n>span</span> <span class=ow>is</span> <span class=bp>self</span><span class=p>:</span>
+            <span class=k>for</span> <span class=n>span</span> <span class=ow>in</span> <span class=n>nested</span><span class=p>:</span>
+                <span class=n>span</span><span class=o>.</span><span class=n>finish</span><span class=p>()</span>
+
+        <span class=bp>self</span><span class=o>.</span><span class=n>_finished</span> <span class=o>=</span> <span class=kc>True</span>
+        <span class=n>duration</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>perf_counter</span><span class=p>()</span> <span class=o>-</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_start</span> <span class=ow>or</span> <span class=mf>0.0</span><span class=p>)</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>contextvars</span><span class=o>.</span><span class=n>reset_contextvars</span><span class=p>(</span><span class=o>**</span><span class=bp>self</span><span class=o>.</span><span class=n>_contextvars_tokens</span><span class=p>)</span>
+        <span class=n>_current_span</span><span class=o>.</span><span class=n>reset</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span><span class=p>)</span>
+
+        <span class=k>if</span> <span class=ow>not</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>(</span><span class=n>SPAN_LOGGER_NAME</span><span class=p>)</span><span class=o>.</span><span class=n>isEnabledFor</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_level</span><span class=p>):</span>
+            <span class=k>return</span>
+
+        <span class=n>fields</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span>
+            <span class=s2>"trace_id"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span><span class=p>,</span>
+            <span class=s2>"span_id"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span><span class=p>,</span>
+            <span class=s2>"duration_ms"</span><span class=p>:</span> <span class=nb>round</span><span class=p>(</span><span class=n>duration</span> <span class=o>*</span> <span class=mi>1000</span><span class=p>,</span> <span class=mi>3</span><span class=p>),</span>
+        <span class=p>}</span>
+        <span class=n>fields</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_attributes</span><span class=p>)</span>
+        <span class=n>status</span> <span class=o>=</span> <span class=s2>"ok"</span>
+        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>exc_value</span><span class=p>,</span> <span class=ne>SystemExit</span><span class=p>):</span>
+            <span class=n>code</span> <span class=o>=</span> <span class=n>exc_value</span><span class=o>.</span><span class=n>code</span>
+            <span class=c1># Same exit code as the interpreter uses, 'None' is success</span>
+            <span class=c1>#   and other non-int values (e.g. message) are failure</span>
+            <span class=n>exit_code</span> <span class=o>=</span> <span class=p>(</span>
+                <span class=n>code</span> <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>code</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> <span class=k>else</span> <span class=nb>int</span><span class=p>(</span><span class=n>code</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span>
+            <span class=p>)</span>
+            <span class=n>fields</span><span class=p>[</span><span class=s2>"exit_code"</span><span class=p>]</span> <span class=o>=</span> <span class=n>exit_code</span>
+            <span class=k>if</span> <span class=n>exit_code</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>:</span>
+                <span class=n>status</span> <span class=o>=</span> <span class=s2>"error"</span>
+        <span class=k>elif</span> <span class=n>exc_type</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>status</span> <span class=o>=</span> <span class=s2>"error"</span>
+            <span class=n>fields</span><span class=p>[</span><span class=s2>"error_type"</span><span class=p>]</span> <span class=o>=</span> <span class=n>exc_type</span><span class=o>.</span><span class=vm>__name__</span>
+        <span class=n>fields</span><span class=p>[</span><span class=s2>"status"</span><span class=p>]</span> <span class=o>=</span> <span class=n>status</span>
+        <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=n>fields</span><span class=p>[</span><span class=s2>"parent_span_id"</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span><span class=o>.</span><span class=n>span_id</span>
+
+        <span class=n>structlog</span><span class=o>.</span><span class=n>get_logger</span><span class=p>(</span><span class=n>SPAN_LOGGER_NAME</span><span class=p>)</span><span class=o>.</span><span class=n>log</span><span class=p>(</span>
+            <span class=bp>self</span><span class=o>.</span><span class=n>_level</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>_name</span><span class=p>,</span> <span class=o>**</span><span class=n>fields</span>
+        <span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> <div class="doc doc-children"> <div class="doc doc-object doc-function"> <h3 id=common.ayon_common.logging.log_span.finish class="doc doc-heading"> <code class="highlight language-python"><span class=n>finish</span><span class=p>(</span><span class=n>exc_type</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>exc_value</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span></code> </h3> <div class="doc doc-contents "> <p>End the span and log its record.</p> <p><span class=doc-section-title>Parameters:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> <th>Default</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td> <code>exc_type</code> </td> <td> <code>Optional[<span title=type>type</span>[<span title=BaseException>BaseException</span>]]</code> </td> <td> <div class=doc-md-description> <p>Type of exception which ended the span.</p> </div> </td> <td> <code>None</code> </td> </tr> <tr class=doc-section-item> <td> <code>exc_value</code> </td> <td> <code>Optional[<span title=BaseException>BaseException</span>]</code> </td> <td> <div class=doc-md-description> <p>Exception which ended the span.</p> </div> </td> <td> <code>None</code> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>287</span>
+<span class=normal>288</span>
+<span class=normal>289</span>
+<span class=normal>290</span>
+<span class=normal>291</span>
+<span class=normal>292</span>
+<span class=normal>293</span>
+<span class=normal>294</span>
+<span class=normal>295</span>
+<span class=normal>296</span>
+<span class=normal>297</span>
+<span class=normal>298</span>
+<span class=normal>299</span>
+<span class=normal>300</span>
+<span class=normal>301</span>
+<span class=normal>302</span>
+<span class=normal>303</span>
+<span class=normal>304</span>
+<span class=normal>305</span>
+<span class=normal>306</span>
+<span class=normal>307</span>
+<span class=normal>308</span>
+<span class=normal>309</span>
+<span class=normal>310</span>
+<span class=normal>311</span>
+<span class=normal>312</span>
+<span class=normal>313</span>
+<span class=normal>314</span>
+<span class=normal>315</span>
+<span class=normal>316</span>
+<span class=normal>317</span>
+<span class=normal>318</span>
+<span class=normal>319</span>
+<span class=normal>320</span>
+<span class=normal>321</span>
+<span class=normal>322</span>
+<span class=normal>323</span>
+<span class=normal>324</span>
+<span class=normal>325</span>
+<span class=normal>326</span>
+<span class=normal>327</span>
+<span class=normal>328</span>
+<span class=normal>329</span>
+<span class=normal>330</span>
+<span class=normal>331</span>
+<span class=normal>332</span>
+<span class=normal>333</span>
+<span class=normal>334</span>
+<span class=normal>335</span>
+<span class=normal>336</span>
+<span class=normal>337</span>
+<span class=normal>338</span>
+<span class=normal>339</span>
+<span class=normal>340</span>
+<span class=normal>341</span>
+<span class=normal>342</span>
+<span class=normal>343</span>
+<span class=normal>344</span>
+<span class=normal>345</span>
+<span class=normal>346</span>
+<span class=normal>347</span>
+<span class=normal>348</span>
+<span class=normal>349</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>finish</span><span class=p>(</span>
+    <span class=bp>self</span><span class=p>,</span>
+    <span class=n>exc_type</span><span class=p>:</span> <span class=nb>type</span><span class=p>[</span><span class=ne>BaseException</span><span class=p>]</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+    <span class=n>exc_value</span><span class=p>:</span> <span class=ne>BaseException</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span><span class=p>,</span>
+<span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""End the span and log its record.</span>
+
+<span class=sd>    Args:</span>
+<span class=sd>        exc_type (Optional[type[BaseException]]): Type of exception</span>
+<span class=sd>            which ended the span.</span>
+<span class=sd>        exc_value (Optional[BaseException]): Exception which ended</span>
+<span class=sd>            the span.</span>
+
+<span class=sd>    """</span>
+    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_finished</span> <span class=ow>or</span> <span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span>
+
+    <span class=c1># Finish nested spans still open, innermost first, so context</span>
+    <span class=c1>#   variables are restored in order</span>
+    <span class=n>nested</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>span</span> <span class=o>=</span> <span class=n>_current_span</span><span class=o>.</span><span class=n>get</span><span class=p>()</span>
+    <span class=k>while</span> <span class=n>span</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span> <span class=ow>and</span> <span class=n>span</span> <span class=ow>is</span> <span class=ow>not</span> <span class=bp>self</span><span class=p>:</span>
+        <span class=n>nested</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>span</span><span class=p>)</span>
+        <span class=n>span</span> <span class=o>=</span> <span class=n>span</span><span class=o>.</span><span class=n>_parent</span>
+    <span class=k>if</span> <span class=n>span</span> <span class=ow>is</span> <span class=bp>self</span><span class=p>:</span>
+        <span class=k>for</span> <span class=n>span</span> <span class=ow>in</span> <span class=n>nested</span><span class=p>:</span>
+            <span class=n>span</span><span class=o>.</span><span class=n>finish</span><span class=p>()</span>
+
+    <span class=bp>self</span><span class=o>.</span><span class=n>_finished</span> <span class=o>=</span> <span class=kc>True</span>
+    <span class=n>duration</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>perf_counter</span><span class=p>()</span> <span class=o>-</span> <span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_start</span> <span class=ow>or</span> <span class=mf>0.0</span><span class=p>)</span>
+    <span class=n>structlog</span><span class=o>.</span><span class=n>contextvars</span><span class=o>.</span><span class=n>reset_contextvars</span><span class=p>(</span><span class=o>**</span><span class=bp>self</span><span class=o>.</span><span class=n>_contextvars_tokens</span><span class=p>)</span>
+    <span class=n>_current_span</span><span class=o>.</span><span class=n>reset</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_span_token</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>(</span><span class=n>SPAN_LOGGER_NAME</span><span class=p>)</span><span class=o>.</span><span class=n>isEnabledFor</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_level</span><span class=p>):</span>
+        <span class=k>return</span>
+
+    <span class=n>fields</span><span class=p>:</span> <span class=nb>dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span>
+        <span class=s2>"trace_id"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>_trace_id</span><span class=p>,</span>
+        <span class=s2>"span_id"</span><span class=p>:</span> <span class=bp>self</span><span class=o>.</span><span class=n>_span_id</span><span class=p>,</span>
+        <span class=s2>"duration_ms"</span><span class=p>:</span> <span class=nb>round</span><span class=p>(</span><span class=n>duration</span> <span class=o>*</span> <span class=mi>1000</span><span class=p>,</span> <span class=mi>3</span><span class=p>),</span>
+    <span class=p>}</span>
+    <span class=n>fields</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>_attributes</span><span class=p>)</span>
+    <span class=n>status</span> <span class=o>=</span> <span class=s2>"ok"</span>
+    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>exc_value</span><span class=p>,</span> <span class=ne>SystemExit</span><span class=p>):</span>
+        <span class=n>code</span> <span class=o>=</span> <span class=n>exc_value</span><span class=o>.</span><span class=n>code</span>
+        <span class=c1># Same exit code as the interpreter uses, 'None' is success</span>
+        <span class=c1>#   and other non-int values (e.g. message) are failure</span>
+        <span class=n>exit_code</span> <span class=o>=</span> <span class=p>(</span>
+            <span class=n>code</span> <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>code</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span> <span class=k>else</span> <span class=nb>int</span><span class=p>(</span><span class=n>code</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>)</span>
+        <span class=p>)</span>
+        <span class=n>fields</span><span class=p>[</span><span class=s2>"exit_code"</span><span class=p>]</span> <span class=o>=</span> <span class=n>exit_code</span>
+        <span class=k>if</span> <span class=n>exit_code</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=n>status</span> <span class=o>=</span> <span class=s2>"error"</span>
+    <span class=k>elif</span> <span class=n>exc_type</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>status</span> <span class=o>=</span> <span class=s2>"error"</span>
+        <span class=n>fields</span><span class=p>[</span><span class=s2>"error_type"</span><span class=p>]</span> <span class=o>=</span> <span class=n>exc_type</span><span class=o>.</span><span class=vm>__name__</span>
+    <span class=n>fields</span><span class=p>[</span><span class=s2>"status"</span><span class=p>]</span> <span class=o>=</span> <span class=n>status</span>
+    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>fields</span><span class=p>[</span><span class=s2>"parent_span_id"</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parent</span><span class=o>.</span><span class=n>span_id</span>
+
+    <span class=n>structlog</span><span class=o>.</span><span class=n>get_logger</span><span class=p>(</span><span class=n>SPAN_LOGGER_NAME</span><span class=p>)</span><span class=o>.</span><span class=n>log</span><span class=p>(</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>_level</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>_name</span><span class=p>,</span> <span class=o>**</span><span class=n>fields</span>
+    <span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=common.ayon_common.logging.log_span.set class="doc doc-heading"> <code class="highlight language-python"><span class=nb>set</span><span class=p>(</span><span class=o>**</span><span class=n>attributes</span><span class=p>)</span></code> </h3> <div class="doc doc-contents "> <p>Add attributes known only after the span started.</p> <p><span class=doc-section-title>Parameters:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> <th>Default</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td> <code>**attributes</code> </td> <td> <code><span title=typing.Any>Any</span></code> </td> <td> <div class=doc-md-description> <p>Additional fields of the span record.</p> </div> </td> <td> <code>{}</code> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>259</span>
+<span class=normal>260</span>
+<span class=normal>261</span>
+<span class=normal>262</span>
+<span class=normal>263</span>
+<span class=normal>264</span>
+<span class=normal>265</span>
+<span class=normal>266</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>set</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=o>**</span><span class=n>attributes</span><span class=p>:</span> <span class=n>Any</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Add attributes known only after the span started.</span>
+
+<span class=sd>    Args:</span>
+<span class=sd>        **attributes (Any): Additional fields of the span record.</span>
+
+<span class=sd>    """</span>
+    <span class=bp>self</span><span class=o>.</span><span class=n>_attributes</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>attributes</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> </div> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.configure_logging class="doc doc-heading"> <code class="highlight language-python"><span class=n>configure_logging</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Set up logging for AYON common package.</p> <p>Sets up structlog with a console renderer and a JSON renderer for sending logs to Vector.</p> <p>Safe to call multiple times, and safe even if another package (e.g. 'ayon_core') configures logging first - only the first call in the process has any effect, to avoid attaching duplicate handlers.</p> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>1171</span>
+<span class=normal>1172</span>
+<span class=normal>1173</span>
+<span class=normal>1174</span>
+<span class=normal>1175</span>
+<span class=normal>1176</span>
+<span class=normal>1177</span>
+<span class=normal>1178</span>
+<span class=normal>1179</span>
+<span class=normal>1180</span>
+<span class=normal>1181</span>
+<span class=normal>1182</span>
+<span class=normal>1183</span>
+<span class=normal>1184</span>
+<span class=normal>1185</span>
+<span class=normal>1186</span>
+<span class=normal>1187</span>
+<span class=normal>1188</span>
+<span class=normal>1189</span>
+<span class=normal>1190</span>
+<span class=normal>1191</span>
+<span class=normal>1192</span>
+<span class=normal>1193</span>
+<span class=normal>1194</span>
+<span class=normal>1195</span>
+<span class=normal>1196</span>
+<span class=normal>1197</span>
+<span class=normal>1198</span>
+<span class=normal>1199</span>
+<span class=normal>1200</span>
+<span class=normal>1201</span>
+<span class=normal>1202</span>
+<span class=normal>1203</span>
+<span class=normal>1204</span>
+<span class=normal>1205</span>
+<span class=normal>1206</span>
+<span class=normal>1207</span>
+<span class=normal>1208</span>
+<span class=normal>1209</span>
+<span class=normal>1210</span>
+<span class=normal>1211</span>
+<span class=normal>1212</span>
+<span class=normal>1213</span>
+<span class=normal>1214</span>
+<span class=normal>1215</span>
+<span class=normal>1216</span>
+<span class=normal>1217</span>
+<span class=normal>1218</span>
+<span class=normal>1219</span>
+<span class=normal>1220</span>
+<span class=normal>1221</span>
+<span class=normal>1222</span>
+<span class=normal>1223</span>
+<span class=normal>1224</span>
+<span class=normal>1225</span>
+<span class=normal>1226</span>
+<span class=normal>1227</span>
+<span class=normal>1228</span>
+<span class=normal>1229</span>
+<span class=normal>1230</span>
+<span class=normal>1231</span>
+<span class=normal>1232</span>
+<span class=normal>1233</span>
+<span class=normal>1234</span>
+<span class=normal>1235</span>
+<span class=normal>1236</span>
+<span class=normal>1237</span>
+<span class=normal>1238</span>
+<span class=normal>1239</span>
+<span class=normal>1240</span>
+<span class=normal>1241</span>
+<span class=normal>1242</span>
+<span class=normal>1243</span>
+<span class=normal>1244</span>
+<span class=normal>1245</span>
+<span class=normal>1246</span>
+<span class=normal>1247</span>
+<span class=normal>1248</span>
+<span class=normal>1249</span>
+<span class=normal>1250</span>
+<span class=normal>1251</span>
+<span class=normal>1252</span>
+<span class=normal>1253</span>
+<span class=normal>1254</span>
+<span class=normal>1255</span>
+<span class=normal>1256</span>
+<span class=normal>1257</span>
+<span class=normal>1258</span>
+<span class=normal>1259</span>
+<span class=normal>1260</span>
+<span class=normal>1261</span>
+<span class=normal>1262</span>
+<span class=normal>1263</span>
+<span class=normal>1264</span>
+<span class=normal>1265</span>
+<span class=normal>1266</span>
+<span class=normal>1267</span>
+<span class=normal>1268</span>
+<span class=normal>1269</span>
+<span class=normal>1270</span>
+<span class=normal>1271</span>
+<span class=normal>1272</span>
+<span class=normal>1273</span>
+<span class=normal>1274</span>
+<span class=normal>1275</span>
+<span class=normal>1276</span>
+<span class=normal>1277</span>
+<span class=normal>1278</span>
+<span class=normal>1279</span>
+<span class=normal>1280</span>
+<span class=normal>1281</span>
+<span class=normal>1282</span>
+<span class=normal>1283</span>
+<span class=normal>1284</span>
+<span class=normal>1285</span>
+<span class=normal>1286</span>
+<span class=normal>1287</span>
+<span class=normal>1288</span>
+<span class=normal>1289</span>
+<span class=normal>1290</span>
+<span class=normal>1291</span>
+<span class=normal>1292</span>
+<span class=normal>1293</span>
+<span class=normal>1294</span>
+<span class=normal>1295</span>
+<span class=normal>1296</span>
+<span class=normal>1297</span>
+<span class=normal>1298</span>
+<span class=normal>1299</span>
+<span class=normal>1300</span>
+<span class=normal>1301</span>
+<span class=normal>1302</span>
+<span class=normal>1303</span>
+<span class=normal>1304</span>
+<span class=normal>1305</span>
+<span class=normal>1306</span>
+<span class=normal>1307</span>
+<span class=normal>1308</span>
+<span class=normal>1309</span>
+<span class=normal>1310</span>
+<span class=normal>1311</span>
+<span class=normal>1312</span>
+<span class=normal>1313</span>
+<span class=normal>1314</span>
+<span class=normal>1315</span>
+<span class=normal>1316</span>
+<span class=normal>1317</span>
+<span class=normal>1318</span>
+<span class=normal>1319</span>
+<span class=normal>1320</span>
+<span class=normal>1321</span>
+<span class=normal>1322</span>
+<span class=normal>1323</span>
+<span class=normal>1324</span>
+<span class=normal>1325</span>
+<span class=normal>1326</span>
+<span class=normal>1327</span>
+<span class=normal>1328</span>
+<span class=normal>1329</span>
+<span class=normal>1330</span>
+<span class=normal>1331</span>
+<span class=normal>1332</span>
+<span class=normal>1333</span>
+<span class=normal>1334</span>
+<span class=normal>1335</span>
+<span class=normal>1336</span>
+<span class=normal>1337</span>
+<span class=normal>1338</span>
+<span class=normal>1339</span>
+<span class=normal>1340</span>
+<span class=normal>1341</span>
+<span class=normal>1342</span>
+<span class=normal>1343</span>
+<span class=normal>1344</span>
+<span class=normal>1345</span>
+<span class=normal>1346</span>
+<span class=normal>1347</span>
+<span class=normal>1348</span>
+<span class=normal>1349</span>
+<span class=normal>1350</span>
+<span class=normal>1351</span>
+<span class=normal>1352</span>
+<span class=normal>1353</span>
+<span class=normal>1354</span>
+<span class=normal>1355</span>
+<span class=normal>1356</span>
+<span class=normal>1357</span>
+<span class=normal>1358</span>
+<span class=normal>1359</span>
+<span class=normal>1360</span>
+<span class=normal>1361</span>
+<span class=normal>1362</span>
+<span class=normal>1363</span>
+<span class=normal>1364</span>
+<span class=normal>1365</span>
+<span class=normal>1366</span>
+<span class=normal>1367</span>
+<span class=normal>1368</span>
+<span class=normal>1369</span>
+<span class=normal>1370</span>
+<span class=normal>1371</span>
+<span class=normal>1372</span>
+<span class=normal>1373</span>
+<span class=normal>1374</span>
+<span class=normal>1375</span>
+<span class=normal>1376</span>
+<span class=normal>1377</span>
+<span class=normal>1378</span>
+<span class=normal>1379</span>
+<span class=normal>1380</span>
+<span class=normal>1381</span>
+<span class=normal>1382</span>
+<span class=normal>1383</span>
+<span class=normal>1384</span>
+<span class=normal>1385</span>
+<span class=normal>1386</span>
+<span class=normal>1387</span>
+<span class=normal>1388</span>
+<span class=normal>1389</span>
+<span class=normal>1390</span>
+<span class=normal>1391</span>
+<span class=normal>1392</span>
+<span class=normal>1393</span>
+<span class=normal>1394</span>
+<span class=normal>1395</span>
+<span class=normal>1396</span>
+<span class=normal>1397</span>
+<span class=normal>1398</span>
+<span class=normal>1399</span>
+<span class=normal>1400</span>
+<span class=normal>1401</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>configure_logging</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Set up logging for AYON common package.</span>
+
+<span class=sd>    Sets up structlog with a console renderer</span>
+<span class=sd>    and a JSON renderer for sending logs to Vector.</span>
+
+<span class=sd>    Safe to call multiple times, and safe even if another package (e.g.</span>
+<span class=sd>    'ayon_core') configures logging first - only the first call in the</span>
+<span class=sd>    process has any effect, to avoid attaching duplicate handlers.</span>
+
+<span class=sd>    """</span>
+    <span class=k>global</span> <span class=n>_logging_state</span>
+
+    <span class=c1># 'structlog.is_configured()' is process-wide, so it also guards</span>
+    <span class=c1># against other packages (e.g. 'ayon_core') configuring logging first.</span>
+    <span class=k>if</span> <span class=n>structlog</span><span class=o>.</span><span class=n>is_configured</span><span class=p>():</span>
+        <span class=k>return</span>
+    <span class=c1># Configure structlog</span>
+    <span class=k>def</span><span class=w> </span><span class=nf>_add_site_id</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>):</span>
+        <span class=n>event_dict</span><span class=o>.</span><span class=n>setdefault</span><span class=p>(</span>
+            <span class=s2>"site_id"</span><span class=p>,</span> <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"AYON_SITE_ID"</span><span class=p>,</span> <span class=s2>"unknown"</span><span class=p>)</span>
+        <span class=p>)</span>
+        <span class=k>return</span> <span class=n>event_dict</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_add_session_id</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>):</span>
+        <span class=c1># Read on each record, context variables bound in the main thread</span>
+        <span class=c1>#   would not be available in other threads.</span>
+        <span class=n>session_id</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>"AYON_SESSION_ID"</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>session_id</span><span class=p>:</span>
+            <span class=n>event_dict</span><span class=o>.</span><span class=n>setdefault</span><span class=p>(</span><span class=s2>"session_id"</span><span class=p>,</span> <span class=n>session_id</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>event_dict</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_drop_log_context</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>):</span>
+        <span class=c1># Keep context fields in JSON sent to Vector but not in console</span>
+        <span class=c1># output - full ids make console output hard to read. Trace and</span>
+        <span class=c1># span ids are added by 'ayon_core.lib.log_span'.</span>
+        <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=p>(</span>
+            <span class=s2>"site_id"</span><span class=p>,</span>
+            <span class=s2>"session_id"</span><span class=p>,</span>
+            <span class=s2>"trace_id"</span><span class=p>,</span>
+            <span class=s2>"span_id"</span><span class=p>,</span>
+            <span class=s2>"parent_span_id"</span><span class=p>,</span>
+            <span class=n>MESSAGE_TEMPLATE_KEY</span><span class=p>,</span>
+        <span class=p>):</span>
+            <span class=n>event_dict</span><span class=o>.</span><span class=n>pop</span><span class=p>(</span><span class=n>key</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>event_dict</span>
+
+    <span class=n>positional_args_formatter</span> <span class=o>=</span> <span class=p>(</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>stdlib</span><span class=o>.</span><span class=n>PositionalArgumentsFormatter</span><span class=p>()</span>
+    <span class=p>)</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_format_positional_args</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>):</span>
+        <span class=c1># Arguments not matching the message must not raise in the</span>
+        <span class=c1>#   code that logs, e.g. 'log.info("Data:", data)'. Standard</span>
+        <span class=c1>#   library logger reports them to stderr and drops the</span>
+        <span class=c1>#   record, here they are added to the message instead.</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>positional_args_formatter</span><span class=p>(</span>
+                <span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span>
+            <span class=p>)</span>
+        <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+            <span class=n>args</span> <span class=o>=</span> <span class=n>event_dict</span><span class=o>.</span><span class=n>pop</span><span class=p>(</span><span class=s2>"positional_args"</span><span class=p>,</span> <span class=p>())</span>
+            <span class=k>try</span><span class=p>:</span>
+                <span class=n>formatted_args</span> <span class=o>=</span> <span class=s2>" "</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=nb>repr</span><span class=p>(</span><span class=n>arg</span><span class=p>)</span> <span class=k>for</span> <span class=n>arg</span> <span class=ow>in</span> <span class=n>args</span><span class=p>)</span>
+            <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+                <span class=n>formatted_args</span> <span class=o>=</span> <span class=s2>"&lt;unprintable arguments&gt;"</span>
+            <span class=n>event_dict</span><span class=p>[</span><span class=s2>"event"</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span>
+                <span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>event_dict</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s1>'event'</span><span class=p>)</span><span class=si>}</span><span class=s2> </span><span class=si>{</span><span class=n>formatted_args</span><span class=si>}</span><span class=s2>"</span>
+            <span class=p>)</span>
+            <span class=k>return</span> <span class=n>event_dict</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_format_message</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>):</span>
+        <span class=c1># Message template, or '%s' style arguments</span>
+        <span class=n>event_dict</span> <span class=o>=</span> <span class=n>_render_message</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>)</span>
+        <span class=k>return</span> <span class=n>_format_positional_args</span><span class=p>(</span><span class=n>logger</span><span class=p>,</span> <span class=n>method_name</span><span class=p>,</span> <span class=n>event_dict</span><span class=p>)</span>
+
+    <span class=n>shared_processors</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=n>Callable</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>contextvars</span><span class=o>.</span><span class=n>merge_contextvars</span><span class=p>,</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>processors</span><span class=o>.</span><span class=n>add_log_level</span><span class=p>,</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>stdlib</span><span class=o>.</span><span class=n>add_logger_name</span><span class=p>,</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>processors</span><span class=o>.</span><span class=n>TimeStamper</span><span class=p>(</span><span class=n>fmt</span><span class=o>=</span><span class=s2>"iso"</span><span class=p>),</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>processors</span><span class=o>.</span><span class=n>StackInfoRenderer</span><span class=p>(),</span>
+        <span class=n>_add_site_id</span><span class=p>,</span>
+        <span class=n>_add_session_id</span><span class=p>,</span>
+    <span class=p>]</span>
+
+    <span class=n>structlog</span><span class=o>.</span><span class=n>configure</span><span class=p>(</span>
+        <span class=n>processors</span><span class=o>=</span><span class=n>shared_processors</span> <span class=o>+</span> <span class=p>[</span>
+            <span class=c1># Support message templates, e.g.</span>
+            <span class=c1>#   'log.info("Loaded {name}", name=name)', and '%s' style</span>
+            <span class=c1>#   arguments, e.g. 'log.info("Loaded %s", name)'. Records</span>
+            <span class=c1>#   from plain stdlib loggers are already formatted by</span>
+            <span class=c1>#   'ProcessorFormatter' via 'record.getMessage()'.</span>
+            <span class=n>_format_message</span><span class=p>,</span>
+            <span class=c1># Hand over to standard logging, rendered by formatters</span>
+            <span class=n>_render_for_stdlib</span><span class=p>,</span>
+        <span class=p>],</span>
+        <span class=n>logger_factory</span><span class=o>=</span><span class=n>structlog</span><span class=o>.</span><span class=n>stdlib</span><span class=o>.</span><span class=n>LoggerFactory</span><span class=p>(),</span>
+        <span class=n>wrapper_class</span><span class=o>=</span><span class=n>_LevelAwareBoundLogger</span><span class=p>,</span>
+        <span class=n>cache_logger_on_first_use</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span>
+    <span class=p>)</span>
+
+    <span class=n>console_timestamper</span> <span class=o>=</span> <span class=n>_create_console_timestamper</span><span class=p>(</span>
+        <span class=n>get_console_time_format_from_env</span><span class=p>()</span>
+    <span class=p>)</span>
+    <span class=n>ayon_console_style</span> <span class=o>=</span> <span class=n>get_console_style_from_env</span><span class=p>()</span> <span class=o>==</span> <span class=n>CONSOLE_STYLE_AYON</span>
+    <span class=c1># AYON layout shows only the message, fields are in log file and</span>
+    <span class=c1>#   Vector. Logger name is shown only for debugging.</span>
+    <span class=n>show_key_values</span> <span class=o>=</span> <span class=ow>not</span> <span class=n>ayon_console_style</span>
+    <span class=n>show_logger_name</span> <span class=o>=</span> <span class=p>(</span>
+        <span class=ow>not</span> <span class=n>ayon_console_style</span>
+        <span class=ow>or</span> <span class=n>get_log_level_from_env</span><span class=p>()</span> <span class=o>&lt;=</span> <span class=n>logging</span><span class=o>.</span><span class=n>DEBUG</span>
+    <span class=p>)</span>
+    <span class=n>console_processors</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=n>Callable</span><span class=p>]</span> <span class=o>=</span> <span class=p>[</span>
+        <span class=n>console_timestamper</span><span class=p>,</span>
+        <span class=n>structlog</span><span class=o>.</span><span class=n>stdlib</span><span class=o>.</span><span class=n>ProcessorFormatter</span><span class=o>.</span><span class=n>remove_processors_meta</span><span class=p>,</span>
+        <span class=n>_drop_log_context</span><span class=p>,</span>
+        <span class=n>_add_span_duration_to_event</span><span class=p>,</span>
+    <span class=p>]</span>
+
+    <span class=k>def</span><span class=w> </span><span class=nf>_create_console_formatter</span><span class=p>(</span><span class=n>colors</span><span class=p>:</span> <span class=nb>bool</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>logging</span><span class=o>.</span><span class=n>Formatter</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>_EventDictProcessorFormatter</span><span class=p>(</span>
+            <span class=n>foreign_pre_chain</span><span class=o>=</span><span class=n>shared_processors</span><span class=p>,</span>
+            <span class=n>processors</span><span class=o>=</span><span class=p>[</span>
+                <span class=o>*</span><span class=n>console_processors</span><span class=p>,</span>
+                <span class=n>_ConsoleRenderer</span><span class=p>(</span>
+                    <span class=n>colors</span><span class=o>=</span><span class=n>colors</span><span class=p>,</span>
+                    <span class=n>exception_formatter</span><span class=o>=</span><span class=p>(</span>
+                        <span class=n>_get_console_exception_formatter</span><span class=p>(</span><span class=n>colors</span><span class=p>)</span>
+                    <span class=p>),</span>
+                    <span class=n>compact_level</span><span class=o>=</span><span class=n>ayon_console_style</span><span class=p>,</span>
+                    <span class=n>show_key_values</span><span class=o>=</span><span class=n>show_key_values</span><span class=p>,</span>
+                    <span class=n>show_logger_name</span><span class=o>=</span><span class=n>show_logger_name</span><span class=p>,</span>
+                <span class=p>),</span>
+            <span class=p>],</span>
+        <span class=p>)</span>
+
+    <span class=n>json_formatter</span> <span class=o>=</span> <span class=n>_EventDictProcessorFormatter</span><span class=p>(</span>
+        <span class=n>foreign_pre_chain</span><span class=o>=</span><span class=n>shared_processors</span><span class=p>,</span>
+        <span class=n>processors</span><span class=o>=</span><span class=p>[</span>
+            <span class=n>structlog</span><span class=o>.</span><span class=n>stdlib</span><span class=o>.</span><span class=n>ProcessorFormatter</span><span class=o>.</span><span class=n>remove_processors_meta</span><span class=p>,</span>
+            <span class=n>structlog</span><span class=o>.</span><span class=n>processors</span><span class=o>.</span><span class=n>format_exc_info</span><span class=p>,</span>
+            <span class=n>structlog</span><span class=o>.</span><span class=n>processors</span><span class=o>.</span><span class=n>JSONRenderer</span><span class=p>(),</span>
+        <span class=p>],</span>
+    <span class=p>)</span>
+
+    <span class=n>handler</span> <span class=o>=</span> <span class=n>_StderrHandler</span><span class=p>(</span>
+        <span class=n>color_formatter</span><span class=o>=</span><span class=n>_create_console_formatter</span><span class=p>(</span><span class=n>colors</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+    <span class=p>)</span>
+    <span class=n>handler</span><span class=o>.</span><span class=n>setFormatter</span><span class=p>(</span><span class=n>_create_console_formatter</span><span class=p>(</span><span class=n>colors</span><span class=o>=</span><span class=kc>False</span><span class=p>))</span>
+
+    <span class=c1># Failed setup of log file or Vector must not break the process,</span>
+    <span class=c1>#   console output is kept. Warnings are logged once handlers are</span>
+    <span class=c1>#   added.</span>
+    <span class=n>setup_warnings</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=ne>Exception</span><span class=p>]]</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=n>file_handler</span><span class=p>:</span> <span class=n>TimedRotatingFileHandler</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>LOG_FILE_ENABLED</span><span class=p>:</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>log_dir</span> <span class=o>=</span> <span class=n>get_launcher_local_dir</span><span class=p>(</span><span class=s2>"logs"</span><span class=p>,</span> <span class=n>create</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+            <span class=n>_remove_old_log_files</span><span class=p>(</span><span class=n>log_dir</span><span class=p>,</span> <span class=n>LOG_FILE_RETENTION_DAYS</span><span class=p>)</span>
+            <span class=n>file_handler</span> <span class=o>=</span> <span class=n>TimedRotatingFileHandler</span><span class=p>(</span>
+                <span class=n>_get_log_file_path</span><span class=p>(</span><span class=n>log_dir</span><span class=p>),</span>
+                <span class=n>when</span><span class=o>=</span><span class=s2>"midnight"</span><span class=p>,</span>
+                <span class=n>backupCount</span><span class=o>=</span><span class=n>LOG_FILE_RETENTION_DAYS</span><span class=p>,</span>
+                <span class=n>encoding</span><span class=o>=</span><span class=s2>"utf-8"</span><span class=p>,</span>
+            <span class=p>)</span>
+        <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>exc</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+            <span class=c1># E.g. the directory is not writable or the disk is full</span>
+            <span class=n>setup_warnings</span><span class=o>.</span><span class=n>append</span><span class=p>((</span>
+                <span class=s2>"Failed to create AYON log file, logging to file"</span>
+                <span class=s2>" is disabled: </span><span class=si>%s</span><span class=s2>"</span><span class=p>,</span>
+                <span class=n>exc</span><span class=p>,</span>
+            <span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>file_handler</span><span class=o>.</span><span class=n>setFormatter</span><span class=p>(</span><span class=n>json_formatter</span><span class=p>)</span>
+
+    <span class=n>queue_handler</span><span class=p>:</span> <span class=n>_DroppingQueueHandler</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=n>vector_sender</span><span class=p>:</span> <span class=n>VectorHTTPSender</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=kc>None</span>
+    <span class=k>if</span> <span class=n>VECTOR_LOG_URL</span><span class=p>:</span>
+        <span class=c1># Send logs to Vector asynchronously so HTTP calls</span>
+        <span class=c1># don't block the app.</span>
+        <span class=c1># Queue is bounded so a Vector outage drops records instead of</span>
+        <span class=c1># growing memory without bound.</span>
+        <span class=n>log_queue</span><span class=p>:</span> <span class=n>queue</span><span class=o>.</span><span class=n>Queue</span> <span class=o>=</span> <span class=n>queue</span><span class=o>.</span><span class=n>Queue</span><span class=p>(</span><span class=n>VECTOR_QUEUE_MAX_SIZE</span><span class=p>)</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>vector_sender</span> <span class=o>=</span> <span class=n>VectorHTTPSender</span><span class=p>(</span><span class=n>VECTOR_LOG_URL</span><span class=p>,</span> <span class=n>log_queue</span><span class=p>)</span>
+            <span class=n>vector_sender</span><span class=o>.</span><span class=n>start</span><span class=p>()</span>
+        <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>exc</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+            <span class=n>vector_sender</span> <span class=o>=</span> <span class=kc>None</span>
+            <span class=n>setup_warnings</span><span class=o>.</span><span class=n>append</span><span class=p>((</span>
+                <span class=s2>"Failed to start sending of logs to Vector, it"</span>
+                <span class=s2>" is disabled: </span><span class=si>%s</span><span class=s2>"</span><span class=p>,</span>
+                <span class=n>exc</span><span class=p>,</span>
+            <span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>queue_handler</span> <span class=o>=</span> <span class=n>_DroppingQueueHandler</span><span class=p>(</span><span class=n>log_queue</span><span class=p>)</span>
+            <span class=n>queue_handler</span><span class=o>.</span><span class=n>setFormatter</span><span class=p>(</span><span class=n>json_formatter</span><span class=p>)</span>
+            <span class=c1># The sender thread is a daemon thread, it would be killed</span>
+            <span class=c1># on interpreter exit with records still in the queue.</span>
+            <span class=c1># Stopping it at exit delivers the queued records first.</span>
+            <span class=n>atexit</span><span class=o>.</span><span class=n>register</span><span class=p>(</span><span class=n>vector_sender</span><span class=o>.</span><span class=n>stop</span><span class=p>)</span>
+
+    <span class=n>log_level</span> <span class=o>=</span> <span class=n>get_log_level_from_env</span><span class=p>()</span>
+    <span class=n>root_logger</span> <span class=o>=</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>()</span>
+    <span class=n>state</span> <span class=o>=</span> <span class=n>_LoggingState</span><span class=p>(</span><span class=n>root_level</span><span class=o>=</span><span class=n>root_logger</span><span class=o>.</span><span class=n>level</span><span class=p>)</span>
+    <span class=c1># Set level first, root logger default WARNING would drop INFO below</span>
+    <span class=n>root_logger</span><span class=o>.</span><span class=n>setLevel</span><span class=p>(</span><span class=n>log_level</span><span class=p>)</span>
+    <span class=n>root_logger</span><span class=o>.</span><span class=n>addHandler</span><span class=p>(</span><span class=n>handler</span><span class=p>)</span>
+    <span class=n>state</span><span class=o>.</span><span class=n>handlers</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>handler</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>file_handler</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>root_logger</span><span class=o>.</span><span class=n>addHandler</span><span class=p>(</span><span class=n>file_handler</span><span class=p>)</span>
+        <span class=n>state</span><span class=o>.</span><span class=n>handlers</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>file_handler</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>queue_handler</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>root_logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span>
+            <span class=s2>"Vector logging enabled"</span><span class=p>,</span>
+            <span class=n>extra</span><span class=o>=</span><span class=p>{</span><span class=s2>"vector_log_url"</span><span class=p>:</span> <span class=n>VECTOR_LOG_URL</span><span class=p>},</span>
+        <span class=p>)</span>
+        <span class=n>root_logger</span><span class=o>.</span><span class=n>addHandler</span><span class=p>(</span><span class=n>queue_handler</span><span class=p>)</span>
+        <span class=n>state</span><span class=o>.</span><span class=n>handlers</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>queue_handler</span><span class=p>)</span>
+        <span class=n>state</span><span class=o>.</span><span class=n>vector_sender</span> <span class=o>=</span> <span class=n>vector_sender</span>
+    <span class=k>for</span> <span class=n>message</span><span class=p>,</span> <span class=n>exc</span> <span class=ow>in</span> <span class=n>setup_warnings</span><span class=p>:</span>
+        <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>(</span><span class=vm>__name__</span><span class=p>)</span><span class=o>.</span><span class=n>warning</span><span class=p>(</span><span class=n>message</span><span class=p>,</span> <span class=n>exc</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>log_level</span> <span class=o>&lt;</span> <span class=n>logging</span><span class=o>.</span><span class=n>INFO</span><span class=p>:</span>
+        <span class=c1># force silence for some very noisy loggers</span>
+        <span class=k>for</span> <span class=n>name</span> <span class=ow>in</span> <span class=p>(</span><span class=s2>"urllib3"</span><span class=p>,</span> <span class=s2>"requests"</span><span class=p>,</span> <span class=s2>"GlobalServerAPI"</span><span class=p>):</span>
+            <span class=n>logger</span> <span class=o>=</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>(</span><span class=n>name</span><span class=p>)</span>
+            <span class=n>state</span><span class=o>.</span><span class=n>logger_levels</span><span class=p>[</span><span class=n>name</span><span class=p>]</span> <span class=o>=</span> <span class=n>logger</span><span class=o>.</span><span class=n>level</span>
+            <span class=n>logger</span><span class=o>.</span><span class=n>setLevel</span><span class=p>(</span><span class=n>logging</span><span class=o>.</span><span class=n>WARNING</span><span class=p>)</span>
+
+    <span class=n>_logging_state</span> <span class=o>=</span> <span class=n>state</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.get_console_style_from_env class="doc doc-heading"> <code class="highlight language-python"><span class=n>get_console_style_from_env</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Resolve console layout from environment variables.</p> <p>'AYON_LOG_CONSOLE_STYLE' accepts: - 'ayon' (default) - log level without padding, e.g. '[info]', 'key=value' fields of records never shown and logger name shown only with DEBUG log level. - 'structlog' - default structlog layout, padded log level, logger name and 'key=value' fields always shown.</p> <p>Invalid value is handled as 'ayon'.</p> <p><span class=doc-section-title>Returns:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td><code>str</code></td> <td> <code><span title=str>str</span></code> </td> <td> <div class=doc-md-description> <p>'CONSOLE_STYLE_AYON' or 'CONSOLE_STYLE_STRUCTLOG'.</p> </div> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>146</span>
+<span class=normal>147</span>
+<span class=normal>148</span>
+<span class=normal>149</span>
+<span class=normal>150</span>
+<span class=normal>151</span>
+<span class=normal>152</span>
+<span class=normal>153</span>
+<span class=normal>154</span>
+<span class=normal>155</span>
+<span class=normal>156</span>
+<span class=normal>157</span>
+<span class=normal>158</span>
+<span class=normal>159</span>
+<span class=normal>160</span>
+<span class=normal>161</span>
+<span class=normal>162</span>
+<span class=normal>163</span>
+<span class=normal>164</span>
+<span class=normal>165</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>get_console_style_from_env</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Resolve console layout from environment variables.</span>
+
+<span class=sd>    'AYON_LOG_CONSOLE_STYLE' accepts:</span>
+<span class=sd>        - 'ayon' (default) - log level without padding, e.g. '[info]',</span>
+<span class=sd>            'key=value' fields of records never shown and logger name</span>
+<span class=sd>            shown only with DEBUG log level.</span>
+<span class=sd>        - 'structlog' - default structlog layout, padded log level,</span>
+<span class=sd>            logger name and 'key=value' fields always shown.</span>
+
+<span class=sd>    Invalid value is handled as 'ayon'.</span>
+
+<span class=sd>    Returns:</span>
+<span class=sd>        str: 'CONSOLE_STYLE_AYON' or 'CONSOLE_STYLE_STRUCTLOG'.</span>
+
+<span class=sd>    """</span>
+    <span class=n>style</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>"AYON_LOG_CONSOLE_STYLE"</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
+    <span class=k>if</span> <span class=n>style</span> <span class=o>==</span> <span class=n>CONSOLE_STYLE_STRUCTLOG</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>CONSOLE_STYLE_STRUCTLOG</span>
+    <span class=k>return</span> <span class=n>CONSOLE_STYLE_AYON</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.get_console_time_format_from_env class="doc doc-heading"> <code class="highlight language-python"><span class=n>get_console_time_format_from_env</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Resolve format of console timestamps from environment variables.</p> <p>'AYON_LOG_CONSOLE_TIME_FORMAT' accepts a 'strftime' format, e.g. '%H:%M:%S.%f'. Defaults to 'DEFAULT_CONSOLE_TIME_FORMAT' when it is not set or is invalid.</p> <p><span class=doc-section-title>Returns:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td><code>str</code></td> <td> <code><span title=str>str</span></code> </td> <td> <div class=doc-md-description> <p>Format of console timestamps.</p> </div> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>124</span>
+<span class=normal>125</span>
+<span class=normal>126</span>
+<span class=normal>127</span>
+<span class=normal>128</span>
+<span class=normal>129</span>
+<span class=normal>130</span>
+<span class=normal>131</span>
+<span class=normal>132</span>
+<span class=normal>133</span>
+<span class=normal>134</span>
+<span class=normal>135</span>
+<span class=normal>136</span>
+<span class=normal>137</span>
+<span class=normal>138</span>
+<span class=normal>139</span>
+<span class=normal>140</span>
+<span class=normal>141</span>
+<span class=normal>142</span>
+<span class=normal>143</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>get_console_time_format_from_env</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Resolve format of console timestamps from environment variables.</span>
+
+<span class=sd>    'AYON_LOG_CONSOLE_TIME_FORMAT' accepts a 'strftime' format, e.g.</span>
+<span class=sd>    '%H:%M:%S.%f'. Defaults to 'DEFAULT_CONSOLE_TIME_FORMAT' when it is</span>
+<span class=sd>    not set or is invalid.</span>
+
+<span class=sd>    Returns:</span>
+<span class=sd>        str: Format of console timestamps.</span>
+
+<span class=sd>    """</span>
+    <span class=n>time_format</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>"AYON_LOG_CONSOLE_TIME_FORMAT"</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>time_format</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>DEFAULT_CONSOLE_TIME_FORMAT</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=c1># Invalid directives raise 'ValueError' on some platforms</span>
+        <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>()</span><span class=o>.</span><span class=n>strftime</span><span class=p>(</span><span class=n>time_format</span><span class=p>)</span>
+    <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>DEFAULT_CONSOLE_TIME_FORMAT</span>
+    <span class=k>return</span> <span class=n>time_format</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.get_log_level_from_env class="doc doc-heading"> <code class="highlight language-python"><span class=n>get_log_level_from_env</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Resolve the AYON log level from environment variables.</p> <p>'AYON_LOG_LEVEL' accepts a numeric ('10') or a named ('DEBUG') level. Defaults to INFO when it is not set or is invalid.</p> <p><span class=doc-section-title>Returns:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td><code>int</code></td> <td> <code><span title=int>int</span></code> </td> <td> <div class=doc-md-description> <p>Log level.</p> </div> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>103</span>
+<span class=normal>104</span>
+<span class=normal>105</span>
+<span class=normal>106</span>
+<span class=normal>107</span>
+<span class=normal>108</span>
+<span class=normal>109</span>
+<span class=normal>110</span>
+<span class=normal>111</span>
+<span class=normal>112</span>
+<span class=normal>113</span>
+<span class=normal>114</span>
+<span class=normal>115</span>
+<span class=normal>116</span>
+<span class=normal>117</span>
+<span class=normal>118</span>
+<span class=normal>119</span>
+<span class=normal>120</span>
+<span class=normal>121</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>get_log_level_from_env</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=nb>int</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Resolve the AYON log level from environment variables.</span>
+
+<span class=sd>    'AYON_LOG_LEVEL' accepts a numeric ('10') or a named ('DEBUG') level.</span>
+<span class=sd>    Defaults to INFO when it is not set or is invalid.</span>
+
+<span class=sd>    Returns:</span>
+<span class=sd>        int: Log level.</span>
+
+<span class=sd>    """</span>
+    <span class=n>log_level</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>"AYON_LOG_LEVEL"</span><span class=p>,</span> <span class=s2>""</span><span class=p>)</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span>
+    <span class=k>if</span> <span class=n>log_level</span><span class=p>:</span>
+        <span class=k>if</span> <span class=n>log_level</span><span class=o>.</span><span class=n>isdigit</span><span class=p>():</span>
+            <span class=n>level</span> <span class=o>=</span> <span class=nb>int</span><span class=p>(</span><span class=n>log_level</span><span class=p>)</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>level</span> <span class=o>=</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLevelNamesMapping</span><span class=p>()</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>log_level</span><span class=o>.</span><span class=n>upper</span><span class=p>(),</span> <span class=mi>0</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>level</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>:</span>
+            <span class=k>return</span> <span class=n>level</span>
+    <span class=k>return</span> <span class=n>logging</span><span class=o>.</span><span class=n>INFO</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.release_logging class="doc doc-heading"> <code class="highlight language-python"><span class=n>release_logging</span><span class=p>()</span></code> </h2> <div class="doc doc-contents "> <p>Undo 'configure_logging' before control is passed to 'ayon_core'.</p> <p>Logging of the launcher process belongs to 'ayon_core' once it is started, it configures logging for its own needs. Handlers added by 'configure_logging' are removed, levels of the root logger and of silenced loggers are restored and structlog configuration is reset.</p> <p>Records already queued for Vector are sent in the background, the sender thread stops afterwards. Does nothing if 'configure_logging' did not configure logging.</p> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>1404</span>
+<span class=normal>1405</span>
+<span class=normal>1406</span>
+<span class=normal>1407</span>
+<span class=normal>1408</span>
+<span class=normal>1409</span>
+<span class=normal>1410</span>
+<span class=normal>1411</span>
+<span class=normal>1412</span>
+<span class=normal>1413</span>
+<span class=normal>1414</span>
+<span class=normal>1415</span>
+<span class=normal>1416</span>
+<span class=normal>1417</span>
+<span class=normal>1418</span>
+<span class=normal>1419</span>
+<span class=normal>1420</span>
+<span class=normal>1421</span>
+<span class=normal>1422</span>
+<span class=normal>1423</span>
+<span class=normal>1424</span>
+<span class=normal>1425</span>
+<span class=normal>1426</span>
+<span class=normal>1427</span>
+<span class=normal>1428</span>
+<span class=normal>1429</span>
+<span class=normal>1430</span>
+<span class=normal>1431</span>
+<span class=normal>1432</span>
+<span class=normal>1433</span>
+<span class=normal>1434</span>
+<span class=normal>1435</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>release_logging</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Undo 'configure_logging' before control is passed to 'ayon_core'.</span>
+
+<span class=sd>    Logging of the launcher process belongs to 'ayon_core' once it is</span>
+<span class=sd>    started, it configures logging for its own needs. Handlers added by</span>
+<span class=sd>    'configure_logging' are removed, levels of the root logger and of</span>
+<span class=sd>    silenced loggers are restored and structlog configuration is reset.</span>
+
+<span class=sd>    Records already queued for Vector are sent in the background, the</span>
+<span class=sd>    sender thread stops afterwards. Does nothing if 'configure_logging'</span>
+<span class=sd>    did not configure logging.</span>
+<span class=sd>    """</span>
+    <span class=k>global</span> <span class=n>_logging_state</span>
+
+    <span class=n>state</span> <span class=o>=</span> <span class=n>_logging_state</span>
+    <span class=k>if</span> <span class=n>state</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span>
+    <span class=n>_logging_state</span> <span class=o>=</span> <span class=kc>None</span>
+
+    <span class=n>root_logger</span> <span class=o>=</span> <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>()</span>
+    <span class=k>for</span> <span class=n>handler</span> <span class=ow>in</span> <span class=n>state</span><span class=o>.</span><span class=n>handlers</span><span class=p>:</span>
+        <span class=n>root_logger</span><span class=o>.</span><span class=n>removeHandler</span><span class=p>(</span><span class=n>handler</span><span class=p>)</span>
+        <span class=n>handler</span><span class=o>.</span><span class=n>close</span><span class=p>()</span>
+    <span class=n>root_logger</span><span class=o>.</span><span class=n>setLevel</span><span class=p>(</span><span class=n>state</span><span class=o>.</span><span class=n>root_level</span><span class=p>)</span>
+    <span class=k>for</span> <span class=n>name</span><span class=p>,</span> <span class=n>level</span> <span class=ow>in</span> <span class=n>state</span><span class=o>.</span><span class=n>logger_levels</span><span class=o>.</span><span class=n>items</span><span class=p>():</span>
+        <span class=n>logging</span><span class=o>.</span><span class=n>getLogger</span><span class=p>(</span><span class=n>name</span><span class=p>)</span><span class=o>.</span><span class=n>setLevel</span><span class=p>(</span><span class=n>level</span><span class=p>)</span>
+
+    <span class=k>if</span> <span class=n>state</span><span class=o>.</span><span class=n>vector_sender</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=n>state</span><span class=o>.</span><span class=n>vector_sender</span><span class=o>.</span><span class=n>request_stop</span><span class=p>()</span>
+
+    <span class=n>structlog</span><span class=o>.</span><span class=n>reset_defaults</span><span class=p>()</span>
+    <span class=n>structlog</span><span class=o>.</span><span class=n>contextvars</span><span class=o>.</span><span class=n>clear_contextvars</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id=common.ayon_common.logging.render_message_template class="doc doc-heading"> <code class="highlight language-python"><span class=n>render_message_template</span><span class=p>(</span><span class=n>template</span><span class=p>,</span> <span class=n>fields</span><span class=p>)</span></code> </h2> <div class="doc doc-contents "> <p>Render a message template with values of fields.</p> <p>Template uses Python format string syntax with named fields, e.g. 'Published {product} v{version:03d}'. Conversions ('{name!r}') and format specs ('{name:&gt;10}') are supported, '{{' and '}}' are literal braces.</p> <p>Unlike 'str.format', rendering never raises and each field is handled on its own: - Field without a value is kept as written, e.g. '{missing:03d}'. - Positional ('{}', '{0}'), attribute ('{obj.name}') and index ('{data[key]}') fields are kept as written, values are only looked up by name. - Value not matching its format spec is rendered by 'str'. - Message which is not a valid format string, e.g. 'Unclosed {', is returned unchanged.</p> <p><span class=doc-section-title>Parameters:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> <th>Default</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td> <code>template</code> </td> <td> <code><span title=str>str</span></code> </td> <td> <div class=doc-md-description> <p>Message template, e.g. 'Loaded {product}'.</p> </div> </td> <td> <em>required</em> </td> </tr> <tr class=doc-section-item> <td> <code>fields</code> </td> <td> <code><span title=collections.abc.Mapping>Mapping</span>[<span title=str>str</span>, <span title=typing.Any>Any</span>]</code> </td> <td> <div class=doc-md-description> <p>Values of fields.</p> </div> </td> <td> <em>required</em> </td> </tr> </tbody> </table> <p><span class=doc-section-title>Returns:</span></p> <table> <thead> <tr> <th>Name</th> <th>Type</th> <th>Description</th> </tr> </thead> <tbody> <tr class=doc-section-item> <td><code>str</code></td> <td> <code><span title=str>str</span></code> </td> <td> <div class=doc-md-description> <p>Rendered message.</p> </div> </td> </tr> </tbody> </table> <details class=mkdocstrings-source> <summary>Source code in <code>common/ayon_common/logging.py</code></summary> <div class=highlight><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal>429</span>
+<span class=normal>430</span>
+<span class=normal>431</span>
+<span class=normal>432</span>
+<span class=normal>433</span>
+<span class=normal>434</span>
+<span class=normal>435</span>
+<span class=normal>436</span>
+<span class=normal>437</span>
+<span class=normal>438</span>
+<span class=normal>439</span>
+<span class=normal>440</span>
+<span class=normal>441</span>
+<span class=normal>442</span>
+<span class=normal>443</span>
+<span class=normal>444</span>
+<span class=normal>445</span>
+<span class=normal>446</span>
+<span class=normal>447</span>
+<span class=normal>448</span>
+<span class=normal>449</span>
+<span class=normal>450</span>
+<span class=normal>451</span>
+<span class=normal>452</span>
+<span class=normal>453</span>
+<span class=normal>454</span>
+<span class=normal>455</span>
+<span class=normal>456</span>
+<span class=normal>457</span>
+<span class=normal>458</span>
+<span class=normal>459</span>
+<span class=normal>460</span>
+<span class=normal>461</span>
+<span class=normal>462</span>
+<span class=normal>463</span>
+<span class=normal>464</span>
+<span class=normal>465</span>
+<span class=normal>466</span>
+<span class=normal>467</span>
+<span class=normal>468</span>
+<span class=normal>469</span>
+<span class=normal>470</span>
+<span class=normal>471</span>
+<span class=normal>472</span>
+<span class=normal>473</span>
+<span class=normal>474</span>
+<span class=normal>475</span>
+<span class=normal>476</span>
+<span class=normal>477</span>
+<span class=normal>478</span>
+<span class=normal>479</span>
+<span class=normal>480</span>
+<span class=normal>481</span>
+<span class=normal>482</span>
+<span class=normal>483</span>
+<span class=normal>484</span>
+<span class=normal>485</span></pre></div></td><td class=code><div><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>render_message_template</span><span class=p>(</span>
+    <span class=n>template</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>fields</span><span class=p>:</span> <span class=n>Mapping</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]</span>
+<span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
+<span class=w>    </span><span class=sd>"""Render a message template with values of fields.</span>
+
+<span class=sd>    Template uses Python format string syntax with named fields, e.g.</span>
+<span class=sd>    'Published {product} v{version:03d}'. Conversions ('{name!r}') and</span>
+<span class=sd>    format specs ('{name:&gt;10}') are supported, '{{' and '}}' are literal</span>
+<span class=sd>    braces.</span>
+
+<span class=sd>    Unlike 'str.format', rendering never raises and each field is handled</span>
+<span class=sd>    on its own:</span>
+<span class=sd>        - Field without a value is kept as written, e.g. '{missing:03d}'.</span>
+<span class=sd>        - Positional ('{}', '{0}'), attribute ('{obj.name}') and index</span>
+<span class=sd>            ('{data[key]}') fields are kept as written, values are only</span>
+<span class=sd>            looked up by name.</span>
+<span class=sd>        - Value not matching its format spec is rendered by 'str'.</span>
+<span class=sd>        - Message which is not a valid format string, e.g. 'Unclosed {',</span>
+<span class=sd>            is returned unchanged.</span>
+
+<span class=sd>    Args:</span>
+<span class=sd>        template (str): Message template, e.g. 'Loaded {product}'.</span>
+<span class=sd>        fields (Mapping[str, Any]): Values of fields.</span>
+
+<span class=sd>    Returns:</span>
+<span class=sd>        str: Rendered message.</span>
+
+<span class=sd>    """</span>
+    <span class=n>parsed</span> <span class=o>=</span> <span class=n>_get_message_template</span><span class=p>(</span><span class=n>template</span><span class=p>)</span>
+    <span class=k>if</span> <span class=n>parsed</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>template</span>
+
+    <span class=n>parts</span> <span class=o>=</span> <span class=p>[]</span>
+    <span class=k>for</span> <span class=n>literal</span><span class=p>,</span> <span class=n>field_name</span><span class=p>,</span> <span class=n>format_spec</span><span class=p>,</span> <span class=n>conversion</span> <span class=ow>in</span> <span class=n>parsed</span><span class=p>:</span>
+        <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>literal</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>field_name</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+            <span class=k>continue</span>
+        <span class=k>if</span> <span class=n>field_name</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>fields</span><span class=p>:</span>
+            <span class=n>conversion</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>"!</span><span class=si>{</span><span class=n>conversion</span><span class=si>}</span><span class=s2>"</span> <span class=k>if</span> <span class=n>conversion</span> <span class=k>else</span> <span class=s2>""</span>
+            <span class=n>format_spec</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>":</span><span class=si>{</span><span class=n>format_spec</span><span class=si>}</span><span class=s2>"</span> <span class=k>if</span> <span class=n>format_spec</span> <span class=k>else</span> <span class=s2>""</span>
+            <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=se>{{</span><span class=si>{</span><span class=n>field_name</span><span class=si>}{</span><span class=n>conversion</span><span class=si>}{</span><span class=n>format_spec</span><span class=si>}</span><span class=se>}}</span><span class=s2>"</span><span class=p>)</span>
+            <span class=k>continue</span>
+        <span class=n>value</span> <span class=o>=</span> <span class=n>fields</span><span class=p>[</span><span class=n>field_name</span><span class=p>]</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=k>if</span> <span class=n>conversion</span> <span class=o>==</span> <span class=s2>"r"</span><span class=p>:</span>
+                <span class=n>value</span> <span class=o>=</span> <span class=nb>repr</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+            <span class=k>elif</span> <span class=n>conversion</span> <span class=o>==</span> <span class=s2>"s"</span><span class=p>:</span>
+                <span class=n>value</span> <span class=o>=</span> <span class=nb>str</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+            <span class=k>elif</span> <span class=n>conversion</span> <span class=o>==</span> <span class=s2>"a"</span><span class=p>:</span>
+                <span class=n>value</span> <span class=o>=</span> <span class=n>ascii</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+            <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=nb>format</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=n>format_spec</span> <span class=ow>or</span> <span class=s2>""</span><span class=p>))</span>
+        <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+            <span class=k>try</span><span class=p>:</span>
+                <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=nb>str</span><span class=p>(</span><span class=n>value</span><span class=p>))</span>
+            <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>  <span class=c1># noqa: BLE001</span>
+                <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=s2>"{"</span> <span class=o>+</span> <span class=n>field_name</span> <span class=o>+</span> <span class=s2>"}"</span><span class=p>)</span>
+    <span class=k>return</span> <span class=s2>""</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>parts</span><span class=p>)</span>
+</code></pre></div></td></tr></table></div> </details> </div> </div> </div> </div> </div> </article> </div> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../../..", "features": ["navigation.sections", "navigation.path", "navigation.prune"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script> <script src=../../../assets/javascripts/bundle.a5f9d56c.min.js></script> </body> </html>
