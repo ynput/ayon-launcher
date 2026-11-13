@@ -171,8 +171,8 @@ jobs:
             exit 1
           }
 
-          # All users install registers the eSignerKSP key storage provider,
-          #   without it signtool can't use the certificate private key
+          # All users install registers the eSignerKSP key storage provider
+          #   system wide, which CKA needs to provide the private key
           $cka_dir = "$env:RUNNER_TEMP\eSignerCKA"
           Start-Process -FilePath $installer -Wait -ArgumentList `
             "/ALLUSERS", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/DIR=`"$cka_dir`""
