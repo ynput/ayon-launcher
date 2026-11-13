@@ -19,6 +19,13 @@ on:
         required: false
         default: false
         type: boolean
+      upload:
+        description: >-
+          Upload installers to the release. When disabled, installers are
+          stored as workflow run artifacts and 'tag_name' can be any git ref.
+        required: false
+        default: true
+        type: boolean
       platforms:
         description: >-
           Comma separated platforms to build (linux, windows, macos).
@@ -41,6 +48,13 @@ on:
         description: 'Enable Windows code signing'
         required: false
         default: false
+        type: boolean
+      upload:
+        description: >-
+          Upload installers to the release. When disabled, installers are
+          stored as workflow run artifacts and 'tag_name' can be any git ref.
+        required: false
+        default: true
         type: boolean
       platforms:
         description: 'Platforms to build'
@@ -83,7 +97,15 @@ jobs:
           chmod +x ./tools/make.sh
           ./tools/make.sh docker-build ${{ matrix.variant }}
 
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.variant }}
+          path: build_${{ matrix.variant }}/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build_${{ matrix.variant }}/installer/*
@@ -185,7 +207,15 @@ jobs:
           & $env:ESIGNER_CKA_TOOL unload
           Remove-Item "$env:RUNNER_TEMP\eSignerCKA_master.key" -Force -ErrorAction SilentlyContinue
 
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: build/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build/installer/*
@@ -252,7 +282,15 @@ jobs:
           AYON_APPLE_NOTARIZE_KEYCHAIN_PROFILE: "ayon-notarize-ci"
         run: ./tools/make.sh build-make-installer
 
+      - name: Upload as Artifact
+        if: ${{ github.event_name != 'release' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos
+          path: build/installer/*
+
       - name: Upload to Release
+        if: ${{ github.event_name == 'release' || inputs.upload }}
         uses: softprops/action-gh-release@v1
         with:
           files: build/installer/*
