@@ -171,9 +171,16 @@ jobs:
             exit 1
           }
 
+          # All users install registers the eSignerKSP key storage provider,
+          #   without it signtool can't use the certificate private key
           $cka_dir = "$env:RUNNER_TEMP\eSignerCKA"
           Start-Process -FilePath $installer -Wait -ArgumentList `
-            "/CURRENTUSER", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/DIR=`"$cka_dir`""
+            "/ALLUSERS", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/DIR=`"$cka_dir`""
+          $ksp_key = "HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Providers\eSignerKSP"
+          if (-not (Test-Path $ksp_key)) {
+            Write-Error "eSigner CKA did not register eSignerKSP key storage provider"
+            exit 1
+          }
           $tool = "$cka_dir\eSignerCKATool.exe"
 
           & $tool config -mode product `
@@ -189,6 +196,10 @@ jobs:
             Select-Object -First 1
           if (-not $cert) {
             Write-Error "No code signing certificate was loaded by eSigner CKA"
+            exit 1
+          }
+          if (-not $cert.HasPrivateKey) {
+            Write-Error "Certificate loaded by eSigner CKA has no private key"
             exit 1
           }
           Write-Host "Signing with '$($cert.Subject)' ($($cert.Thumbprint))"
