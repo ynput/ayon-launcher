@@ -202,8 +202,18 @@ jobs:
             Write-Error "Certificate loaded by eSigner CKA has no private key"
             exit 1
           }
-          Write-Host "Signing with '$($cert.Subject)' ($($cert.Thumbprint))"
-          "AYON_WINDOWS_SIGNTOOL_ARGS=/sha1 $($cert.Thumbprint)" >> $env:GITHUB_ENV
+          # SSL.com recommends x86 signtool, x64 one can't find CKA certificates
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x86\signtool.exe" |
+            Sort-Object { $_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) {
+            Write-Error "x86 signtool.exe was not found"
+            exit 1
+          }
+
+          Write-Host "Signing with '$($cert.Subject)' ($($cert.Thumbprint)) using $signtool"
+          "AYON_WINDOWS_SIGNTOOL=$signtool" >> $env:GITHUB_ENV
+          "AYON_WINDOWS_SIGNTOOL_ARGS=/debug /sha1 $($cert.Thumbprint)" >> $env:GITHUB_ENV
           "AYON_WINDOWS_SIGN_TIMESTAMP_URL=http://ts.ssl.com" >> $env:GITHUB_ENV
           "ESIGNER_CKA_TOOL=$tool" >> $env:GITHUB_ENV
 
