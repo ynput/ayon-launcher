@@ -36,6 +36,12 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\ayon.exe
+; 'SignToolName' is defined by build_post_process.py when Windows code
+;   signing is enabled. Inno Setup then signs setup and uninstaller.
+#ifdef SignToolName
+SignTool={#SignToolName}
+SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

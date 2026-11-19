@@ -121,7 +121,7 @@ There are reserver global arguments that cannot be used in any cli handling:
 - `init-ayon-launcher` - Initialize launcher. Register executable path to known AYON launcher locations, and install shim executable.
 - `--bundle <BUNDLE NAME>` - Force AYON to use specific bundle instead of the one that is set in the config file. This is useful for testing new bundles before they are released.
 - `--verbose <LOG LEVEL>` - Change logging level to one of the following: DEBUG, INFO, WARNING, ERROR, CRITICAL.
-- `--debug` - Simplified way how to change verbose to DEBUG. Also sets `AYON_DEBUG` environment variable to `1`.
+- `--debug` - Simplified way how to change verbose to DEBUG, unless `AYON_LOG_LEVEL` is already set. Also sets `AYON_DEBUG` environment variable to `1`.
 - `--skip-headers` - Skip headers in the console output.
 - `--use-dev` - Use dev bundle and settings, if bundle is not explicitly defined.
 - `--use-staging` - Use staging settings, and use staging bundle, if bundle is not explicitly defined. Cannot be combined with staging.
@@ -133,14 +133,14 @@ There are reserver global arguments that cannot be used in any cli handling:
 Environment variables that are set during startup:
 - **AYON_VERSION** - Version of AYON launcher.
 - **AYON_BUNDLE_NAME** - Name of bundle that is used.
-- **AYON_LOG_LEVEL** - Log level that is used.
-- **AYON_DEBUG** - Debug flag enabled when set to '1'.
+- **AYON_LOG_LEVEL** - Log level that is used, see [Logging](#logging).
+- **AYON_DEBUG** - Debug flag enabled when set to '1'. Does not change log level, use `AYON_LOG_LEVEL` or `--debug`.
 - **AYON_USE_STAGING** - Use staging settings when set to '1'.
 - **AYON_USE_DEV** - Use dev mode settings when set to '1'.
 - **AYON_HEADLESS_MODE** - Headless mode flag enabled when set to '1'.
 - **AYON_EXECUTABLE** - Path to executable that is used to run AYON.
 - **AYON_ROOT** - Root to AYON launcher content.
-- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. At own risk can be shared (NOT TESTED).
+- **AYON_LAUNCHER_STORAGE_DIR** - Directory where are stored dependency packages, addons and files related to addons. Can be shared by multiple machines, see [Shared storage](#shared-storage).
 - **AYON_LAUNCHER_LOCAL_DIR** - Directory where are stored user/machine specific files. This MUST NOT be shared.
 - **AYON_ADDONS_DIR** - Path to AYON addons directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
 - **AYON_DEPENDENCIES_DIR** - Path to AYON dependencies directory - Still used but considered as deprecated. Please rather use 'AYON_LAUNCHER_STORAGE_DIR' to change location.
@@ -163,6 +163,69 @@ Environment variables that are set during startup:
 
 - **SSL_CERT_FILE** - Use certificates from 'certifi' if 'SSL_CERT_FILE' is not set.
 
+- **AYON_CA_FILE** - Path to CA certificate file (or directory) for connection to AYON server, e.g. when server certificate is signed by studio's own certificate authority. It is trusted in addition to default CA certificates, so the file does not have to be merged with 'certifi' bundle.
+
+- **AYON_CERT_FILE** - Path to client certificate file used for connection to AYON server.
+
+Logging environment variables are described in [Logging](#logging).
+
+### Shared storage
+**AYON_LAUNCHER_STORAGE_DIR** can point to a folder on a network share used by multiple machines, e.g. by all render farm workers. Each addon and dependency package version is then downloaded and extracted only once, and all machines use the same files.
+
+- Each version is stored in its own folder (`addons/<name>_<version>`) that is never changed once it is distributed, so running processes are not affected by new versions.
+- When a version is missing, one process distributes it, others wait. The process owns `dist_progress.json` in the version folder and refreshes it every few seconds while it works. Other processes take it over when it was not refreshed for 20 seconds, e.g. the process crashed or the machine was turned off.
+- Older AYON launchers understand the same file and wait for newer ones. If an older launcher takes the file over anyway (e.g. both started at the same moment), the newer one waits for it instead of changing the folder.
+
+Requirements:
+- Use a separate folder per platform (Windows, Linux, macOS).
+- All machines that may distribute to the folder need write access to it.
+- **AYON_LAUNCHER_LOCAL_DIR** must stay local for each machine.
+- Old versions are not removed automatically.
+
+## Logging
+AYON launcher uses structured logging ([structlog](https://www.structlog.org)). Each record has a message and additional fields, e.g. `logger.info("Distribution of {bundle} finished", bundle=bundle_name)`. Message is a message template using [Python format string](https://docs.python.org/3/library/string.html#format-string-syntax) syntax, same as in [ayon-core](https://github.com/ynput/ayon-core#message-templates): fields are rendered into the message, tokens without a field are kept as they are, and the template is stored in `message_template` field of JSON records. Logging is configured by AYON launcher until control is passed to `ayon_core` (or to a script), which configures logging for its own needs with the same environment variables, see [ayon-core](https://github.com/ynput/ayon-core#logging).
+
+There are three outputs, additive to each other:
+1. **Console** - human readable output to stderr. Always enabled.
+2. **Log file** - one JSON object per line (NDJSON), enabled with `AYON_LOG_TO_FILE=1`.
+3. **Vector** - JSON records sent to a [Vector](https://vector.dev) HTTP source, enabled by setting `AYON_VECTOR_LOG_URL`.
+
+### Log level
+Log level is set by `AYON_LOG_LEVEL` and applies to all outputs. It accepts a name (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) or a number (`10`). Default is `INFO`. Arguments `--verbose <LOG LEVEL>` and `--debug` set it too.
+
+### Console
+- Only the message is shown, additional fields (`key=value`) are not. Use message template to show them. Log file and Vector always contain all fields.
+- Logger name is shown only with `DEBUG` log level.
+- Message of spans contains their duration, e.g. `launcher.bootstrap (duration 3.65s)`.
+- Context fields (`site_id`, `session_id`, `trace_id`, `span_id`, `parent_span_id`) are never shown in console.
+- Timestamps are in local time.
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `AYON_LOG_CONSOLE_STYLE` | `ayon` - log level without padding, e.g. `[info]`, `structlog` - default structlog layout with padded log level, e.g. `[info     ]`, logger name and all fields always shown. | `ayon` |
+| `AYON_LOG_CONSOLE_TIME_FORMAT` | [strftime](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes) format of timestamps, e.g. `%H:%M:%S.%f`. Invalid format falls back to the default. | `%Y/%m/%d %H:%M:%S` |
+
+### Log file
+| Variable | Description | Default |
+| --- | --- | --- |
+| `AYON_LOG_TO_FILE` | Write logs to a file when set to `1`. | - |
+| `AYON_LOG_RETENTION_DAYS` | Days after which old log files are removed, at least `1`. | `3` |
+
+Log files are stored in `logs` subfolder of **AYON_LAUNCHER_LOCAL_DIR**, e.g. `%LOCALAPPDATA%\Ynput\AYON\logs` on Windows. Each process writes its own file `ayon_<YYYYMMDD-HHMMSS>_<pid>.ndjson`, rotated at midnight. Timestamps in log files are ISO 8601 in UTC.
+
+### Vector
+| Variable | Description | Default |
+| --- | --- | --- |
+| `AYON_VECTOR_LOG_URL` | URL of Vector HTTP source, e.g. `http://localhost:8686`. | - |
+
+Records are sent in batches as JSON arrays from a background thread. When Vector is unreachable, records are dropped and sending is paused for a while.
+
+### Record fields
+JSON records (log file and Vector) contain `event` (rendered message), `message_template` (when the message is a template), `level`, `logger`, `timestamp` and additional fields of the record, plus context fields:
+- `site_id` - from `AYON_SITE_ID`.
+- `session_id` - from `AYON_SESSION_ID`, correlates records of related processes.
+- `trace_id`, `span_id`, `parent_span_id` - of the span in which the record was logged.
+
 ## Developer mode
 Developer mode enables to skip standard distribution process and use local sources of addon code. This is useful for development of addon. Developer mode must be enabled and configured on AYON server. To use it in AYON launcher create dev bundle and use `--use-dev` argument, or define bundle name `--bundle <dev bundle name>` in cli arguments.
 
@@ -173,5 +236,4 @@ Developer mode enables to skip standard distribution process and use local sourc
 
 
 ## TODOs
-- [ ] Use 'platformdirs' instead of 'appdirs'.
 - [ ] Remove unused 'acre' dependency. Now has to be kept for ayon-core compatibility.

@@ -301,7 +301,7 @@ build_ayon () {
   pushd "$repo_root/shim"
   cargo build -p shim --release --features gui &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    cargo install cargo-bundle
+    cargo install cargo-bundle --version 0.12.0 --locked
     cargo bundle -p shim-macos --release &> "$repo_root/shim/build.log" || { echo -e "${BIRed}------------------------------------------${RST}"; cat "$repo_root/shim/build.log"; echo -e "${BIRed}------------------------------------------${RST}"; echo -e "${BIRed}!!!${RST} Build failed, see the build log."; return 1; }
   fi
   if [[ "$OSTYPE" == "darwin"* ]]; then

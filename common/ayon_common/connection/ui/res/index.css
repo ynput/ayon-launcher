@@ -1,10 +1,17 @@
+@font-face {
+    font-family: "Noto Sans";
+    src: url("../../../resources/NotoSans-Medium.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+}
+
 * {
-    font-family: Arial, sans-serif;
+    font-family: "Noto Sans", sans-serif;
 }
 body {
-    background-color: #252A30;
+    background-color: #252B32;
     text-align: center;
-    color: #ccc;
+    color: #f0f6fc;
     margin-top: 200px;
 }
 h1 {
