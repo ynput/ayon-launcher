@@ -226,15 +226,121 @@ Rectangle {
                         Field {
                             id: serverUrl
                             objectName: "serverUrl"
+                            readonly property bool hasKnownServers: login.knownServers.length > 0
                             Layout.fillWidth: true
+                            rightPadding: hasKnownServers ? serverDropdown.width + 4 : 8
                             text: login.serverUrl
                             placeholderText: "https://ayon.yourstudio.com"
                             Accessible.name: "AYON server URL"
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                             enabled: !root.locked
-                            onTextEdited: login.clearError()
-                            onAccepted: login.validateServer(text)
-                            onActiveFocusChanged: if (activeFocus) root.reveal(serverUrl)
+                            onTextEdited: {
+                                login.clearError()
+                                serverSuggestions.show(text)
+                            }
+                            onAccepted: {
+                                serverSuggestions.close()
+                                login.validateServer(text)
+                            }
+                            onEnabledChanged: if (!enabled) serverSuggestions.close()
+                            onActiveFocusChanged: {
+                                if (activeFocus)
+                                    root.reveal(serverUrl)
+                                else
+                                    serverSuggestions.close()
+                            }
+                            // Navigate known servers like a combo box
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Down) {
+                                    if (serverSuggestions.opened)
+                                        serverSuggestions.move(1)
+                                    else
+                                        serverSuggestions.show("")
+                                    event.accepted = true
+                                } else if (!serverSuggestions.opened) {
+                                    return
+                                } else if (event.key === Qt.Key_Up) {
+                                    serverSuggestions.move(-1)
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_Escape) {
+                                    serverSuggestions.close()
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_Return
+                                           || event.key === Qt.Key_Enter) {
+                                    event.accepted = serverSuggestions.selectCurrent()
+                                }
+                            }
+
+                            function useServer(url) {
+                                text = url
+                                login.clearError()
+                                login.validateServer(url)
+                            }
+
+                            // Opens the list of known servers
+                            Item {
+                                id: serverDropdown
+                                objectName: "serverDropdown"
+                                visible: serverUrl.hasKnownServers
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 28
+                                Accessible.role: Accessible.Button
+                                Accessible.name: "Show known servers"
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    radius: Theme.radiusM
+                                    color: dropdownMouse.containsMouse
+                                        ? Theme.surfaceContainerLowHover : "transparent"
+                                }
+                                Canvas {
+                                    anchors.centerIn: parent
+                                    width: 10
+                                    height: 6
+                                    rotation: serverSuggestions.opened ? 180 : 0
+                                    property color strokeColor: dropdownMouse.containsMouse
+                                        ? Theme.textColor : Theme.outline
+                                    onStrokeColorChanged: requestPaint()
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.reset()
+                                        ctx.strokeStyle = strokeColor
+                                        ctx.lineWidth = 1.5
+                                        ctx.beginPath()
+                                        ctx.moveTo(1, 1)
+                                        ctx.lineTo(width / 2, height - 1)
+                                        ctx.lineTo(width - 1, 1)
+                                        ctx.stroke()
+                                    }
+                                }
+                                MouseArea {
+                                    id: dropdownMouse
+                                    objectName: "serverDropdownMouse"
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.ArrowCursor
+                                    onClicked: {
+                                        serverUrl.forceActiveFocus()
+                                        if (serverSuggestions.opened) {
+                                            serverSuggestions.close()
+                                        } else {
+                                            login.refreshKnownServers()
+                                            serverSuggestions.show("")
+                                        }
+                                    }
+                                }
+                            }
+
+                            ServerSuggestions {
+                                id: serverSuggestions
+                                objectName: "serverSuggestions"
+                                field: serverUrl
+                                servers: login.knownServers
+                                onServerSelected: function(url) { serverUrl.useServer(url) }
+                            }
                         }
                         ActionButton {
                             objectName: "connectButton"

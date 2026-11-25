@@ -2,3 +2,4 @@ singleton Theme 1.0 Theme.qml
 ActionButton 1.0 ActionButton.qml
 Field 1.0 Field.qml
 Spinner 1.0 Spinner.qml
+ServerSuggestions 1.0 ServerSuggestions.qml

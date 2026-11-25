@@ -50,6 +50,30 @@ class LoginError(Exception):
     """An authentication error that can be displayed to the user."""
 
 
+def get_known_servers():
+    """Urls of servers used on this machine, most recently used first."""
+    # Imported here, the credentials module imports the login UI.
+    from ayon_common.connection.credentials import get_servers_info_data
+
+    try:
+        urls = get_servers_info_data().get("urls") or {}
+    except Exception:
+        return []
+    if not isinstance(urls, dict):
+        return []
+
+    def _sort_key(item):
+        info = item[1] if isinstance(item[1], dict) else {}
+        # Format 'YYYY/MM/DD HH:MM:SS' sorts chronologically as a string.
+        return str(info.get("updated_dt") or "")
+
+    known = []
+    for url, _ in sorted(urls.items(), key=_sort_key, reverse=True):
+        if isinstance(url, str) and url.strip():
+            known.append(url)
+    return known
+
+
 def check_server(url):
     """Normalize the address and verify that it exposes an AYON API."""
     url = url.strip()
@@ -248,6 +272,7 @@ class LoginController(QtCore.QObject):
 
     changed = QtCore.Signal()
     server_url_changed = QtCore.Signal()
+    known_servers_changed = QtCore.Signal()
     username_changed = QtCore.Signal()
     images_changed = QtCore.Signal()
     authenticated = QtCore.Signal(str, str, str)
@@ -259,6 +284,7 @@ class LoginController(QtCore.QObject):
         super().__init__(parent)
         self._url = ""
         self._username = ""
+        self._known_servers = []
         self._api_key = None
         self._initialized = False
         self._connection_failed = False
@@ -302,6 +328,11 @@ class LoginController(QtCore.QObject):
     @QtCore.Property(str, notify=server_url_changed)
     def serverUrl(self):
         return self._url
+
+    @QtCore.Property("QVariantList", notify=known_servers_changed)
+    def knownServers(self):
+        """Server urls used on this machine, most recently used first."""
+        return list(self._known_servers)
 
     @QtCore.Property(str, notify=username_changed)
     def username(self):
@@ -408,6 +439,10 @@ class LoginController(QtCore.QObject):
     def set_username(self, username):
         self._username = username or ""
         self.username_changed.emit()
+
+    def set_known_servers(self, urls):
+        self._known_servers = [url for url in (urls or []) if url]
+        self.known_servers_changed.emit()
 
     def set_force_username(self, value):
         self._force_username = bool(value)
@@ -571,6 +606,12 @@ class LoginController(QtCore.QObject):
             self.clear_password.emit()
             self.authenticated.emit(*result)
         self.changed.emit()
+
+    @QtCore.Slot()
+    def refreshKnownServers(self):
+        """Reload server urls used on this machine."""
+        if not self._closed:
+            self.set_known_servers(get_known_servers())
 
     @QtCore.Slot(str)
     def validateServer(self, url):
@@ -755,6 +796,7 @@ class QmlServerLoginWindow(QtWidgets.QDialog):
         # The key of the current session is not used to log in again.
         self.controller.set_api_key(None if logged_in else api_key)
         self.controller.set_force_username(force_username)
+        self.controller.refreshKnownServers()
         self.controller.set_logged_in(logged_in, username, url, api_key)
 
         self.view.setResizeMode(
