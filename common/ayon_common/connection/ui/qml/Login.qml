@@ -252,12 +252,12 @@ Rectangle {
                             // Navigate known servers like a combo box
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Down) {
-                                    if (serverSuggestions.opened)
+                                    if (serverSuggestions.visible)
                                         serverSuggestions.move(1)
                                     else
                                         serverSuggestions.show("")
                                     event.accepted = true
-                                } else if (!serverSuggestions.opened) {
+                                } else if (!serverSuggestions.visible) {
                                     return
                                 } else if (event.key === Qt.Key_Up) {
                                     serverSuggestions.move(-1)
@@ -272,7 +272,8 @@ Rectangle {
                             }
 
                             function useServer(url) {
-                                text = url
+                                // 'validateServer' fills the field through
+                                //   the 'text' binding
                                 login.clearError()
                                 login.validateServer(url)
                             }
@@ -288,6 +289,17 @@ Rectangle {
                                 width: 28
                                 Accessible.role: Accessible.Button
                                 Accessible.name: "Show known servers"
+                                Accessible.onPressAction: toggle()
+                                // Keyboard users open the list with the Down key
+                                function toggle() {
+                                    serverUrl.forceActiveFocus()
+                                    if (serverSuggestions.visible) {
+                                        serverSuggestions.close()
+                                    } else {
+                                        login.refreshKnownServers()
+                                        serverSuggestions.show("")
+                                    }
+                                }
 
                                 Rectangle {
                                     anchors.fill: parent
@@ -300,7 +312,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     width: 10
                                     height: 6
-                                    rotation: serverSuggestions.opened ? 180 : 0
+                                    rotation: serverSuggestions.visible ? 180 : 0
                                     property color strokeColor: dropdownMouse.containsMouse
                                         ? Theme.textColor : Theme.outline
                                     onStrokeColorChanged: requestPaint()
@@ -322,15 +334,7 @@ Rectangle {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.ArrowCursor
-                                    onClicked: {
-                                        serverUrl.forceActiveFocus()
-                                        if (serverSuggestions.opened) {
-                                            serverSuggestions.close()
-                                        } else {
-                                            login.refreshKnownServers()
-                                            serverSuggestions.show("")
-                                        }
-                                    }
+                                    onClicked: serverDropdown.toggle()
                                 }
                             }
 

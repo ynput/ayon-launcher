@@ -74,7 +74,8 @@ T.Popup {
     focus: false
     modal: false
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent
-    implicitHeight: list.contentHeight + topPadding + bottomPadding
+    // At most 'maxRows' rows, the list scrolls if there are more servers
+    implicitHeight: list.implicitHeight + topPadding + bottomPadding
 
     background: Rectangle {
         radius: Theme.radiusM
