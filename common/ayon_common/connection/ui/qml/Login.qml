@@ -265,6 +265,10 @@ Rectangle {
                                 } else if (event.key === Qt.Key_Escape) {
                                     serverSuggestions.close()
                                     event.accepted = true
+                                } else if (event.key === Qt.Key_Delete
+                                           && (event.modifiers & Qt.ShiftModifier)) {
+                                    // Like browsers, removes highlighted suggestion
+                                    event.accepted = serverSuggestions.removeCurrent()
                                 } else if (event.key === Qt.Key_Return
                                            || event.key === Qt.Key_Enter) {
                                     event.accepted = serverSuggestions.selectCurrent()
@@ -343,7 +347,9 @@ Rectangle {
                                 objectName: "serverSuggestions"
                                 field: serverUrl
                                 servers: login.knownServers
+                                protectedServer: login.sessionServerUrl
                                 onServerSelected: function(url) { serverUrl.useServer(url) }
+                                onRemoveRequested: function(url) { login.removeKnownServer(url) }
                             }
                         }
                         ActionButton {

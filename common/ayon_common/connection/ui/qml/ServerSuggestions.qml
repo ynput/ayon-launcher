@@ -13,7 +13,10 @@ T.Popup {
     readonly property var matches: filterServers(servers, filterText)
     readonly property int count: matches.length
     property int currentIndex: -1
+    // Server of the current session, it cannot be removed
+    property string protectedServer: ""
     signal serverSelected(string url)
+    signal removeRequested(string url)
 
     readonly property int rowHeight: 28
     readonly property int maxRows: 6
@@ -50,6 +53,23 @@ T.Popup {
         else
             currentIndex = (currentIndex + step + count) % count
         list.positionViewAtIndex(currentIndex, ListView.Contain)
+    }
+
+    function canRemove(url) {
+        return !protectedServer.length
+            || normalize(url).replace(/\/+$/, "")
+               !== normalize(protectedServer).replace(/\/+$/, "")
+    }
+
+    // Remove the highlighted server, returns false if nothing was removed
+    function removeCurrent() {
+        if (currentIndex < 0 || currentIndex >= count)
+            return false
+        var url = matches[currentIndex]
+        if (!canRemove(url))
+            return false
+        removeRequested(url)
+        return true
     }
 
     function selectCurrent() {
@@ -101,6 +121,7 @@ T.Popup {
             height: control.rowHeight
             radius: Theme.radiusM
             readonly property bool highlighted: index === control.currentIndex
+            readonly property bool removable: control.canRemove(modelData)
             color: highlighted || entryMouse.containsMouse
                 ? Theme.surfaceContainerHighest : "transparent"
             Accessible.role: Accessible.ListItem
@@ -109,7 +130,7 @@ T.Popup {
             Text {
                 anchors.fill: parent
                 anchors.leftMargin: 8
-                anchors.rightMargin: 8
+                anchors.rightMargin: entry.removable ? removeButton.width + 4 : 8
                 verticalAlignment: Text.AlignVCenter
                 text: modelData
                 textFormat: Text.PlainText
@@ -126,6 +147,52 @@ T.Popup {
                 onClicked: {
                     control.currentIndex = index
                     control.selectCurrent()
+                }
+
+                // Child of the row's mouse area so the row stays hovered
+                MouseArea {
+                    id: removeButton
+                    objectName: "removeServerButton"
+                    visible: entry.removable
+                             && (entry.highlighted || entryMouse.containsMouse)
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.rightMargin: 2
+                    width: 24
+                    height: 24
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Remove " + modelData
+                    Accessible.onPressAction: control.removeRequested(modelData)
+                    onClicked: control.removeRequested(modelData)
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Theme.radiusM
+                        color: removeButton.containsMouse
+                            ? Theme.surfaceContainerHighestHover : "transparent"
+                    }
+                    Canvas {
+                        anchors.centerIn: parent
+                        width: 8
+                        height: 8
+                        property color strokeColor: removeButton.containsMouse
+                            ? Theme.textColor : Theme.textVariant
+                        onStrokeColorChanged: requestPaint()
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.strokeStyle = strokeColor
+                            ctx.lineWidth = 1.5
+                            ctx.beginPath()
+                            ctx.moveTo(0, 0)
+                            ctx.lineTo(width, height)
+                            ctx.moveTo(width, 0)
+                            ctx.lineTo(0, height)
+                            ctx.stroke()
+                        }
+                    }
                 }
             }
         }

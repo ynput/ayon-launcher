@@ -1,5 +1,6 @@
 """Qt Quick login dialog using the launcher's existing authentication API."""
 
+import logging
 import threading
 import time
 import webbrowser
@@ -20,6 +21,7 @@ from ayon_common.ui_utils import get_qt_app
 
 from .server import LoginServerListener
 
+log = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 10
 BROWSER_TIMEOUT = 180
@@ -72,6 +74,21 @@ def get_known_servers():
         if isinstance(url, str) and url.strip():
             known.append(url)
     return known
+
+
+def forget_server(url):
+    """Remove server url and its stored login token from this machine."""
+    from ayon_common.connection.credentials import (
+        remove_server,
+        remove_url_cache,
+    )
+
+    remove_server(url)
+    try:
+        remove_url_cache(url)
+    except Exception:
+        # Keyring may not be available, the url is removed anyway.
+        log.warning("Failed to remove token of %s", url, exc_info=True)
 
 
 def check_server(url):
@@ -333,6 +350,11 @@ class LoginController(QtCore.QObject):
     def knownServers(self):
         """Server urls used on this machine, most recently used first."""
         return list(self._known_servers)
+
+    @QtCore.Property(str, notify=changed)
+    def sessionServerUrl(self):
+        """Server of the current session, it cannot be removed."""
+        return self._logged_in_url if self._logged_in else ""
 
     @QtCore.Property(str, notify=username_changed)
     def username(self):
@@ -612,6 +634,21 @@ class LoginController(QtCore.QObject):
         """Reload server urls used on this machine."""
         if not self._closed:
             self.set_known_servers(get_known_servers())
+
+    @QtCore.Slot(str)
+    def removeKnownServer(self, url):
+        """Forget a known server url and its stored login token.
+
+        The server of the current session is kept, logout removes it.
+        """
+        if self._closed or not url:
+            return
+        if self._logged_in and _normalize_url(url) == _normalize_url(
+            self._logged_in_url
+        ):
+            return
+        forget_server(url)
+        self.refreshKnownServers()
 
     @QtCore.Slot(str)
     def validateServer(self, url):
