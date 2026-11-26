@@ -171,7 +171,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = "~=3.13" },
     { name = "arrow", specifier = ">=0.4.4,<1" },
-    { name = "ayon-python-api", specifier = "==1.2.28" },
+    { name = "ayon-python-api", specifier = "==1.2.29" },
     { name = "blessed", specifier = "~=1.33" },
     { name = "coolname" },
     { name = "coverage", marker = "extra == 'dev'" },
@@ -213,16 +213,16 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "ayon-python-api"
-version = "1.2.28"
+version = "1.2.29"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "unidecode" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/2d/fbfdec160699c7c03f97ce6705e3e04d48a3b3bca88c103a5e5a06b3feb1/ayon_python_api-1.2.28.tar.gz", hash = "sha256:6382f86305e523d95f600a31a837bb98ddae7c325fac1a30c7d4da82da7bc315", size = 251844, upload-time = "2026-11-11T10:16:19.309Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/3f/0a135a23f3509a94b81513aa5a76b84c698c48df0c687834531786618f74/ayon_python_api-1.2.29.tar.gz", hash = "sha256:d3df985cb829d2f4784930c566afbbdf615a9b7c9d995738942cf4132b52f4ba", size = 254024, upload-time = "2026-11-25T16:23:12.705Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/f2/1e8853536deac5a6c12a6eb7cb620295e2712176a839df8ea0bf8410d51c/ayon_python_api-1.2.28-py3-none-any.whl", hash = "sha256:91831cc79f1a6b0c086ce04fec57a6f182ba7e68c94cddaba67702c99669e8cd", size = 218506, upload-time = "2026-11-11T10:16:18.077Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/7e/cc0c98d18739ebe808eda903831b82f92ba3d4138020b9e094c4cc4140ba/ayon_python_api-1.2.29-py3-none-any.whl", hash = "sha256:f036872f1b9a43aa78b6a41138e79340f2e6f803e38e15130b28f1540064de1a", size = 219364, upload-time = "2026-11-25T16:23:11.630Z" },
 ]
 
 [[package]]
