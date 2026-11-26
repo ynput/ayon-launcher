@@ -119,7 +119,7 @@ wheels = [
 
 [[package]]
 name = "ayon"
-version = "1.7.1.dev0"
+version = "1.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -222,7 +222,7 @@ dependencies = [
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/3f/0a135a23f3509a94b81513aa5a76b84c698c48df0c687834531786618f74/ayon_python_api-1.2.29.tar.gz", hash = "sha256:d3df985cb829d2f4784930c566afbbdf615a9b7c9d995738942cf4132b52f4ba", size = 254024, upload-time = "2026-11-25T16:23:12.705Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/7e/cc0c98d18739ebe808eda903831b82f92ba3d4138020b9e094c4cc4140ba/ayon_python_api-1.2.29-py3-none-any.whl", hash = "sha256:f036872f1b9a43aa78b6a41138e79340f2e6f803e38e15130b28f1540064de1a", size = 219364, upload-time = "2026-11-25T16:23:11.630Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/7e/cc0c98d18739ebe808eda903831b82f92ba3d4138020b9e094c4cc4140ba/ayon_python_api-1.2.29-py3-none-any.whl", hash = "sha256:f036872f1b9a43aa78b6a41138e79340f2e6f803e38e15130b28f1540064de1a", size = 219364, upload-time = "2026-11-25T16:23:11.63Z" },
 ]
 
 [[package]]
@@ -422,7 +422,7 @@ dependencies = [
     { name = "freeze-core" },
     { name = "lief", marker = "sys_platform == 'win32'" },
     { name = "packaging" },
-    { name = "patchelf", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'armv7l' and sys_platform == 'linux') or (platform_machine == 'i686' and sys_platform == 'linux') or (platform_machine == 'ppc64le' and sys_platform == 'linux') or (platform_machine == 's390x' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "patchelf", marker = "(platform_machine == 'aarch64' or platform_machine == 'armv7l' or platform_machine == 'i686' or platform_machine == 'ppc64le' or platform_machine == 's390x' or platform_machine == 'x86_64') and sys_platform == 'linux'" },
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/a7/3ce0b7071669cc61579eceaedf132cad0d3003d0c7a041560d7e87184a7a/cx_freeze-8.6.0.tar.gz", hash = "sha256:04de4e97a0fbebf5c67aec74ecd62c206f282163a111cda4343367d653b2c46d", size = 1376331, upload-time = "2026-02-20T06:04:31.699Z" }
